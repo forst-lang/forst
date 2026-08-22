@@ -88,10 +88,23 @@ function matchesGlobPattern(pattern: string, candidate: string): boolean {
   return globPatternToRegExp(normalizedPattern).test(normalizedCandidate);
 }
 
+const PRECOMPILE_PREFIX = ".forst/js/";
+
+function isPrecompileArtifactPath(moduleId: string): boolean {
+  const posixPath = moduleId.replace(/\\/g, "/");
+  return (
+    posixPath === PRECOMPILE_PREFIX.slice(0, -1) ||
+    posixPath.startsWith(PRECOMPILE_PREFIX)
+  );
+}
+
 function matchesExcludePatterns(
   moduleId: string,
   patterns: readonly string[]
 ): boolean {
+  if (isPrecompileArtifactPath(moduleId)) {
+    return false;
+  }
   if (patterns.length === 0) {
     return false;
   }

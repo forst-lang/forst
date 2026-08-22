@@ -1,6 +1,6 @@
 package main
 
-import node "./legacy/generators"
+import "./legacy/generators" node
 import "strconv"
 
 func main() {

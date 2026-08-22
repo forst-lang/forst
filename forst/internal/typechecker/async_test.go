@@ -13,7 +13,7 @@ func TestAsync_blockingCallFromSyncMainReturnsResult(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	x := payment.create(1.0, "usd")
@@ -39,7 +39,7 @@ func TestAsync_forInOverAsyncIteratorWithBlockingDispatch(t *testing.T) {
 	writeNodeEventsFixture(t, root)
 
 	src := `package main
-import node "./legacy/events"
+import "./legacy/events" node
 
 func drain(userId String): Void {
 	seq := events.subscribe(userId)

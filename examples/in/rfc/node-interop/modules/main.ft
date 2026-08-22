@@ -1,6 +1,6 @@
 package main
 
-import node checkout "./legacy/api/checkout"
+import checkout "./legacy/api/checkout" node
 import "strconv"
 
 func main() {

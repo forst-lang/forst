@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/ftconfig"
+	"forst/internal/importlocal"
 	"forst/internal/nodeinterop"
 )
 
@@ -43,6 +45,10 @@ func (tc *TypeChecker) nodeBoundaryRoot() string {
 
 func (tc *TypeChecker) collectImportNode(imp ast.ImportNode) error {
 	if imp.NodeOptIn {
+		if imp.NodeOptInSource == "import_node_prefix" {
+			tc.warnf(ast.SourceSpan{}, "node-import-deprecated",
+				`prefix import node syntax is deprecated; use import "./path" node or import alias "./path" node`)
+		}
 		tc.nodeImports = append(tc.nodeImports, imp)
 		return nil
 	}
@@ -54,7 +60,10 @@ func (tc *TypeChecker) collectImportNode(imp ast.ImportNode) error {
 			return nil
 		}
 		return diagnosticf(ast.SourceSpan{}, "node-import",
-			"cannot import TypeScript module without import node or import node alias (%s found)", hint)
+			"cannot import TypeScript module without import \"./path\" node or import alias \"./path\" node (%s found)", hint)
+	}
+	if err := tc.validateGoImportAtCollect(imp); err != nil {
+		return err
 	}
 	tc.imports = append(tc.imports, imp)
 	return nil
@@ -112,15 +121,22 @@ func (tc *TypeChecker) resolveNodeImports() error {
 		if err != nil {
 			return diagnosticf(ast.SourceSpan{}, "node-import", "%s", err.Error())
 		}
-		local := nodeImportLocalName(imp, moduleID)
-		if local == "" || local == "." || local == "_" {
-			return diagnosticf(ast.SourceSpan{}, "node-import", "invalid node import local name for %q", imp.Path)
+		binding := importlocal.BindingFromAST(imp, importlocal.BindingOpts{
+			Kind:     importlocal.KindNode,
+			ModuleID: moduleID,
+		})
+		seen := make(map[string]string, len(tc.nodeImportsByLocal))
+		for name := range tc.nodeImportsByLocal {
+			seen[name] = name
 		}
-		if _, dup := tc.nodeImportsByLocal[local]; dup {
-			return diagnosticf(ast.SourceSpan{}, "node-import", "duplicate node import local name %q", local)
+		if err := tc.validateNodeImportLocal(binding, seen); err != nil {
+			return err
 		}
-		if _, err := os.Stat(absPath); err != nil {
-			return diagnosticf(ast.SourceSpan{}, "node-import", "TypeScript module not found: %s", absPath)
+		local := binding.Local
+		if absPath != "" {
+			if _, err := os.Stat(absPath); err != nil {
+				return diagnosticf(ast.SourceSpan{}, "node-import", "TypeScript module not found: %s", absPath)
+			}
 		}
 
 		idx, err := tc.loadNodeModuleIndex(boundaryRoot, moduleID)
@@ -144,6 +160,28 @@ func (tc *TypeChecker) resolveNodeImports() error {
 	if err != nil {
 		return diagnosticf(ast.SourceSpan{}, "node-import", "failed to build node manifest: %v", err)
 	}
+
+	bridge, bridgeErr := ftconfig.LoadFromDir(boundaryRoot)
+	if bridgeErr != nil {
+		return diagnosticf(ast.SourceSpan{}, "node-import", "failed to load ftconfig: %v", bridgeErr)
+	}
+	effectiveBridge, bridgeErr := ftconfig.EffectiveJSBridge(bridge)
+	if bridgeErr != nil {
+		return diagnosticf(ast.SourceSpan{}, "node-import", "%v", bridgeErr)
+	}
+	if effectiveBridge.ModuleFormat == ftconfig.LegacyModuleCompiled {
+		sourceIDs := make([]string, 0, len(loadedIndexes))
+		for _, idx := range loadedIndexes {
+			if idx != nil {
+				sourceIDs = append(sourceIDs, idx.ModuleID)
+			}
+		}
+		if err := nodeinterop.PrecompileEntries(boundaryRoot, sourceIDs, effectiveBridge.OutDir); err != nil {
+			return diagnosticf(ast.SourceSpan{}, "node-import", "precompile legacy modules: %v", err)
+		}
+		manifest = nodeinterop.RemapManifestModuleIDs(manifest, effectiveBridge.OutDir)
+	}
+
 	manifestJSON, err := manifest.EmbeddedManifestJSON()
 	if err != nil {
 		return diagnosticf(ast.SourceSpan{}, "node-import", "failed to encode node manifest: %v", err)
@@ -208,14 +246,6 @@ func resolveNodeImportUnderRoot(boundaryRoot, forstFileDir, importPath string) (
 		}
 	}
 	return "", "", fmt.Errorf("TypeScript module not found for import %q", importPath)
-}
-
-func nodeImportLocalName(imp ast.ImportNode, moduleID string) string {
-	if imp.Alias != nil && imp.Alias.ID != "." && imp.Alias.ID != "_" {
-		return string(imp.Alias.ID)
-	}
-	base := filepath.Base(moduleID)
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 func nodeImportResolutionCandidates(cleanPath string) []string {

@@ -50,7 +50,7 @@ func TestHostMode_workerEnvWithoutRegisterImportDoesNotBindSocket(t *testing.T) 
 		Executable:       "node",
 		ShimArgs:         []string{"app/server.mjs"},
 		WorkDir:          root,
-		Loader:           "tsx",
+		Bridge:           testBridgeNodeTypeScript(),
 		SocketPath:       socketPath,
 		ReadyPath:        readyPath,
 		HostAutoRegister: true,

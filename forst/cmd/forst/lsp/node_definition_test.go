@@ -34,7 +34,7 @@ func writeNodeInteropLSPFixture(t *testing.T) (ftPath, tsPath, src string) {
 	}
 	src = `package main
 
-import node payment "./legacy/payment"
+import payment "./legacy/payment" node
 
 func main() {
   payment.create(1.0, "USD")
@@ -97,7 +97,7 @@ func TestFindDefinition_nodeImportAlias(t *testing.T) {
 	pos := lspPositionOfIdentifier(src, "payment")
 	// first "payment" is in import clause
 	lines := strings.Split(src, "\n")
-	if !strings.Contains(lines[pos.Line], "import node") {
+	if !strings.Contains(lines[pos.Line], `" node`) {
 		t.Fatalf("expected import-clause payment at %+v", pos)
 	}
 

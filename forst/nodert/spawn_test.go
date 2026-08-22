@@ -98,17 +98,24 @@ func TestBuildBootstrapSpawnCommand_argvAndEnv(t *testing.T) {
 		Executable:    nodePath,
 		BootstrapPath: bootstrap,
 		WorkDir:       root,
-		Loader:        "tsx",
+		Bridge:        testBridgeNodeTypeScript(),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cmd.Args) != 1 || cmd.Args[0] != bootstrap {
-		t.Fatalf("args = %#v", cmd.Args)
+	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
+	wantArgs := []string{"--import", wantLoader, bootstrap}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("args = %#v want %#v", cmd.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
+		}
 	}
 	nodeOpts := lookupEnvValue(cmd.Env, "NODE_OPTIONS")
-	if !strings.Contains(nodeOpts, "--import") || !strings.Contains(nodeOpts, "loader.mjs") {
-		t.Fatalf("NODE_OPTIONS = %q", nodeOpts)
+	if strings.Contains(nodeOpts, "loader.mjs") {
+		t.Fatalf("tsx must not be in NODE_OPTIONS, got %q", nodeOpts)
 	}
 }
 
@@ -152,7 +159,7 @@ func TestBuildHostSpawnCommand_attachesAuthRelayRecvFD(t *testing.T) {
 		Executable:   nodePath,
 		ShimArgs:     []string{"server.js"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 		AuthRelay:    relay,
 	})
 	if err != nil {
@@ -202,7 +209,7 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 		Executable:         nodePath,
 		ShimArgs:           []string{"server.js"},
 		WorkDir:            root,
-		Loader:             "tsx",
+		Bridge:             testBridgeNodeTypeScript(),
 		HostAutoRegister:   true,
 		HostAppReadyModule: appReadyModule,
 	})
@@ -269,7 +276,7 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 		Executable:   nodePath,
 		ShimArgs:     []string{"server.js"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -397,7 +404,7 @@ func TestBuildHostSpawnCommand_directNodeBinary(t *testing.T) {
 		Executable:   "node",
 		ShimArgs:     []string{"server.js"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -445,7 +452,7 @@ func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
 		Executable:   "node_modules/.bin/remix-serve",
 		ShimArgs:     []string{"build/server/index.js", "--port", "3000"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -494,7 +501,7 @@ func TestBuildHostSpawnCommand_copiesParentHostWhenSet(t *testing.T) {
 		Executable:   "node_modules/.bin/remix-serve",
 		ShimArgs:     []string{"build/server/index.js", "--port", "6322"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -526,7 +533,7 @@ func TestBuildHostSpawnCommand_preservesExplicitHostInSpawnEnv(t *testing.T) {
 		Executable:   "node_modules/.bin/remix-serve",
 		ShimArgs:     []string{"build/server/index.js", "--port", "6322"},
 		WorkDir:      root,
-		Loader:       "tsx",
+		Bridge:    testBridgeNodeTypeScript(),
 		Env:          []string{"HOST=0.0.0.0"},
 	})
 	if err != nil {

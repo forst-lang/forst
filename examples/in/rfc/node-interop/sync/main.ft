@@ -1,6 +1,6 @@
 package main
 
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	result := payment.create(100.0, "USD")

@@ -204,7 +204,9 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	if err := tc.resolveNodeImports(); err != nil {
 		return err
 	}
-	tc.preloadGoImportPackages()
+	if err := tc.preloadGoImportPackages(); err != nil {
+		return err
+	}
 	return tc.InferTypes(nodes)
 }
 
@@ -216,7 +218,7 @@ func (tc *TypeChecker) ResolveNodeImportsAfterCollect() error {
 // preloadGoImportPackages batch-loads Go packages for import lines collected in CollectTypes.
 // LSP and single-file CheckTypes use the same path as module-wide typechecking so qualified
 // calls like exec.Command resolve when go/packages is available.
-func (tc *TypeChecker) preloadGoImportPackages() {
+func (tc *TypeChecker) preloadGoImportPackages() error {
 	loaded, err := BatchLoadGoPackagesForModule(tc.goPackagesLoadDir(), []*TypeChecker{tc})
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{
@@ -225,6 +227,7 @@ func (tc *TypeChecker) preloadGoImportPackages() {
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
 	tc.InitGoPackagesFromBatch(loaded)
+	return tc.validateGoImportLocalsAfterLoad(loaded)
 }
 
 // TypecheckNodes returns the nodes slice from the last CheckTypes call.

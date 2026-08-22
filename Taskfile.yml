@@ -625,6 +625,16 @@ tasks:
     cmds:
       - go test ./nodert/... -run 'Integration' -count=1
 
+  test:bridge-host-e2e:
+    desc: Bootstrap E2E for Bun and Deno bridge hosts (Ping + CallSync)
+    dir: forst
+    deps: [build:node-runtime]
+    env:
+      FORST_REQUIRE_BRIDGE_HOST: "1"
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+    cmds:
+      - go test ./nodert/ -run '^TestBridgeHost_' -count=1 -timeout=5m -v
+
   test:node-interop:require-no-node:
     desc: Verify -require-no-node allows basic.ft and rejects node-interop
     dir: forst
@@ -935,6 +945,7 @@ tasks:
       - task: test:cli:invoke-e2e
       - task: test:sidecar
       - task: node-interop:smoke
+      - task: test:bridge-host-e2e
       - task: test:multipackage-dev
       - task: example:embedded-invoke:run
       - task: example:node-interop-sync

@@ -85,10 +85,10 @@ func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 
 ### Node.js interop
 
-Import existing JavaScript or TypeScript modules into Forst with `import node` during migration.
+Import existing JavaScript or TypeScript modules into Forst with `import "./path" node` during migration.
 
 ```golang
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 	ensure in.quantity is Max(available) or InsufficientStock({
@@ -152,7 +152,7 @@ Highlights from the [docs feature comparison](docs/why.mdx).
 | Capability | Forst |
 | --- | --- |
 | Go module ecosystem | Import Go packages natively |
-| JS / npm ecosystem | Call legacy JS/TS via `import node` |
+| JS / npm ecosystem | Call legacy JS/TS via `import "./path" node` |
 | Shared server ↔ client types | `forst generate` from the same `.ft` source |
 | Call backend from Node | Generated client and HTTP invoke |
 | Incremental migration | Mix `.ft`, `.go`, and legacy code in one codebase |

@@ -33,8 +33,9 @@ type Config struct {
 	Files    FilesConfig    `json:"files"`
 	Output   OutputConfig   `json:"output"`
 	Dev      DevConfig      `json:"dev"`
-	Node     NodeConfig     `json:"node"`
-	Generate GenerateConfig `json:"generate"`
+	Node       NodeConfig       `json:"node"`
+	Javascript JavascriptConfig `json:"javascript"`
+	Generate   GenerateConfig   `json:"generate"`
 }
 
 // GenerateConfig controls TypeScript client package generation (forst generate).
@@ -247,7 +248,6 @@ func Default() *Config {
 			RuntimeEnabled: false,
 			Binary:         "node",
 			Bootstrap:      "node_modules/@forst/node-runtime/dist/bootstrap.js",
-			Loader:         "tsx",
 			HostSocket:     ".forst/node.sock",
 			HostReadyTimeoutSeconds: 120,
 			RPC: NodeRPCConfig{
@@ -297,6 +297,9 @@ func Load(configPath string) (*Config, error) {
 	normalizeServerMaxRequestSize(config)
 	normalizeNodeConfig(config)
 	if err := validateNodeConfig(config); err != nil {
+		return nil, err
+	}
+	if _, err := EffectiveJSBridge(config); err != nil {
 		return nil, err
 	}
 	return config, nil
@@ -362,8 +365,10 @@ func normalizeNodeConfig(config *Config) {
 	if config.Node.Bootstrap == "" {
 		config.Node.Bootstrap = "node_modules/@forst/node-runtime/dist/bootstrap.js"
 	}
-	if config.Node.Loader == "" {
-		config.Node.Loader = "tsx"
+	if config.Javascript.LegacyModules.Precompile.OutDir == "" &&
+		config.Javascript.LegacyModules.Format == "" &&
+		config.Javascript.LegacyModules.Artifact == "" {
+		// defaults applied in EffectiveJSBridge
 	}
 	if config.Node.RPC.MaxMessageBytes <= 0 {
 		config.Node.RPC.MaxMessageBytes = 16 << 20

@@ -6,10 +6,12 @@ import (
 	"forst/internal/ast"
 	"forst/internal/codegen/layout"
 	"forst/internal/discovery"
+	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
 	"forst/internal/modulecheck"
+	"forst/internal/nodeinterop"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 	"os"
@@ -153,6 +155,9 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 			}
 		}
 		if err := WriteExtraPackagesForOutput(c.Args.OutputPath, out.ExtraPackages); err != nil {
+			return compileGoOutput{}, err
+		}
+		if err := c.copyJSBridgeArtifactsIfNeeded(c.Args.OutputPath); err != nil {
 			return compileGoOutput{}, err
 		}
 	} else if c.Args.LogLevel == "trace" {
@@ -527,6 +532,26 @@ func FormatNodeRuntimeLogLine(checker *typechecker.TypeChecker) string {
 	}
 	return fmt.Sprintf("node runtime: required (%d modules, %d exports) — %s",
 		modules, exports, strings.Join(moduleIDs, ", "))
+}
+
+func (c *Compiler) copyJSBridgeArtifactsIfNeeded(outputPath string) error {
+	if outputPath == "" {
+		return nil
+	}
+	boundary := RunBoundaryRoot(c.Args)
+	if boundary == "" {
+		return nil
+	}
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil {
+		return nil
+	}
+	bridge, err := ftconfig.EffectiveJSBridge(cfg)
+	if err != nil || bridge.ModuleFormat != ftconfig.LegacyModuleCompiled {
+		return nil
+	}
+	destDir := filepath.Dir(outputPath)
+	return nodeinterop.CopyJSArtifacts(boundary, destDir, bridge.OutDir)
 }
 
 func (c *Compiler) loadInputNodesForCompile() ([]ast.Node, error) {

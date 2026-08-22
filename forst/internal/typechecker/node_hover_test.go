@@ -24,7 +24,7 @@ func TestNodeHoverMarkdown_createExport(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 func main() {
   payment.create(1.0, "USD")
 }
@@ -52,7 +52,7 @@ func TestNodeHoverMarkdown_moduleLocal(t *testing.T) {
 	root := t.TempDir()
 	writeNodeFixture(t, root)
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 func main() {}
 `
 	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
@@ -69,7 +69,7 @@ func TestNodeImportPathHoverMarkdown_absolutePath(t *testing.T) {
 	root := t.TempDir()
 	writeNodeFixture(t, root)
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 func main() {}
 `
 	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
@@ -97,7 +97,7 @@ func TestNodeHoverMarkdown_asyncGeneratorExport(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/events"
+import "./legacy/events" node
 func main() {
   events.subscribe("u1")
 }
@@ -140,7 +140,7 @@ func TestNodeHoverMarkdown_syncGeneratorExport(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" node
 func main() {
   generators.syncNumbers(3.0)
 }
@@ -181,7 +181,7 @@ func TestNodeTypecheck_indexesFromTSSource(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 func main() {
   r := payment.create()
 }

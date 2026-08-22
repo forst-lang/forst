@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"forst/internal/ftconfig"
 	"forst/internal/unixpath"
 )
 
@@ -407,21 +408,16 @@ func sameResolvedExecutable(a, b string) bool {
 	return evalA == evalB
 }
 
-// hostSpawnExecutableAndArgs returns argv for host mode. --import flags are Node
-// flags; when ftconfig node.binary is a shim (e.g. remix-serve), spawn the real
-// node interpreter with the shim script as the first positional argument.
-func hostSpawnExecutableAndArgs(boundaryRoot, shimExecutable string, shimArgs, importPaths []string) (string, []string, error) {
-	nodeBin, err := ResolveNodeBinary(boundaryRoot, "node")
-	if err != nil {
-		return "", nil, err
+// hostSpawnExecutableAndArgs returns argv for host mode using the configured bridge interpreter.
+func hostSpawnExecutableAndArgs(boundaryRoot, interpreter, shimExecutable string, shimArgs, prefixArgs []string) (string, []string, error) {
+	if interpreter == "" {
+		var err error
+		interpreter, err = ResolveNodeBinary(boundaryRoot, "node")
+		if err != nil {
+			return "", nil, err
+		}
 	}
-	args := append([]string(nil), shimArgs...)
-	executable := shimExecutable
-	if !sameResolvedExecutable(shimExecutable, nodeBin) {
-		executable = nodeBin
-		args = append([]string{shimExecutable}, args...)
-	}
-	return executable, prependNodeImportArgs(args, importPaths...), nil
+	return hostSpawnExecutableAndArgsWithHooks(interpreter, shimExecutable, shimArgs, prefixArgs)
 }
 
 // BootstrapSpawnInput configures bootstrap-mode child spawn.
@@ -430,7 +426,8 @@ type BootstrapSpawnInput struct {
 	Executable    string
 	BootstrapPath string
 	WorkDir       string
-	Loader        string
+	Bridge        ftconfig.JSBridge
+	ModuleIDs     []string
 	SocketPath    string
 	ReadyPath     string
 	FilesExclude  []string
@@ -447,10 +444,6 @@ type BootstrapSpawnCommand struct {
 
 // BuildBootstrapSpawnCommand builds argv/env for dedicated bootstrap child.
 func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, error) {
-	executable, err := ResolveNodeBinary(in.BoundaryRoot, in.Executable)
-	if err != nil {
-		return BootstrapSpawnCommand{}, err
-	}
 	if in.BootstrapPath == "" {
 		return BootstrapSpawnCommand{}, fmt.Errorf("bootstrap path is required")
 	}
@@ -462,34 +455,38 @@ func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, 
 		return BootstrapSpawnCommand{}, fmt.Errorf("bootstrap not found at %s: %w", bootstrapPath, err)
 	}
 
-	loader := in.Loader
-	if loader == "" {
-		loader = "tsx"
+	hooks, err := spawnHooks(SpawnHookInput{
+		BoundaryRoot:     in.BoundaryRoot,
+		Bridge:           in.Bridge,
+		ConfiguredBinary: in.Executable,
+		ModuleIDs:        in.ModuleIDs,
+		HostAutoRegister: false,
+		ParentEnv:        in.Env,
+		SearchDirs:       []string{bootstrapPath, in.WorkDir},
+		SocketPath:       in.SocketPath,
+		ReadyPath:        in.ReadyPath,
+	})
+	if err != nil {
+		return BootstrapSpawnCommand{}, err
 	}
-	var tsxImport string
-	switch loader {
-	case "tsx":
-		tsxLoader, err := ResolveTsxLoaderPath(bootstrapPath, in.WorkDir)
-		if err != nil {
-			return BootstrapSpawnCommand{}, err
-		}
-		tsxImport = "--import " + tsxLoader
-	default:
-		return BootstrapSpawnCommand{}, fmt.Errorf("unsupported node loader %q", loader)
-	}
+
+	var nodeOpts []string
+	// tsx for bootstrap is passed via argv prefix, not NODE_OPTIONS
 
 	env := buildSpawnEnv(spawnEnvInput{
 		BoundaryRoot: in.BoundaryRoot,
 		FilesExclude: in.FilesExclude,
-		Env:          in.Env,
-		NodeOptions:  []string{tsxImport},
+		Env:          mergeEnv(in.Env, hooks.ExtraEnv),
+		NodeOptions:  nodeOpts,
 		SocketPath:   in.SocketPath,
 		ReadyPath:    in.ReadyPath,
 	})
 
-	args := append([]string{bootstrapPath}, in.ExtraArgs...)
+	args := append([]string(nil), hooks.PrefixArgs...)
+	args = append(args, bootstrapPath)
+	args = append(args, in.ExtraArgs...)
 	return BootstrapSpawnCommand{
-		Executable: executable,
+		Executable: hooks.Interpreter,
 		Args:       args,
 		Env:        env,
 	}, nil
@@ -501,7 +498,8 @@ type HostSpawnInput struct {
 	Executable         string
 	ShimArgs           []string
 	WorkDir            string
-	Loader             string
+	Bridge             ftconfig.JSBridge
+	ModuleIDs          []string
 	SocketPath         string
 	ReadyPath          string
 	FilesExclude       []string
@@ -576,30 +574,22 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		}
 	}
 
-	loader := in.Loader
-	if loader == "" {
-		loader = "tsx"
-	}
-	var importPaths []string
-	switch loader {
-	case "tsx":
-		tsxLoader, err := ResolveTsxLoaderPath(in.BoundaryRoot, in.WorkDir)
-		if err != nil {
-			return HostSpawnCommand{}, err
-		}
-		importPaths = append(importPaths, tsxLoader)
-	default:
-		return HostSpawnCommand{}, fmt.Errorf("unsupported node loader %q", loader)
+	hooks, err := spawnHooks(SpawnHookInput{
+		BoundaryRoot:       in.BoundaryRoot,
+		Bridge:             in.Bridge,
+		ConfiguredBinary:   in.Executable,
+		ModuleIDs:          in.ModuleIDs,
+		HostAutoRegister:   in.HostAutoRegister,
+		ParentEnv:          in.Env,
+		SearchDirs:         []string{in.BoundaryRoot, in.WorkDir},
+		SocketPath:         socketPath,
+		ReadyPath:          readyPath,
+	})
+	if err != nil {
+		return HostSpawnCommand{}, err
 	}
 
-	childEnv := append([]string(nil), in.Env...)
-	if in.HostAutoRegister {
-		registerPath, err := ResolveHostRegisterPath(in.BoundaryRoot)
-		if err != nil {
-			return HostSpawnCommand{}, err
-		}
-		importPaths = append(importPaths, registerPath)
-	}
+	childEnv := mergeEnv(in.Env, hooks.ExtraEnv)
 	if in.HostAppReadyModule != "" {
 		childEnv = setEnvVar(childEnv, envNodeAppReadyModule, in.HostAppReadyModule)
 	}
@@ -625,7 +615,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		ReadyPath:    readyPath,
 	})
 
-	executable, args, err := hostSpawnExecutableAndArgs(in.BoundaryRoot, shimExecutable, in.ShimArgs, importPaths)
+	executable, args, err := hostSpawnExecutableAndArgs(in.BoundaryRoot, hooks.Interpreter, shimExecutable, in.ShimArgs, hooks.PrefixArgs)
 	if err != nil {
 		return HostSpawnCommand{}, err
 	}

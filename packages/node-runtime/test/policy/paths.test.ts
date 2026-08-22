@@ -33,6 +33,16 @@ describe("paths exclude patterns", () => {
     expect(() => validateModuleIdSyntax("legacy/payment.ts")).not.toThrow();
   });
 
+  test("validateModuleIdSyntax allows precompiled .forst/js despite .forst exclude", () => {
+    setFilesExcludePatterns(["**/.forst/**"]);
+    expect(() =>
+      validateModuleIdSyntax(".forst/js/legacy/payment.js")
+    ).not.toThrow();
+    expect(() =>
+      validateModuleIdSyntax(".forst/client/main.js")
+    ).toThrow(/files\.exclude/);
+  });
+
   test("matchesExcludePatterns returns false when patterns empty", () => {
     expect(matchesExcludePatterns("legacy/payment.ts", [])).toBe(false);
   });

@@ -7,9 +7,9 @@
  *
  * @module forst_node_bootstrap
  */
-import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
+import { runProcessMain } from "./effect/run_process_main.js";
 import { resolveForstNodeRuntimeLayer } from "./effect/resolve_layer.js";
 import { createNodeRuntimeSetup } from "./effect/runtime.js";
 import {
@@ -104,5 +104,5 @@ const isDirectExecution =
     process.argv[1].endsWith("/bootstrap.ts"));
 
 if (isDirectExecution) {
-  NodeRuntime.runMain(bootstrapProgram, { disablePrettyLogger: true });
+  void runProcessMain(bootstrapProgram);
 }

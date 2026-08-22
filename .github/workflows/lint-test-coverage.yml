@@ -57,6 +57,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version-file: .deno-version
+
       - name: Run E2E tests
         run: task ci:e2e
 

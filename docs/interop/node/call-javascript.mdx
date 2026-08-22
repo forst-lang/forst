@@ -22,7 +22,7 @@ export function create(amount: number, currency: string): { id: string } {
 Import that module in Forst and call the export:
 
 ```ft
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
   result := payment.create(100.0, "USD")
@@ -31,12 +31,12 @@ func main() {
 }
 ```
 
-`import node` tells Forst that this path points to a Node module. The compiler
+The postfix **`node`** marker tells Forst that this path points to a Node module. The compiler
 checks the function name, arguments, and return value. The call returns a
 `Result`, so `ensure result is Ok()` handles failures before you use the value.
 
 At runtime, the compiled app starts a local Node process when it first needs
-one. Calls stay on the same machine. If your program does not use `import node`,
+one. Calls stay on the same machine. If your program does not use a Node import (`import "./path" node`),
 the compiled binary does not need Node.
 
 ## Set up Node interop
@@ -67,7 +67,7 @@ Node interop uses the same `ftconfig.json` boundary as `forst dev` and
 }
 ```
 
-Forst only loads modules that use `import node`. Plain imports never start the
+Forst only loads modules opted in with the postfix **`node`** marker. Plain imports never start the
 Node bridge.
 
 ## Import a module
@@ -76,16 +76,16 @@ Use the file name as the local name, or choose an alias:
 
 | Form | Example | Local name |
 | --- | --- | --- |
-| File name | `import node "./legacy/payment"` | `payment` |
-| Alias | `import node checkout "./legacy/api/checkout"` | `checkout` |
+| File name | `import "./legacy/payment" node` | `payment` |
+| Alias | `import checkout "./legacy/api/checkout" node` | `checkout` |
 
 You can also place Node imports inside a grouped import:
 
 ```ft
 import (
   "strconv"
-  node "./legacy/payment"
-  node checkout "./legacy/api/checkout"
+  "./legacy/payment" node
+  checkout "./legacy/api/checkout" node
 )
 
 func main() {
@@ -97,6 +97,28 @@ func main() {
 
 Each import exposes the module namespace. For example, `payment.create` calls
 the `create` export. Your TypeScript files need no Forst annotations.
+
+### When the file or package name is reserved
+
+If the default local name is a Forst or Go keyword, or not a valid identifier,
+Forst reports an error at the import and suggests an alias:
+
+```ft
+import typePkg "./legacy/type.ts" node
+import effectLib "@effect/platform" node
+import my_package "@scope/my-package" node
+```
+
+Common cases:
+
+| Path or package | Problem | Fix |
+| --- | --- | --- |
+| `./legacy/type.ts` | `type` is a keyword | `import typePkg "./legacy/type.ts" node` |
+| `"map"` (npm) | `map` is a keyword | `import mapPkg "map" node` |
+| `@scope/my-package` | hyphens are invalid in identifiers | `import my_package "@scope/my-package" node` |
+
+Scoped npm packages such as `@effect/platform` default to the last path segment
+(`platform`) when that name is valid.
 
 ## Build and run
 
@@ -122,9 +144,11 @@ Production exec (read `binary` from `manifest.json`, for example `bin/main`):
 FORST_ROOT=/app /app/.forst/build/bin/main
 ```
 
-Your deployed app needs Node, `tsx`, and `@forst/node-runtime` when any reachable
-Forst package uses `import node`. This applies to the whole program. For example,
-if `auth` imports TypeScript and `main` imports `auth`, the final app needs Node.
+Your deployed app needs a JavaScript bridge host and `@forst/node-runtime` when any reachable
+Forst package uses a Node import. Production builds default to **compiled** legacy modules
+under `.forst/js/` (esbuild bundles at compile time). In that mode you do **not** need `tsx` at
+runtime. Set `javascript.legacyModules.format` to `"typescript"` only when you intentionally load
+`.ts`/`.tsx` source files in production (Node host only).
 
 Repository examples:
 
@@ -139,9 +163,44 @@ Repository examples:
 
 ## Choose how Node runs
 
-Most projects should use bootstrap mode. It starts a small Node process for Forst
+Configure the bridge with `javascript.host` (`node`, `bun`, or `deno` when enabled) and
+`javascript.legacyModules.format` (`compiled` or `typescript`). The deprecated `node.loader`
+field maps to format for older configs (`tsx` → typescript on Node only, `none` → compiled).
+The deprecated `legacyModules.artifact` key and values `source` / `precompiled` are still accepted.
+
+| Host | Module format | Runtime needs |
+| --- | --- | --- |
+| `node` (default) | `compiled` (default) | Node + `@forst/node-runtime` + `.forst/js/` beside the binary |
+| `node` | `typescript` | Node + `tsx` + `@forst/node-runtime` |
+| `bun` | either | Bun + `@forst/node-runtime` (no `tsx`) |
+| `deno` | either | Deno + `@forst/node-runtime` when `FORST_DENO_HOST_ENABLED=1` |
+
+Example production config:
+
+```json
+{
+  "javascript": {
+    "host": "node",
+    "legacyModules": {
+      "format": "compiled",
+      "precompile": { "outDir": ".forst/js" }
+    }
+  },
+  "node": { "binary": "node" }
+}
+```
+
+When you use `forst build -o`, copy the `.forst/js` tree next to the output binary (Forst does
+this automatically). Set `FORST_ROOT` to the deployment boundary so module IDs resolve.
+
+**Bridge-host E2E (contributors):** CI runs Bun and Deno bootstrap tests via `task test:bridge-host-e2e`
+(from repo root). Locally, install Bun (see root `package.json` `packageManager`) and Deno matching
+[`.deno-version`](https://github.com/forst-lang/forst/blob/main/.deno-version) on your `PATH`, build
+`packages/node-runtime`, then run that task. Without both hosts, the Go tests skip instead of fail.
+
+Most projects should use bootstrap mode. It starts a small bridge process for Forst
 calls. Host mode is for apps that need those calls to run inside an existing
-Node application.
+JavaScript application.
 
 Both modes support the same JavaScript functions. They differ in where the code
 runs and whether it shares state with your app.
@@ -159,11 +218,14 @@ Node app. Forst starts a dedicated Node process and forwards its logs.
 The process uses a local socket at `.forst/node-bootstrap.sock` by default. This
 is what `task example:node-interop-sync` and the other basic examples use.
 
-Bootstrap process layout:
+Bootstrap process layout (Node, compiled format — default):
 
 ```text
-node --import tsx/loader.mjs node_modules/@forst/node-runtime/dist/bootstrap.js
+node node_modules/@forst/node-runtime/dist/bootstrap.js
 ```
+
+With `format: "typescript"` on Node, Forst prepends `--import tsx/dist/loader.mjs` on argv (never via
+`NODE_OPTIONS`). Bun uses `--preload` for host register instead of Node `--import`.
 
 ### Host mode (shared memory)
 
@@ -261,11 +323,13 @@ bin/main
 
 Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
 
-Typical spawn layout:
+Typical spawn layout (Node host, typescript format):
 
 ```text
-node --import tsx/loader.mjs --import @forst/node-runtime/dist/host/register.mjs node_modules/.bin/vite dev
+node --import tsx/dist/loader.mjs --import @forst/node-runtime/dist/host/register.mjs node_modules/.bin/vite dev
 ```
+
+With `format: compiled` (default), omit the tsx `--import`.
 
 Go dials `FORST_NODE_SOCKET` after `FORST_NODE_HOST_READY` reports `phase: "app"`.
 
@@ -311,11 +375,13 @@ Bootstrap mode starts a small Forst owned script. It does not run one of your
 TypeScript files as the process entry. Your modules load only when an allowed
 call needs them.
 
-Typical spawn command:
+Typical spawn command (Node, compiled — default):
 
 ```text
-node --import tsx node_modules/@forst/node-runtime/dist/bootstrap.js
+node node_modules/@forst/node-runtime/dist/bootstrap.js
 ```
+
+With `javascript.legacyModules.format: "typescript"`, Forst prepends `--import tsx/dist/loader.mjs` on argv.
 
 User TypeScript loads only via controlled `import()` inside the bootstrap, triggered by an allowed RPC. Bootstrap RPC uses a local socket (`FORST_NODE_SOCKET` / `FORST_NODE_HOST_READY`, default `.forst/node-bootstrap.sock`); runtime logs go to stderr and child stdout/stderr are forwarded to the Forst parent.
 
@@ -371,7 +437,7 @@ Use `ensure … is Ok()` or `if … is Err()` before using the returned value.
 Sync call from Forst:
 
 ```ft
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
     result := payment.create(100.0, "USD")
@@ -392,7 +458,7 @@ promise.
 The call site looks the same:
 
 ```ft
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
     result := payment.create(100.0, "USD")
@@ -424,8 +490,8 @@ One Forst function can call several JavaScript modules. It can also combine
 async functions with generators. The Forst code remains synchronous.
 
 ```ft
-import node "./legacy/payment"
-import node "./legacy/events"
+import "./legacy/payment" node
+import "./legacy/events" node
 
 func checkout(amount Float, currency String): String {
     result := payment.create(amount, currency)
@@ -456,7 +522,7 @@ handles the difference while Forst pulls values as the loop needs them.
 Pull values from a generator export:
 
 ```ft
-import node "./legacy/generators"
+import "./legacy/generators" node
 
 func main() {
     seq := generators.syncNumbers(3.0)
@@ -474,7 +540,7 @@ Generated Go uses **`nodert.OpenSeq`** via companion wrappers. **`for range`** l
 ## Generated runtime files
 
 Forst only adds the Node bridge when your app uses it. A program with no
-reachable `import node` stays a normal Go binary with no Node requirement.
+reachable Node import stays a normal Go binary with no Node requirement.
 
 The compiler checks the whole program to make this decision. Internally, the
 result is tracked as `needsNodeRuntime`.
@@ -482,7 +548,7 @@ result is tracked as `needsNodeRuntime`.
 | Value | Generated app | Deployment |
 | --- | --- | --- |
 | `false` | No Node bridge or manifest | Node is not required |
-| `true` | Node bridge and embedded allowlist | Node, `tsx`, and `@forst/node-runtime` are required |
+| `true` | Node bridge and embedded allowlist | Bridge host + `@forst/node-runtime` required (`tsx` only when `format: typescript` on Node) |
 
 When Node is needed, the compiler emits your normal Go output and a companion
 `*_forst_0_node_runtime.gen.go` file. The companion contains the allowed calls and
@@ -490,7 +556,7 @@ the RPC wrappers. It imports
 [`forst/nodert`](https://github.com/forst-lang/forst/tree/main/forst/nodert), so
 your `go.mod` must resolve the `forst` Go module.
 
-The requirement follows imports across packages. A direct `import node` in
+The requirement follows imports across packages. A direct Node import in
 `main.ft` is not required. Any reachable package can cause the final app to need
 Node.
 
@@ -505,7 +571,7 @@ record. It does not write index files into your project. Forst uses that record
 for type checking and for the list of calls allowed at runtime.
 
 Node and `@forst/node-runtime` must be available during the build when your
-program contains `import node`.
+program contains a Node import.
 
 ## How TypeScript types map to Forst
 
@@ -532,14 +598,15 @@ Union members that cannot be mapped, or unions with no members, widen to **`Obje
 ## Troubleshooting
 
 Start with the error text and find the matching row. Most problems come from a
-missing runtime package, a module that was not imported with `import node`, or a
+missing runtime package, a module that was not imported with the **`node`** marker, or a
 Node process that did not become ready.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `cannot import TypeScript module without import node or import node alias` | `.ts` exists but import is not opted in | Use `import node "./path"` or `import node alias "./path"` |
+| `cannot import TypeScript module without import "./path" node or import alias "./path" node` | `.ts` exists but import is not opted in | Use `import "./path" node` or `import alias "./path" node` |
+| `node import local name "…" is a Forst keyword` (or Go keyword / not a valid identifier) | Default local name is reserved or invalid | Add an alias, e.g. `import typePkg "./legacy/type.ts" node` (see suggested fix in the error) |
 | `node runtime: bootstrap not found` | `@forst/node-runtime` not installed or not built | `npm install @forst/node-runtime`; set `FORST_NODE_BOOTSTRAP` to an absolute bootstrap path for custom layouts |
-| `node runtime: tsx loader not found` | `tsx` missing from project | Install `tsx` at the project root |
+| `node runtime: tsx loader not found` | `tsx` missing while `format: typescript` on Node | Install `tsx` at the project root or switch to `format: compiled` |
 | `host ready timeout` | Bootstrap or host: ready marker never reached `phase: "app"` | Bootstrap: verify Node bootstrap spawn and socket env; host: omit `hostAppReadyModule` for third-party shims, or call `signalForstAppReady()` in your entry |
 | `node.hostMode requires non-empty node.args` | `hostMode: true` without shim argv | Set `node.args` to your app entry (e.g. `["./build/server/index.js"]`) |
 | Node spawn fails / `executable file not found` | `node` not on `PATH` | Install Node ≥ 20; ensure `PATH` in production matches dev |
@@ -574,7 +641,7 @@ Under **`implicit`**, relative imports can resolve `.ts` **without** a directive
 **Recommended migration:**
 
 1. Set **`"importPolicy": "explicit"`** in `ftconfig.json`.
-2. Add **`import node "./…"`** (or **`import node alias "./…"`**) to every TypeScript import.
+2. Add **`import "./…" node`** (or **`import alias "./…" node`**) to every TypeScript import.
 3. Rebuild and confirm which binaries report Node required vs not required.
 4. Remove **`implicit`** once all imports are explicit.
 
@@ -594,7 +661,7 @@ the `forst` Go module so generated code can import
 ### Whole program Node requirement
 
 Node is required when any reachable Forst package calls JavaScript. The
-`import node` line does not need to appear in `main.ft`. It may come from a
+The Node import line does not need to appear in `main.ft`. It may come from a
 package that `main` uses.
 
 ### Unknown calls are blocked

@@ -14,16 +14,18 @@ import (
 
 // HostProcessConfig configures parent-owned node host spawn (no RPC dial).
 type HostProcessConfig struct {
-	BoundaryRoot, WorkDir  string
-	NodePath, Loader       string
-	ShimArgs               []string
-	SocketPath, ReadyPath  string
-	HostAutoRegister       bool
-	HostAppReadyModule     string
+	BoundaryRoot, WorkDir string
+	NodePath              string
+	Bridge                ftconfig.JSBridge
+	ModuleIDs             []string
+	ShimArgs              []string
+	SocketPath, ReadyPath string
+	HostAutoRegister      bool
+	HostAppReadyModule    string
 	FilesExclude, ExtraEnv []string
-	AuthRelay              *HostInvokeAuthRelay
-	ReadyTimeout           time.Duration
-	Log                    *logrus.Logger
+	AuthRelay             *HostInvokeAuthRelay
+	ReadyTimeout          time.Duration
+	Log                   *logrus.Logger
 }
 
 // SpawnedHostProcess is a node host started by EnsureHostProcessRunning.
@@ -92,12 +94,17 @@ func HostProcessConfigFromFTConfig(cfg *ftconfig.Config, boundaryRoot string, lo
 		timeout = 120 * time.Second
 	}
 
+	bridge, err := ftconfig.EffectiveJSBridge(cfg)
+	if err != nil {
+		return HostProcessConfig{}, err
+	}
+
 	workDir := boundaryRoot
 	return HostProcessConfig{
 		BoundaryRoot:       boundaryRoot,
 		WorkDir:            workDir,
 		NodePath:           nodeBinary,
-		Loader:             cfg.Node.Loader,
+		Bridge:             bridge,
 		ShimArgs:           append([]string(nil), cfg.Node.Args...),
 		SocketPath:         socketPath,
 		ReadyPath:          readyPath,
@@ -151,7 +158,8 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 		Executable:         cfg.NodePath,
 		ShimArgs:           cfg.ShimArgs,
 		WorkDir:            cfg.WorkDir,
-		Loader:             cfg.Loader,
+		Bridge:             cfg.Bridge,
+		ModuleIDs:          cfg.ModuleIDs,
 		SocketPath:         socketPath,
 		ReadyPath:          readyPath,
 		FilesExclude:       cfg.FilesExclude,

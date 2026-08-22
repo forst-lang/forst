@@ -24,7 +24,7 @@ func TestNewHostSupervisor_attachOnlyNeverSpawns(t *testing.T) {
 		HostSocketPath: filepath.Join(dir, ".forst", "node.sock"),
 		ProcessOptions: ProcessOptions{
 			BoundaryRoot: dir,
-			Loader:       "tsx",
+			Bridge:       testBridgeNodeTypeScript(),
 			NodePath:     "node",
 			WorkDir:      dir,
 		},
@@ -53,7 +53,7 @@ func TestGetClient_supervisorFailurePrintsStderr(t *testing.T) {
 		ShimArgs: []string{"./missing-shim.js"},
 		ProcessOptions: ProcessOptions{
 			BoundaryRoot: t.TempDir(),
-			Loader:       "tsx",
+			Bridge:       testBridgeNodeTypeScript(),
 			NodePath:     "node",
 		},
 	})

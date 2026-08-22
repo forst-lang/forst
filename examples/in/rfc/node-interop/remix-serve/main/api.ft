@@ -1,6 +1,6 @@
 package main
 
-import node "../legacy/todos"
+import "../legacy/todos" node
 
 func ListTodos() {
 	println("api:ListTodos")

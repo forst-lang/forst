@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"forst/internal/ftconfig"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -18,7 +19,8 @@ type ProcessOptions struct {
 	NodePath      string
 	BootstrapPath string
 	WorkDir       string
-	Loader        string
+	Bridge        ftconfig.JSBridge
+	ModuleIDs     []string
 	BoundaryRoot  string
 	FilesExclude  []string
 	Env           []string
@@ -96,7 +98,8 @@ func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*
 		Executable:    opts.NodePath,
 		BootstrapPath: opts.BootstrapPath,
 		WorkDir:       opts.WorkDir,
-		Loader:        opts.Loader,
+		Bridge:        opts.Bridge,
+		ModuleIDs:     opts.ModuleIDs,
 		SocketPath:    socketPath,
 		ReadyPath:     readyPath,
 		FilesExclude:  opts.FilesExclude,
@@ -141,8 +144,9 @@ func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*
 		"mode":            "bootstrap",
 		"node_pid":        cmd.Process.Pid,
 		"node_executable": spawnCmd.Executable,
-		"bootstrap_path":  spawnCmd.Args[0],
-		"loader":          opts.Loader,
+		"bootstrap_path":  lastArg(spawnCmd.Args),
+		"host":            opts.Bridge.Host,
+		"format":          opts.Bridge.ModuleFormat,
 		"socket_path":     socketPath,
 	}).Debug("spawned node runtime")
 
@@ -243,6 +247,13 @@ func buildNodeChildEnv(opts ProcessOptions) []string {
 		}
 	}
 	return env
+}
+
+func lastArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return args[len(args)-1]
 }
 
 func setEnvVar(env []string, key, value string) []string {

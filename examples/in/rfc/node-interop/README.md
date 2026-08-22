@@ -1,6 +1,6 @@
 # Node interop example (compile-time)
 
-Fixture for **Phase 1** Node interop: `import node` opt-in, TypeScript module resolution, companion runtime codegen, and compile-only goldens.
+Fixture for **Phase 1** Node interop: `import "./path" node` opt-in, TypeScript module resolution, companion runtime codegen, and compile-only goldens.
 
 ## Layout
 
@@ -8,7 +8,7 @@ Fixture for **Phase 1** Node interop: `import node` opt-in, TypeScript module re
 | --- | --- |
 | `ftconfig.json` | Project boundary with `node` stanza (`importPolicy: explicit`) |
 | `legacy/payment.ts` | Ordinary TypeScript export surface (`create`) |
-| `main.ft` | Forst entry: `import node "./legacy/payment"` and `payment.create(...)` |
+| `main.ft` | Forst entry: `import "./legacy/payment" node` and `payment.create(...)` |
 
 ## Run
 

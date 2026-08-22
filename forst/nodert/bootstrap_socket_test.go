@@ -74,7 +74,7 @@ func TestBuildBootstrapSpawnCommand_setsSocketEnv(t *testing.T) {
 		Executable:    nodePath,
 		BootstrapPath: bootstrap,
 		WorkDir:       root,
-		Loader:        "tsx",
+		Bridge:        testBridgeNodeTypeScript(),
 		SocketPath:    socketPath,
 		ReadyPath:     readyPath,
 	})
@@ -371,7 +371,7 @@ func configureBootstrapTestSupervisor(t *testing.T, cfg bootstrapTestConfig) {
 			WorkDir:       cfg.root,
 			NodePath:      nodePath,
 			BootstrapPath: bootstrap,
-			Loader:        "tsx",
+			Bridge:        testBridgeNodeTypeScript(),
 			Log:           cfg.log,
 		},
 		Manifest: cfg.manifest,

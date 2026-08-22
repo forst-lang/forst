@@ -1,6 +1,6 @@
 package main
 
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	// Phase 1: compile-time Node interop — sync call into legacy/payment.ts

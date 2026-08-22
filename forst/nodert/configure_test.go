@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"forst/internal/ftconfig"
 )
 
 func TestResolveNodeBinary_envOverridesFtconfig(t *testing.T) {
@@ -378,8 +380,11 @@ func TestConfigureFromManifest_readsFtconfigNodeSection(t *testing.T) {
 	if supervisorCfg.ProcessOptions.BootstrapPath != wantBootstrap {
 		t.Fatalf("BootstrapPath = %q want %q", supervisorCfg.ProcessOptions.BootstrapPath, wantBootstrap)
 	}
-	if supervisorCfg.ProcessOptions.Loader != "tsx" {
-		t.Fatalf("Loader = %q", supervisorCfg.ProcessOptions.Loader)
+	if supervisorCfg.ProcessOptions.Bridge.Host != ftconfig.JSHostNode {
+		t.Fatalf("Bridge.Host = %q", supervisorCfg.ProcessOptions.Bridge.Host)
+	}
+	if supervisorCfg.ProcessOptions.Bridge.ModuleFormat != ftconfig.LegacyModuleTypeScript {
+		t.Fatalf("Bridge.ModuleFormat = %q want typescript", supervisorCfg.ProcessOptions.Bridge.ModuleFormat)
 	}
 	if len(supervisorCfg.ProcessOptions.FilesExclude) != 1 || supervisorCfg.ProcessOptions.FilesExclude[0] != "**/secret/**" {
 		t.Fatalf("FilesExclude = %#v", supervisorCfg.ProcessOptions.FilesExclude)

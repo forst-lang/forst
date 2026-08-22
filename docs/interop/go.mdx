@@ -39,6 +39,8 @@ Call into the standard library and third-party modules with qualified names:
 
 <InteropFmtHello />
 
+When an import has no alias, the compiler uses the Go package name from `go/packages` (or the last path segment as a fallback before load). That local name must be a valid Forst identifier and cannot be a Forst or Go keyword. Add an explicit alias when the default would be invalid, for example `import typePkg "fmt"` instead of relying on a path segment named `type`. The alias `node` is allowed on Go imports (`import node "fmt"`) even though `node` is reserved for TypeScript opt-in imports.
+
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, `interface{}` (including variadic calls), and Forst **`func`** literals at Go **`func`** parameters.
 
 Calls with several return values become a `Tuple` when captured in one

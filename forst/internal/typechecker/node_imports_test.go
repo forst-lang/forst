@@ -29,7 +29,7 @@ func TestNodeImports_registersLocalAndTypechecksCall(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.create(10.0, "usd")
@@ -72,7 +72,7 @@ func main() {}
 	MustTypecheck(t, src, testutil.TypecheckOpts{
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
-		ExpectError:      "cannot import TypeScript module without import node or import node alias (payment.ts found)",
+		ExpectError:      "cannot import TypeScript module without import \"./path\" node or import alias \"./path\" node (payment.ts found)",
 	})
 }
 
@@ -105,7 +105,7 @@ func main() {
 func TestNodeImports_rejectsMissingModule(t *testing.T) {
 	root := t.TempDir()
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {}
 `
@@ -121,7 +121,7 @@ func TestNodeImports_rejectsWrongArity(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.create(10.0)
@@ -139,7 +139,7 @@ func TestNodeImports_rejectsWrongArgumentType(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.create("ten", "usd")
@@ -157,7 +157,7 @@ func TestNodeImports_rejectsUnknownExport(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.refund()
@@ -175,7 +175,7 @@ func TestNodeImports_qualifiedCallReturnTypeIsResultOfPromiseElement(t *testing.
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	x := payment.create(1.0, "usd")
@@ -204,7 +204,7 @@ func TestNodeImports_checkoutHelperWithEnsureOkReturnString(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func checkout(): String {
 	result := payment.create(1.0, "usd")
@@ -224,7 +224,7 @@ func TestNodeImports_goImportStillSeparate(t *testing.T) {
 
 	src := `package main
 import "fmt"
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	fmt.Println("ok")
@@ -244,4 +244,110 @@ func main() {
 	if len(tc.nodeImports) != 1 {
 		t.Fatalf("expected 1 node import, got %d", len(tc.nodeImports))
 	}
+}
+
+func TestNodeImports_goAliasNode_notNodeOptIn(t *testing.T) {
+	root := t.TempDir()
+
+	src := `package main
+import node "fmt"
+
+func main() {
+	node.Println("ok")
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	if tc.NeedsNodeRuntime() {
+		t.Fatal("expected NeedsNodeRuntime false for Go alias import node \"fmt\"")
+	}
+	if !tc.IsImportedLocalName("node") {
+		t.Fatal("expected local name node to be a Go import")
+	}
+	if len(tc.nodeImports) != 0 {
+		t.Fatalf("expected 0 node imports, got %d", len(tc.nodeImports))
+	}
+	if len(tc.imports) != 1 {
+		t.Fatalf("expected 1 Go import, got %d", len(tc.imports))
+	}
+}
+
+func writeNodeTypeFixture(t *testing.T, root string) {
+	t.Helper()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "type.ts")
+	if err := os.WriteFile(tsFile, []byte(`export function create(): { id: string } {
+  return { id: "x" };
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNodeImports_reservedLocalKeyword_requiresAlias(t *testing.T) {
+	root := t.TempDir()
+	writeNodeTypeFixture(t, root)
+
+	src := `package main
+import "./legacy/type.ts" node
+
+func main() {}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      `node import local name "type" is a Forst keyword`,
+	})
+}
+
+func TestNodeImports_reservedLocalKeyword_withSuggestedAlias_ok(t *testing.T) {
+	root := t.TempDir()
+	writeNodeTypeFixture(t, root)
+
+	src := `package main
+import typePkg "./legacy/type.ts" node
+
+func main() {
+	typePkg.create()
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+}
+
+func TestNodeImports_reservedLocalBareSpecifier_requiresAlias(t *testing.T) {
+	root := t.TempDir()
+
+	src := `package main
+import "map" node
+
+func main() {}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      `node import local name "map" is a Forst keyword`,
+	})
+}
+
+func TestNodeImports_invalidScopedLocal_requiresAlias(t *testing.T) {
+	root := t.TempDir()
+
+	src := `package main
+import "@scope/my-package" node
+
+func main() {}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      `node import local name "my-package" is not a valid identifier`,
+	})
 }

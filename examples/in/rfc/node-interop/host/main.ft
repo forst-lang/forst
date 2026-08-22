@@ -1,6 +1,6 @@
 package main
 
-import node "./legacy/counter"
+import "./legacy/counter" node
 import "strconv"
 
 func main() {

@@ -24,7 +24,7 @@ var (
 )
 
 // ResolveTSImport resolves a relative TypeScript import path from entryDir.
-// Opt-in (// forst:node / import node) must be enforced by the caller.
+// Opt-in (// forst:node / import "./path" node) must be enforced by the caller.
 // moduleId is a POSIX path relative to the discovered ftconfig boundary root.
 func ResolveTSImport(entryDir, importPath string) (moduleID string, absPath string, err error) {
 	entryDir = filepath.Clean(entryDir)

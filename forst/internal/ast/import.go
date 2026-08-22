@@ -17,7 +17,8 @@ type ImportNode struct {
 	// NodeOptIn marks this import as opted in to Node/TypeScript interop.
 	NodeOptIn bool
 	// NodeOptInSource records how opt-in was declared:
-	// "import_node" (import node "..." or import node alias "..."),
+	// "import_node" (import "..." node or import alias "..." node),
+	// "import_node_prefix" (deprecated import node "..." prefix form),
 	// "implicit_policy" (ftconfig implicit import policy), or "" when not opted in.
 	NodeOptInSource string
 }

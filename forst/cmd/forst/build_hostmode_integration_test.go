@@ -109,7 +109,7 @@ await signalForstAppReady();
 
 	mainFT := `package main
 
-import node "./legacy/counter"
+import "./legacy/counter" node
 import "strconv"
 
 type EchoRequest = {

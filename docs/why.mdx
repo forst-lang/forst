@@ -59,7 +59,7 @@ How each stack talks to other languages and adopts code incrementally.
 | --- | --- | --- | --- |
 | Incremental migration | Adopt TS file by file | Mix packages over time | [Mix `.ft`, `.go`, and legacy JS/TS](/interop/node) |
 | Go module ecosystem | No (WASM only) | Native | [Import Go packages](/interop/go) |
-| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/node/call-javascript) via `import node` |
+| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/node/call-javascript) via `import "./path" node` |
 | Call backend from Node | Same runtime | No | [Generated client + HTTP invoke](/interop/node/call-forst) |
 | Shared types (server ↔ client) | Straightforward | Manual / separate | [`forst generate`](/interop/node/generate-types) |
 | OpenAPI, RPC, and route files | Separate codegen from schemas | `go generate` | [Plugins](/workflow/plugins) emit them from your `.ft` backend |

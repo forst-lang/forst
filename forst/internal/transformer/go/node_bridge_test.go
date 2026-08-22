@@ -41,7 +41,7 @@ func TestTransformNodeQualifiedCall_emitsBridgeCall(t *testing.T) {
 	writeNodeBridgeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	result := payment.create(10.0, "usd")
@@ -81,7 +81,7 @@ func TestCodegen_asyncExportUsesCallAsync(t *testing.T) {
 	writeNodeBridgeAsyncFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	result := payment.create(10.0, "usd")
@@ -123,7 +123,7 @@ func TestCodegen_nodeWrapperUsesIndexParamTypesForFloatArg(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 import "strconv"
 
 func echo(n Float): String {
@@ -152,7 +152,7 @@ func TestCodegen_blockingForInOverAsyncIterator(t *testing.T) {
 	writeNodeBridgeAsyncGenFixture(t, root)
 
 	src := `package main
-import node "./legacy/events"
+import "./legacy/events" node
 
 func drain(userId String): Void {
 	seq := events.subscribe(userId)
@@ -196,7 +196,7 @@ func TestCodegen_generatorExportUsesOpenGenAndRangeLowering(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" node
 
 func main() {
 	seq := generators.syncNumbers(2.0)
@@ -235,7 +235,7 @@ func TestCodegen_nodeIteratorFor_bindsIndexAndValue(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" node
 
 func main() {
 	seq := generators.syncNumbers(2.0)
@@ -272,7 +272,7 @@ func TestCodegen_nodeIteratorFor_emitsErrorKindPanic(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" node
 
 func main() {
 	seq := generators.syncNumbers(2.0)

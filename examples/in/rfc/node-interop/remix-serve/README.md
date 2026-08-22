@@ -17,7 +17,7 @@ A small **todo app** that runs three IPC channels in one deployment:
 | `.forst-gomod/go.mod` | Go module for Forst runtime / nodert (`replace` paths are relative to this project root, not `.forst-gomod/`) |
 | `main/types.ft` | Invoke request/response types |
 | `main/api.ft` | Exported invoke handlers (`ListTodos`, `AddTodo`, …) |
-| `main/main.ft` | Process entry + nodert startup demo (`import node store` alias avoids duplicate `todos` binding with `api.ft`) |
+| `main/main.ft` | Process entry + nodert startup demo (`import store "../legacy/todos" node` alias avoids duplicate `todos` binding with `api.ft`) |
 | `legacy/todos.ts` | In-memory todo store on `globalThis.__forstTodos` |
 | `legacy/activity.ts` | Activity feed generators |
 | `app/routes/_index.tsx` | Todo UI — loader/action via `@forst/gen/main` |

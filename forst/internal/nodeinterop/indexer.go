@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"forst/internal/ftconfig"
-	"forst/nodert"
 )
 
 const indexCLIFormat = "forst-index-v1"
@@ -22,7 +21,7 @@ type indexCLIOutput struct {
 }
 
 // RunIndexer loads forst-index-v1 data for moduleIDs under boundaryRoot by
-// invoking the @forst/node-runtime indexer CLI (node dist, bun, or tsx).
+// invoking the @forst/node-runtime indexer CLI (node, bun, or deno without tsx).
 func RunIndexer(boundaryRoot string, moduleIDs []string) ([]*IndexV1, error) {
 	boundaryRoot = filepath.Clean(boundaryRoot)
 	if boundaryRoot == "" {
@@ -107,25 +106,61 @@ func indexerCommand(boundaryRoot string, moduleIDs []string) (*exec.Cmd, error) 
 	if err != nil {
 		return nil, fmt.Errorf("indexer: load ftconfig: %w", err)
 	}
-	spawnCmd, err := nodert.BuildBootstrapSpawnCommand(nodert.BootstrapSpawnInput{
-		BoundaryRoot:  boundaryRoot,
-		Executable:    "node",
-		BootstrapPath: cliPath,
-		WorkDir:       boundaryRoot,
-		Loader:        cfg.Node.Loader,
-		ExtraArgs: []string{
-			"--root", boundaryRoot,
-			"--format", indexCLIFormat,
-			"--files", strings.Join(moduleIDs, ","),
-		},
-	})
+	bridge, err := ftconfig.EffectiveJSBridge(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("indexer: %w", err)
+	}
+	interp, err := resolveIndexerInterpreter(boundaryRoot, bridge, cfg.Node.Binary)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(spawnCmd.Executable, spawnCmd.Args...)
+	args := []string{
+		cliPath,
+		"--root", boundaryRoot,
+		"--format", indexCLIFormat,
+		"--files", strings.Join(moduleIDs, ","),
+	}
+	if bridge.Host == ftconfig.JSHostDeno {
+		args = append(denoIndexerPrefix(boundaryRoot), args...)
+	}
+	cmd := exec.Command(interp, args...)
 	cmd.Dir = boundaryRoot
-	cmd.Env = spawnCmd.Env
 	return cmd, nil
+}
+
+func resolveIndexerInterpreter(boundaryRoot string, bridge ftconfig.JSBridge, configuredBinary string) (string, error) {
+	name := string(bridge.Host)
+	if configuredBinary != "" && ftconfig.InferHostFromBinary(configuredBinary) == bridge.Host {
+		return lookPathOrJoin(boundaryRoot, configuredBinary)
+	}
+	return lookPathOrJoin(boundaryRoot, name)
+}
+
+func lookPathOrJoin(boundaryRoot, candidate string) (string, error) {
+	if filepath.IsAbs(candidate) || strings.Contains(candidate, string(os.PathSeparator)) {
+		abs := candidate
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(boundaryRoot, candidate)
+		}
+		if st, err := os.Stat(abs); err == nil && !st.IsDir() {
+			return abs, nil
+		}
+	}
+	path, err := exec.LookPath(candidate)
+	if err != nil {
+		return "", fmt.Errorf("indexer: interpreter %q not found: %w", candidate, err)
+	}
+	return path, nil
+}
+
+func denoIndexerPrefix(boundaryRoot string) []string {
+	write := filepath.Join(boundaryRoot, ".forst")
+	return []string{
+		"run",
+		"--allow-read=" + boundaryRoot,
+		"--allow-write=" + write,
+		"--allow-env",
+	}
 }
 
 func findNodeRuntimeIndexerCLI(boundaryRoot string) (string, error) {

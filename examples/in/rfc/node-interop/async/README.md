@@ -3,8 +3,8 @@
 Blocking sync Forst calling multiple TypeScript modules — async functions and async generators.
 
 ```ft
-import node "./legacy/payment"
-import node "./legacy/events"
+import "./legacy/payment" node
+import "./legacy/events" node
 
 func checkout(amount Float, currency String): String {
     result := payment.create(amount, currency)  // Result(T, Error)

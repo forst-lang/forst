@@ -16,7 +16,7 @@ npm install @forst/node-runtime
 npx jsr add @forst/node-runtime
 ```
 
-Requires **Node.js 18+**. When your Forst program uses `import node`, you also need **tsx** on the path for TypeScript loading.
+Requires **Node.js 18+**. When your Forst program uses a Node import (`import "./path" node`), you also need **tsx** on the path for TypeScript loading.
 
 | Registry | Package |
 | --- | --- |
@@ -140,7 +140,7 @@ Enable node interop in `ftconfig.json`:
 Use opt in imports in Forst source:
 
 ```ft
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
     result := payment.create(100.0, "USD")

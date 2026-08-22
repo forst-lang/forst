@@ -29,7 +29,7 @@ func TestNodeCallTarget_resolvesSyncExport(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.create(10.0, "usd")
@@ -56,7 +56,7 @@ func TestNodeExportParamTypes_returnsIndexSignature(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {
 	payment.create(10.0, "usd")
@@ -80,7 +80,7 @@ func TestNodeExportParamTypes_missingExportErrors(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {}
 `
@@ -99,7 +99,7 @@ func TestNodeModuleForLocal_resolvesAlias(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" node
 
 func main() {}
 `

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "../effect/layer.js";
+import { runProcessMain } from "../effect/run_process_main.js";
 import * as CliErrors from "./errors.js";
 import { emitForstIndexV1Json } from "./emit-forst-index-v1.js";
 
@@ -130,7 +130,7 @@ const isDirectExecution =
     process.argv[1].endsWith("/indexer/cli.ts"));
 
 if (isDirectExecution) {
-  NodeRuntime.runMain(
+  void runProcessMain(
     runCliEffect(process.argv.slice(2)).pipe(
       Effect.flatMap((code) =>
         Effect.sync(() => {
@@ -138,7 +138,6 @@ if (isDirectExecution) {
         })
       ),
       Effect.provide(ForstNodeRuntimeLayer)
-    ),
-    { disablePrettyLogger: true }
+    )
   );
 }

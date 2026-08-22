@@ -32,8 +32,15 @@ func TestDefault_saneDefaults(t *testing.T) {
 	if c.Node.Bootstrap != "node_modules/@forst/node-runtime/dist/bootstrap.js" {
 		t.Fatalf("Node.Bootstrap: %q", c.Node.Bootstrap)
 	}
-	if c.Node.Loader != "tsx" {
-		t.Fatalf("Node.Loader: %q", c.Node.Loader)
+	if c.Node.Loader != "" {
+		t.Fatalf("Node.Loader should be empty by default: %q", c.Node.Loader)
+	}
+	bridge, err := EffectiveJSBridge(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bridge.ModuleFormat != LegacyModuleCompiled {
+		t.Fatalf("default module format: %q", bridge.ModuleFormat)
 	}
 	if c.Node.RPC.MaxMessageBytes != 16<<20 {
 		t.Fatalf("Node.RPC.MaxMessageBytes: %d", c.Node.RPC.MaxMessageBytes)

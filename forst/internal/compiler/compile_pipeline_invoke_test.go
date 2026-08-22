@@ -219,7 +219,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import node host "../host"
+import host "../host" node
 
 func main() {
 	ready := host.hostPing()
@@ -438,7 +438,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import node host "../host"
+import host "../host" node
 
 func main() {
 	ready := host.hostPing()
@@ -547,7 +547,7 @@ func TestCompile_hostModeWithoutInvoke_appendsNodeShutdown(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import node host "./host"
+import host "./host" node
 
 func main() {
   ready := host.ping()
@@ -664,7 +664,7 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import node host "../host"
+import host "../host" node
 
 func main() {
 	ready := host.hostPing()

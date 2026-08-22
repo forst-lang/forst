@@ -103,6 +103,12 @@ func configureFromManifest(manifestJSON string) error {
 		return err
 	}
 
+	bridge, err := ftconfig.EffectiveJSBridge(cfg)
+	if err != nil {
+		return fmt.Errorf("node runtime: %w", err)
+	}
+	moduleIDs := manifestModuleIDs(manifest)
+
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: effectiveHostMode,
 		HostSocketPath: hostProcessCfg.SocketPath,
@@ -116,7 +122,8 @@ func configureFromManifest(manifestJSON string) error {
 			NodePath:      nodeBinary,
 			BootstrapPath: bootstrap,
 			WorkDir:       workDir,
-			Loader:        cfg.Node.Loader,
+			Bridge:        bridge,
+			ModuleIDs:     moduleIDs,
 			BoundaryRoot:  boundaryRoot,
 			FilesExclude:  append([]string(nil), cfg.Files.Exclude...),
 		},
@@ -311,4 +318,21 @@ func ResolveHostRegisterPath(boundaryRoot string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("node runtime: host register.mjs not found (build packages/node-runtime or install @forst/node-runtime)")
+}
+
+func manifestModuleIDs(m Manifest) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, exp := range m.Exports {
+		id := strings.TrimSpace(exp.ModuleID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }

@@ -89,6 +89,15 @@ export function resetSocketRpcServersForTest(): void {
   activeStates.clear();
 }
 
+/** True when running under Deno (npm compat or native). */
+export function isDeno(): boolean {
+  if (typeof (globalThis as { Deno?: unknown }).Deno !== "undefined") {
+    return true;
+  }
+  const versions = process.versions as { deno?: string };
+  return typeof versions.deno === "string";
+}
+
 /** Returns true on Windows where TCP loopback replaces Unix domain sockets. */
 export function isWindows(): boolean {
   return process.platform === "win32";
@@ -338,7 +347,7 @@ export const startSocketRpcServer = Effect.fn("SocketServer.start")(
     const prefix = options.logPrefix ?? "socket";
 
     let server: net.Server;
-    if (isWindows()) {
+    if (isWindows() || isDeno()) {
       const tcp = yield* listenTcp();
       server = tcp.server;
       socketPath = `tcp://127.0.0.1:${tcp.port}`;
