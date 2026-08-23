@@ -12,3 +12,5 @@ func main() {
 		println("multipackage-dev ready: " + ready)
 	}
 }
+
+// reload-e2e-trigger

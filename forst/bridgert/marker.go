@@ -28,7 +28,7 @@ func ShutdownForTest() error {
 	return Shutdown()
 }
 
-// ReadHostMarkerPID returns the live node host pid from boundaryRoot/.forst/node.sock.ready.
+// ReadHostMarkerPID returns the live bridge host pid from boundaryRoot/.forst/bridge.sock.ready.
 // Returns 0 when the marker is missing or the pid is not alive.
 func ReadHostMarkerPID(boundaryRoot string) int {
 	_, readyPath, err := ResolveHostSocketPath(boundaryRoot, "")

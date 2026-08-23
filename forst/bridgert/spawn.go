@@ -50,7 +50,7 @@ func readyPathForSocket(socketPath string) string {
 //   FORST_BRIDGE_SOCKET
 //     Absolute path to the Unix domain socket (loopback TCP URL on Windows) where
 //     Node listens for Go RPC. Host defaults from bridge.hostSocket under the boundary
-//     root (.forst/node.sock); bootstrap defaults to .forst/node-bootstrap.sock.
+//     root (.forst/bridge.sock); bootstrap defaults to .forst/node-bootstrap.sock.
 //     Go dials this after readiness; may also be read at spawn planning time via
 //     ResolveHostSocketPath / ResolveBootstrapSocketPath when set in the parent environment.
 //
@@ -283,7 +283,7 @@ func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, err
 		return abs, readyPathForSocket(abs), nil
 	}
 	if configured == "" {
-		configured = ".forst/node.sock"
+		configured = ".forst/bridge.sock"
 	}
 	if filepath.IsAbs(configured) {
 		return "", "", fmt.Errorf("node runtime: hostSocket must be relative to boundary root")

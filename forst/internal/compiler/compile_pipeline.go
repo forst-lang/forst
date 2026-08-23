@@ -420,25 +420,8 @@ func legacyBridgeRuntimeOutputPath(outputPath string) string {
 	return base + "_forst_0_node_runtime.gen" + ext
 }
 
-func legacyNodeRuntimeOutputPath(outputPath string) string {
-	ext := filepath.Ext(outputPath)
-	base := strings.TrimSuffix(outputPath, ext)
-	if ext == "" {
-		return base + "_forst_node_runtime.gen.go"
-	}
-	return base + "_forst_node_runtime.gen" + ext
-}
-
 func removeLegacyBridgeRuntimeCompanions(outputPath string) error {
-	for _, path := range []string{
-		legacyBridgeRuntimeOutputPath(outputPath),
-		legacyNodeRuntimeOutputPath(outputPath),
-	} {
-		if err := removeLegacyCompanionFile(path); err != nil {
-			return err
-		}
-	}
-	return nil
+	return removeLegacyCompanionFile(legacyBridgeRuntimeOutputPath(outputPath))
 }
 
 func invokeServerOutputPath(outputPath string) string {

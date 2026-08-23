@@ -21,19 +21,18 @@ func setupReloadHostFixture(t *testing.T) string {
 	}
 
 	root := t.TempDir()
-	legacyDir := filepath.Join(root, "legacy")
-	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	counterTS := `declare const globalThis: { __forstTest?: { n: number } };
-export function inc(): number {
+	counterJS := `export function inc() {
   if (!globalThis.__forstTest) {
     globalThis.__forstTest = { n: 0 };
   }
   return ++globalThis.__forstTest.n;
 }
 `
-	if err := os.WriteFile(filepath.Join(legacyDir, "counter.ts"), []byte(counterTS), 0o644); err != nil {
+	compiledDir := filepath.Join(root, ".forst", "js", "legacy")
+	if err := os.MkdirAll(compiledDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(compiledDir, "counter.js"), []byte(counterJS), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

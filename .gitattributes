@@ -9,7 +9,6 @@ examples/out/** linguist-generated
 **/forst_0_bridge_runtime.gen.go linguist-generated
 **/forst_0_node_runtime.gen.go linguist-generated
 **/forst_1_invoke_server.gen.go linguist-generated
-**/*_forst_node_runtime.gen.go linguist-generated
 **/*_forst_invoke_server.gen.go linguist-generated
 
 # RFC markdown in examples — documentation, not code stats

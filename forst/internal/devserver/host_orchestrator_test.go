@@ -29,7 +29,7 @@ func TestReload_parentOwnedHostSurvivesGroupKill(t *testing.T) {
 		Version:      bridgert.ManifestVersion,
 		BoundaryRoot: root,
 		Exports: []bridgert.ExportEntry{
-			{ModuleID: "legacy/counter.ts", Name: "inc", Kind: bridgert.ExportKindFunction},
+			{ModuleID: "legacy/counter.js", Name: "inc", Kind: bridgert.ExportKindFunction},
 		},
 	}
 	manifestJSON, err := json.Marshal(manifest)
@@ -93,7 +93,7 @@ func TestReload_parentOwnedHostSurvivesGroupKill(t *testing.T) {
 	if after := bridgert.ReadHostMarkerPID(root); after != nodePID {
 		t.Fatalf("node pid changed: %d -> %d", nodePID, after)
 	}
-	got, err := bridgert.CallSyncForTest[float64]("legacy/counter.ts", "inc")
+	got, err := bridgert.CallSyncForTest[float64]("legacy/counter.js", "inc")
 	if err != nil {
 		t.Fatalf("CallSync after reattach: %v", err)
 	}
