@@ -58,21 +58,21 @@ func DefaultHostShutdownGrace() time.Duration {
 // HostProcessConfigFromFTConfig builds spawn config from ftconfig.
 func HostProcessConfigFromFTConfig(cfg *ftconfig.Config, boundaryRoot string, log *logrus.Logger) (HostProcessConfig, error) {
 	if cfg == nil {
-		return HostProcessConfig{}, fmt.Errorf("node runtime: ftconfig is nil")
+		return HostProcessConfig{}, bridgeRuntimeErr("ftconfig is nil")
 	}
 	if !cfg.Bridge.HostMode {
-		return HostProcessConfig{}, fmt.Errorf("node runtime: hostMode is not enabled")
+		return HostProcessConfig{}, bridgeRuntimeErr("hostMode is not enabled")
 	}
 	if len(cfg.Bridge.Args) == 0 {
-		return HostProcessConfig{}, fmt.Errorf("node runtime: hostMode requires non-empty bridge.args in ftconfig.json")
+		return HostProcessConfig{}, bridgeRuntimeErr("hostMode requires non-empty bridge.args in ftconfig.json")
 	}
 
 	boundaryRoot = strings.TrimSpace(boundaryRoot)
 	if boundaryRoot == "" {
-		return HostProcessConfig{}, fmt.Errorf("node runtime: boundary root is empty")
+		return HostProcessConfig{}, bridgeRuntimeErr("boundary root is empty")
 	}
 
-	nodeBinary, err := ResolveNodeBinary(boundaryRoot, cfg.Bridge.Binary)
+	nodeBinary, err := ResolveBridgeBinary(boundaryRoot, cfg.Bridge.Binary)
 	if err != nil {
 		return HostProcessConfig{}, err
 	}
@@ -232,7 +232,7 @@ func waitForHostMarkerReady(ctx context.Context, readyPath string, exitCh <-chan
 }
 
 func hostReadyWaitError(reason, readyPath string, exitErr error, stderrTail func() string) error {
-	msg := fmt.Sprintf("node runtime: %s (ready=%s)", reason, readyPath)
+	msg := fmt.Sprintf("bridge host: %s (ready=%s)", reason, readyPath)
 	if exitErr != nil {
 		msg += fmt.Sprintf("; exit=%v", exitErr)
 	}

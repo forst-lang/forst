@@ -81,9 +81,9 @@ func (o *HostOrchestrator) Shutdown() error {
 }
 
 func (o *HostOrchestrator) activateAttachOnly() {
-	_ = os.Setenv(bridgert.EnvNodeAttachOnly, "1")
+	_ = os.Setenv(bridgert.EnvBridgeAttachOnly, "1")
 }
 
 func (o *HostOrchestrator) deactivateAttachOnly() {
-	_ = os.Unsetenv(bridgert.EnvNodeAttachOnly)
+	_ = os.Unsetenv(bridgert.EnvBridgeAttachOnly)
 }

@@ -224,7 +224,7 @@ func (c *runningChild) stopForReload(log *logrus.Logger, boundaryRoot string) {
 	_ = c.stop()
 	_ = ClearGoChildPID(boundaryRoot)
 	if log != nil {
-		if os.Getenv(bridgert.EnvNodeAttachOnly) == "1" {
+		if os.Getenv(bridgert.EnvBridgeAttachOnly) == "1" {
 			log.Debug("Stopped previous build for reload (attach-only host preserved)")
 		} else {
 			log.Debug("Stopped previous build for reload")

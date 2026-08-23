@@ -52,7 +52,7 @@ func TestReload_parentOwnedHostSurvivesGroupKill(t *testing.T) {
 		t.Fatal("node host pid not recorded")
 	}
 
-	t.Setenv(bridgert.EnvNodeAttachOnly, "1")
+	t.Setenv(bridgert.EnvBridgeAttachOnly, "1")
 	if err := bridgert.ConfigureFromManifestForTest(string(manifestJSON)); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestReload_parentOwnedHostSurvivesGroupKill(t *testing.T) {
 	}
 
 	bridgert.ResetForTest()
-	t.Setenv(bridgert.EnvNodeAttachOnly, "1")
+	t.Setenv(bridgert.EnvBridgeAttachOnly, "1")
 	if err := bridgert.ConfigureFromManifestForTest(string(manifestJSON)); err != nil {
 		t.Fatal(err)
 	}

@@ -46,7 +46,7 @@ func EnsureEmbeddedHostInvokeAuthRelay(cfg *ftconfig.Config) error {
 
 func (r *HostInvokeAuthRelay) ensureInProcessHandoff() error {
 	if r == nil {
-		return fmt.Errorf("node runtime: invoke auth relay is nil")
+		return bridgeRuntimeErr("invoke auth relay is nil")
 	}
 	r.mu.Lock()
 	if r.inProcessHandoffConfigured {
@@ -65,7 +65,7 @@ func (r *HostInvokeAuthRelay) ensureInProcessHandoff() error {
 
 func setupInProcessInvokeAuthHandoff(relay *HostInvokeAuthRelay) error {
 	if relay == nil {
-		return fmt.Errorf("node runtime: invoke auth relay is nil")
+		return bridgeRuntimeErr("invoke auth relay is nil")
 	}
 	goWrite, err := relay.PrepareGoChild()
 	if err != nil {

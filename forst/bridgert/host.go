@@ -58,7 +58,7 @@ func waitForHostReady(ctx context.Context, socketPath, readyPath string) (net.Co
 	for {
 		select {
 		case <-ctx.Done():
-			msg := fmt.Sprintf("node runtime: host ready timeout (socket=%s)", socketPath)
+			msg := fmt.Sprintf("bridge host: host ready timeout (socket=%s)", socketPath)
 			if readyPath != "" {
 				if data, err := os.ReadFile(readyPath); err == nil {
 					msg += fmt.Sprintf("; ready=%s", string(data))

@@ -59,7 +59,7 @@ func requireBuiltBootstrap(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 }
 
 func writeCompiledLegacyPaymentModule(t *testing.T, root string) {

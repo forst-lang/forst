@@ -19,7 +19,7 @@ func TestIntegration_compiledModulesDirSeparateFromBoundary(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	boundaryRoot := t.TempDir()
 	modulesDir := t.TempDir()

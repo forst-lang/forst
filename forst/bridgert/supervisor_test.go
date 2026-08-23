@@ -45,8 +45,8 @@ func TestNewHostSupervisor_attachOnlyNeverSpawns(t *testing.T) {
 
 func TestGetClient_supervisorFailurePrintsStderr(t *testing.T) {
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: true,

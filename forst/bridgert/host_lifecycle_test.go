@@ -193,7 +193,7 @@ func TestWaitForHostMarkerReady_failsFastWhenProcessExits(t *testing.T) {
 	if !strings.Contains(err.Error(), "listen EPERM") {
 		t.Fatalf("stderr not in error: %v", err)
 	}
-	if !errors.Is(err, ErrBridgeRuntimeDied) && !strings.Contains(err.Error(), "node runtime process exited") {
+	if !errors.Is(err, ErrBridgeRuntimeDied) && !strings.Contains(err.Error(), "bridge runtime process exited") {
 		t.Fatalf("exit reason not in error: %v", err)
 	}
 	if elapsed > 2*time.Second {
