@@ -101,7 +101,7 @@ Pinned via `configurationDefaults.editor.tokenColorCustomizations` in `package.j
 | --- | --- | --- |
 | Builtin guards / constraints (`Min`, `Ok`, `Err`, …) | `entity.name.function.constraint.forst` | `#C586C0` (magenta) |
 | User type guards in type strings (future) | `entity.name.function.typeguard.forst` | `#B5CEA8` (green) |
-| Nominal errors (`error NotFound`) | `entity.name.type.error.forst` | `#F44747` (red) |
+| Nominal errors (`error NotFound`, `or NotFound(`) | `entity.name.type.error.forst` | `#F29595` (pastel red) |
 
 ### Layer 3 — hover fence languages
 

@@ -51,3 +51,14 @@ test("constraint chain: String.Min(1).Max(10)", async () => {
   await assertScopeOn(line, "Min", "entity.name.function.constraint.forst");
   await assertScopeOn(line, "Max", "entity.name.function.constraint.forst");
 });
+
+test("nominal error decl: error BlockerNotRankable", async () => {
+  const line = "error BlockerNotRankable {";
+  await assertScopeOn(line, "error", "keyword.declaration");
+  await assertScopeOn(line, "BlockerNotRankable", "entity.name.type.error.forst");
+});
+
+test("nominal error use: or BlockerNotRankable(", async () => {
+  const line = "or BlockerNotRankable({";
+  await assertScopeOn(line, "BlockerNotRankable", "entity.name.type.error.forst");
+});
