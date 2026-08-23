@@ -17,6 +17,26 @@ func functionHasVariadicTail(params []ParameterSignature) (fixed int, elem ast.T
 	return len(params) - 1, last.Type, true
 }
 
+func expectedTypeForCallParam(params []ParameterSignature, argIndex int) *ast.TypeNode {
+	if len(params) == 0 {
+		return nil
+	}
+	fixed, elem, variadic := functionHasVariadicTail(params)
+	var pt ast.TypeNode
+	switch {
+	case variadic && argIndex >= fixed:
+		pt = elem
+	case argIndex < len(params):
+		pt = params[argIndex].Type
+	default:
+		return nil
+	}
+	if pt.IsTypeParam() {
+		return nil
+	}
+	return &pt
+}
+
 func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSignature, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) error {
 	fixed, elem, variadic := functionHasVariadicTail(sig.Parameters)
 	nArgs := len(argTypes)

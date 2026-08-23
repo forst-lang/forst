@@ -118,6 +118,9 @@ func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []a
 
 // transformFunction converts a Forst function node to a Go function declaration
 func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) (*goast.FuncDecl, error) {
+	if n.Receiver != nil && len(n.TypeParams) > 0 {
+		return nil, fmt.Errorf("generic methods are not supported")
+	}
 	if err := t.restoreScope(scopeNode); err != nil {
 		return nil, fmt.Errorf("failed to restore function scope: %s", err)
 	}

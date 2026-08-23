@@ -2,6 +2,7 @@ package transformergo
 
 import (
 	"strconv"
+	"strings"
 
 	"forst/internal/ast"
 	"forst/internal/astwalk"
@@ -9,31 +10,24 @@ import (
 	"go/token"
 )
 
-// collectTupleIndexUses returns numeric tuple field indices accessed as var.N in body.
-func collectTupleIndexUses(body []ast.Node, varName string) map[int]bool {
-	used := make(map[int]bool)
-	visit := func(expr ast.ExpressionNode) {
-		walkExpressionTree(expr, func(e ast.ExpressionNode) {
-			fa, ok := e.(ast.FieldAccessNode)
-			if !ok {
-				return
-			}
-			vn, ok := fa.Target.(ast.VariableNode)
-			if !ok || string(vn.Ident.ID) != varName {
-				return
-			}
-			idx, err := strconv.Atoi(string(fa.Field.ID))
-			if err != nil || idx < 0 {
-				return
-			}
-			used[idx] = true
-		})
+// walkStmtExpressions visits expression-bearing positions in statement trees (conditions,
+// range targets, assign RHS/return/call operands, switch tags, defer/go calls).
+func walkStmtExpressions(body []ast.Node, visit func(ast.ExpressionNode)) {
+	astwalk.WalkStmts(body, stmtExprVisitor(visit, false))
+	walkNestedSwitchExpressions(body, visit)
+}
+
+func stmtExprVisitor(visit func(ast.ExpressionNode), includeAssignLValues bool) astwalk.StmtVisitor {
+	visitNode := func(n ast.Node) {
+		if e, ok := n.(ast.ExpressionNode); ok {
+			visit(e)
+		}
 	}
-	astwalk.WalkStmts(body, astwalk.StmtVisitor{
+	return astwalk.StmtVisitor{
 		OnAssign: func(a ast.AssignmentNode) bool {
-			for _, lv := range a.LValues {
-				if e, ok := lv.(ast.ExpressionNode); ok {
-					visit(e)
+			if includeAssignLValues {
+				for _, lv := range a.LValues {
+					visitNode(lv)
 				}
 			}
 			for _, rv := range a.RValues {
@@ -53,8 +47,124 @@ func collectTupleIndexUses(body []ast.Node, varName string) map[int]bool {
 			}
 			return true
 		},
+		OnIf: func(node ast.IfNode) bool {
+			visitNode(node.Init)
+			visitNode(node.Condition)
+			for _, elif := range node.ElseIfs {
+				visitNode(elif.Condition)
+			}
+			return true
+		},
+		OnFor: func(node ast.ForNode) bool {
+			visitNode(node.Init)
+			if node.Cond != nil {
+				visit(node.Cond)
+			}
+			visitNode(node.Post)
+			if node.IsRange && node.RangeX != nil {
+				visit(node.RangeX)
+			}
+			return true
+		},
+		OnDefer: func(node ast.DeferNode) bool {
+			if e, ok := node.Call.(ast.ExpressionNode); ok {
+				visit(e)
+			}
+			return true
+		},
+		OnGo: func(node ast.GoStmtNode) bool {
+			if e, ok := node.Call.(ast.ExpressionNode); ok {
+				visit(e)
+			}
+			return true
+		},
+	}
+}
+
+func walkNestedSwitchExpressions(stmts []ast.Node, visit func(ast.ExpressionNode)) {
+	for _, n := range stmts {
+		walkNodeSwitchExpressions(n, visit)
+	}
+}
+
+func walkNodeSwitchExpressions(n ast.Node, visit func(ast.ExpressionNode)) {
+	switch node := n.(type) {
+	case ast.SwitchNode:
+		if node.Init != nil {
+			if e, ok := node.Init.(ast.ExpressionNode); ok {
+				visit(e)
+			}
+		}
+		if node.Tag != nil {
+			visit(node.Tag)
+		}
+		for _, clause := range node.Clauses {
+			for _, v := range clause.Values {
+				visit(v)
+			}
+			walkNestedSwitchExpressions(clause.Body, visit)
+		}
+	case *ast.SwitchNode:
+		walkNodeSwitchExpressions(*node, visit)
+	case ast.IfNode:
+		walkNestedSwitchExpressions(node.Body, visit)
+		for _, elif := range node.ElseIfs {
+			walkNestedSwitchExpressions(elif.Body, visit)
+		}
+		if node.Else != nil {
+			walkNestedSwitchExpressions(node.Else.Body, visit)
+		}
+	case *ast.IfNode:
+		walkNodeSwitchExpressions(*node, visit)
+	case ast.ForNode:
+		walkNestedSwitchExpressions(node.Body, visit)
+	case *ast.ForNode:
+		walkNodeSwitchExpressions(*node, visit)
+	case ast.WithNode:
+		walkNestedSwitchExpressions(node.Body, visit)
+	case ast.FunctionNode:
+		walkNestedSwitchExpressions(node.Body, visit)
+	case ast.EnsureNode:
+		if node.Block != nil {
+			walkNestedSwitchExpressions(node.Block.Body, visit)
+		}
+	}
+}
+
+// collectTupleIndexUses returns numeric tuple field indices accessed as var.N in body.
+func collectTupleIndexUses(body []ast.Node, varName string) map[int]bool {
+	used := make(map[int]bool)
+	walkStmtExpressions(body, func(expr ast.ExpressionNode) {
+		walkExpressionTree(expr, func(e ast.ExpressionNode) {
+			fa, ok := e.(ast.FieldAccessNode)
+			if !ok {
+				return
+			}
+			vn, ok := fa.Target.(ast.VariableNode)
+			if !ok || string(vn.Ident.ID) != varName {
+				return
+			}
+			idx, err := strconv.Atoi(string(fa.Field.ID))
+			if err != nil || idx < 0 {
+				return
+			}
+			used[idx] = true
+		})
 	})
 	return used
+}
+
+func varNameReferenced(node ast.ExpressionNode, varName string) bool {
+	switch e := node.(type) {
+	case ast.VariableNode:
+		id := string(e.Ident.ID)
+		return id == varName || strings.HasPrefix(id, varName+".")
+	case ast.FieldAccessNode:
+		if vn, ok := e.Target.(ast.VariableNode); ok && string(vn.Ident.ID) == varName {
+			return true
+		}
+	}
+	return false
 }
 
 func walkExpressionTree(expr ast.ExpressionNode, visit func(ast.ExpressionNode)) {
@@ -273,12 +383,31 @@ func bodyUsesVarInResultExpandingPrint(body []ast.Node, varName string) bool {
 
 func bodyReferencesVariable(body []ast.Node, varName string) bool {
 	found := false
-	visit := func(expr ast.ExpressionNode) {
+	walkStmtExpressions(body, func(expr ast.ExpressionNode) {
 		walkExpressionTree(expr, func(e ast.ExpressionNode) {
 			if vn, ok := e.(ast.VariableNode); ok && string(vn.Ident.ID) == varName {
 				found = true
 			}
 		})
+	})
+	return found
+}
+
+// collectResultSuccessValueUsed reports whether the Result success payload must be bound
+// (excludes uses that are only Ok/Err discriminators in if conditions).
+func collectResultSuccessValueUsed(body []ast.Node, varName string) bool {
+	found := false
+	visit := func(expr ast.ExpressionNode) {
+		walkExpressionTree(expr, func(e ast.ExpressionNode) {
+			if varNameReferenced(e, varName) {
+				found = true
+			}
+		})
+	}
+	visitNode := func(n ast.Node) {
+		if e, ok := n.(ast.ExpressionNode); ok {
+			visit(e)
+		}
 	}
 	astwalk.WalkStmts(body, astwalk.StmtVisitor{
 		OnAssign: func(a ast.AssignmentNode) bool {
@@ -299,7 +428,43 @@ func bodyReferencesVariable(body []ast.Node, varName string) bool {
 			}
 			return true
 		},
+		OnIf: func(node ast.IfNode) bool {
+			visitNode(node.Init)
+			if !resultDiscriminatorUsesVar(node.Condition, varName) {
+				visitNode(node.Condition)
+			}
+			for _, elif := range node.ElseIfs {
+				if !resultDiscriminatorUsesVar(elif.Condition, varName) {
+					visitNode(elif.Condition)
+				}
+			}
+			return true
+		},
+		OnFor: func(node ast.ForNode) bool {
+			visitNode(node.Init)
+			if node.Cond != nil {
+				visit(node.Cond)
+			}
+			visitNode(node.Post)
+			if node.IsRange && node.RangeX != nil {
+				visit(node.RangeX)
+			}
+			return true
+		},
+		OnDefer: func(node ast.DeferNode) bool {
+			if e, ok := node.Call.(ast.ExpressionNode); ok {
+				visit(e)
+			}
+			return true
+		},
+		OnGo: func(node ast.GoStmtNode) bool {
+			if e, ok := node.Call.(ast.ExpressionNode); ok {
+				visit(e)
+			}
+			return true
+		},
 	})
+	walkNestedSwitchExpressions(body, visit)
 	return found
 }
 

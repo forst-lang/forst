@@ -14,9 +14,28 @@ func SubstituteType(t ast.TypeNode, bindings map[ast.TypeIdent]ast.TypeNode, isT
 	if t.Assertion != nil {
 		asn := *t.Assertion
 		if asn.BaseType != nil {
-			base := SubstituteType(ast.TypeNode{Ident: *asn.BaseType}, bindings, isTypeParam)
+			base := SubstituteType(ast.TypeNode{Ident: *asn.BaseType, TypeKind: ast.TypeKindTypeParam}, bindings, isTypeParam)
 			id := base.Ident
 			asn.BaseType = &id
+		}
+		if len(asn.Constraints) > 0 {
+			constraints := make([]ast.ConstraintNode, len(asn.Constraints))
+			for i, c := range asn.Constraints {
+				constraints[i] = c
+				if len(c.Args) == 0 {
+					continue
+				}
+				args := make([]ast.ConstraintArgumentNode, len(c.Args))
+				for j, a := range c.Args {
+					args[j] = a
+					if a.Type != nil {
+						sub := SubstituteType(*a.Type, bindings, isTypeParam)
+						args[j].Type = &sub
+					}
+				}
+				constraints[i].Args = args
+			}
+			asn.Constraints = constraints
 		}
 		out.Assertion = &asn
 	}
@@ -45,6 +64,8 @@ func SubstituteType(t ast.TypeNode, bindings map[ast.TypeIdent]ast.TypeNode, isT
 					Fields: param.Fields,
 					Type:   SubstituteType(param.Type, bindings, isTypeParam),
 				}
+			default:
+				out.FuncParams[i] = p
 			}
 		}
 	}

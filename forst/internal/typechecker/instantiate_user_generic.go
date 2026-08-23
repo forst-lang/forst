@@ -24,19 +24,15 @@ func (tc *TypeChecker) instantiateGenericCallWithBindings(
 	if len(sig.TypeParams) == 0 {
 		return sig, nil
 	}
+	if err := tc.validateGenericCallArgCount(sig, len(argTypes), span); err != nil {
+		return sig, err
+	}
 	bindings := make(map[ast.TypeIdent]ast.TypeNode)
 	for name, typ := range explicit {
 		bindings[name] = typ
 	}
-	paramCount := len(sig.Parameters)
-	if len(argTypes) < paramCount {
-		paramCount = len(argTypes)
-	}
-	err := typeinfer.InferFromParams(paramCount, func(i int) error {
-		if i >= len(sig.Parameters) {
-			return nil
-		}
-		if i >= len(argTypes) || len(argTypes[i]) != 1 {
+	err := typeinfer.InferFromParams(len(sig.Parameters), func(i int) error {
+		if i >= len(sig.Parameters) || i >= len(argTypes) || len(argTypes[i]) != 1 {
 			return fmt.Errorf("argument %d: expected a single type for generic inference", i)
 		}
 		return tc.unifyTypeParam(bindings, sig.Parameters[i].Type, argTypes[i][0], span)
@@ -118,17 +114,21 @@ func (tc *TypeChecker) unifyTypeParam(bindings map[ast.TypeIdent]ast.TypeNode, p
 		}
 		return nil
 	}
-	if param.Ident == ast.TypeArray && arg.Ident == ast.TypeArray && len(param.TypeParams) == 1 && len(arg.TypeParams) == 1 {
-		return tc.unifyTypeParam(bindings, param.TypeParams[0], arg.TypeParams[0], span)
-	}
-	if param.Ident == ast.TypePointer && arg.Ident == ast.TypePointer && len(param.TypeParams) == 1 && len(arg.TypeParams) == 1 {
-		return tc.unifyTypeParam(bindings, param.TypeParams[0], arg.TypeParams[0], span)
-	}
-	if param.Ident == ast.TypeMap && arg.Ident == ast.TypeMap && len(param.TypeParams) == 2 && len(arg.TypeParams) == 2 {
-		if err := tc.unifyTypeParam(bindings, param.TypeParams[0], arg.TypeParams[0], span); err != nil {
-			return err
+	// Unmatched structural cases leave type parameters unbound for RequireAllBound/checkUserFunctionCall.
+	return nil
+}
+
+func (tc *TypeChecker) validateGenericCallArgCount(sig FunctionSignature, nArgs int, span ast.SourceSpan) error {
+	fixed, _, variadic := functionHasVariadicTail(sig.Parameters)
+	nParams := len(sig.Parameters)
+	if !variadic {
+		if nArgs != nParams {
+			return tc.genericDiag(span, fmt.Sprintf("function %s expects %d arguments, got %d", sig.Ident.ID, nParams, nArgs))
 		}
-		return tc.unifyTypeParam(bindings, param.TypeParams[1], arg.TypeParams[1], span)
+		return nil
+	}
+	if nArgs < fixed {
+		return tc.genericDiag(span, fmt.Sprintf("function %s expects at least %d arguments, got %d", sig.Ident.ID, fixed, nArgs))
 	}
 	return nil
 }

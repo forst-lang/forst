@@ -11,6 +11,10 @@ import (
 
 var forstInvokeRegistryInit bool
 
+func forst_invoke_main_GetDashboard(args json.RawMessage) (any, error) {
+	return GetDashboard(), nil
+}
+
 func forst_invoke_main_ListTodos(args json.RawMessage) (any, error) {
 	return ListTodos(), nil
 }
@@ -49,20 +53,16 @@ var forstInvokeArgs []interface{}
 	return CompleteTodo(input), nil
 }
 
-func forst_invoke_main_GetDashboard(args json.RawMessage) (any, error) {
-	return GetDashboard(), nil
-}
-
 func init() {
 	if forstInvokeRegistryInit {
 		return
 	}
 	forstInvokeRegistryInit = true
 	reg := invokeembed.GlobalRegistry()
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"GetDashboard",SupportsStreaming:false,Runnable:true}, forst_invoke_main_GetDashboard)
 	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"ListTodos",SupportsStreaming:false,Runnable:true}, forst_invoke_main_ListTodos)
 	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"AddTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_AddTodo)
 	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"CompleteTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_CompleteTodo)
-	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"GetDashboard",SupportsStreaming:false,Runnable:true}, forst_invoke_main_GetDashboard)
 	invokeembed.MustPrepareEmbeddedHostAuth()
 	invokeembed.MustStartEmbedded()
 }

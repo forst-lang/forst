@@ -339,11 +339,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
 			argTypes = make([][]ast.TypeNode, len(e.Arguments))
 			for i, arg := range e.Arguments {
-				var exp *ast.TypeNode
-				if i < len(signature.Parameters) && !signature.Parameters[i].Type.IsTypeParam() {
-					pt := signature.Parameters[i].Type
-					exp = &pt
-				}
+				exp := expectedTypeForCallParam(signature.Parameters, i)
 				ts, err := tc.inferExpressionTypeWithExpected(arg, exp)
 				if err != nil {
 					return nil, err
@@ -366,6 +362,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			callSpan := e.CallSpan
 			if !callSpan.IsSet() {
 				callSpan = e.Function.Span
+			}
+			if len(e.TypeArgs) > 0 && len(signature.TypeParams) == 0 {
+				_, err := tc.instantiateGenericCallExplicit(signature, e.TypeArgs, argTypes, callSpan)
+				if err != nil {
+					return nil, err
+				}
 			}
 			if len(signature.TypeParams) > 0 {
 				var inst FunctionSignature

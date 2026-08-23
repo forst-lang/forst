@@ -25,7 +25,7 @@ func (e ParseError) ForstErrorTag() string {
 	return "main/ParseError"
 }
 func demo() {
-	_, xErr := mk()
+	x, xErr := mk()
 	if func() bool {
 		if xErr == nil {
 			return false
@@ -33,7 +33,7 @@ func demo() {
 		_, ok := xErr.(ParseError)
 		return ok
 	}() {
-		_ =
+		_ = x
 		onlyParseError(xErr.(ParseError))
 	}
 }

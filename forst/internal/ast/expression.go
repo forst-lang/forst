@@ -186,8 +186,20 @@ func (f FunctionCallNode) String() string {
 	for i, arg := range f.Arguments {
 		args[i] = arg.String()
 	}
+	typeArgStr := formatTypeArgsString(f.TypeArgs)
 	if f.Callee != nil {
-		return fmt.Sprintf("%s(%s)", f.Callee.String(), strings.Join(args, ", "))
+		return fmt.Sprintf("%s%s(%s)", f.Callee.String(), typeArgStr, strings.Join(args, ", "))
 	}
-	return fmt.Sprintf("{%s}(%s)", f.Function.ID, strings.Join(args, ", "))
+	return fmt.Sprintf("{%s}%s(%s)", f.Function.ID, typeArgStr, strings.Join(args, ", "))
+}
+
+func formatTypeArgsString(typeArgs []TypeNode) string {
+	if len(typeArgs) == 0 {
+		return ""
+	}
+	parts := make([]string, len(typeArgs))
+	for i, ta := range typeArgs {
+		parts[i] = ta.String()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
 }

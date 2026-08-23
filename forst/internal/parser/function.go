@@ -340,6 +340,9 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.context.ScopeStack.CurrentScope().FunctionName = name.Value
 
 	typeParams := p.parseTypeParamList()
+	if receiver != nil && len(typeParams) > 0 {
+		p.FailWithParseError(name, "generic methods are not supported")
+	}
 
 	params := p.parseFunctionSignature() // Parse function parameters
 

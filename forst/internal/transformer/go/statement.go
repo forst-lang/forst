@@ -564,7 +564,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								successNames[i] = fmt.Sprintf("%s%d", varName, i)
 							}
 						}
-					} else if collectVariableAnyUse(t.currentFnBody, varName) {
+					} else if collectResultSuccessValueUsed(t.currentFnBody, varName) {
 						successNames = []string{varName}
 					} else {
 						successNames = []string{""}

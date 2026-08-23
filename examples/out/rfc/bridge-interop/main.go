@@ -8,7 +8,7 @@ type T_S47SAU5d2zT struct {
 }
 
 func main() {
-	_, resultErr := forst_bridge_callsync_legacy_payment_js_create()
+	result, resultErr := forst_bridge_callsync_legacy_payment_js_create()
 	if !(resultErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", resultErr)

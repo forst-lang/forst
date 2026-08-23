@@ -74,7 +74,15 @@ func main() {
 	println(b)
 }
 `
-	MustTypecheck(t, src, testutil.TypecheckOpts{FileID: "two_generics.ft"})
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{FileID: "two_generics.ft"})
+	fSig, fOK := tc.Functions[ast.Identifier("f")]
+	gSig, gOK := tc.Functions[ast.Identifier("g")]
+	if !fOK || !gOK || len(fSig.Parameters) == 0 || len(gSig.Parameters) == 0 {
+		t.Fatal("expected f and g signatures in tc.Functions")
+	}
+	if !fSig.Parameters[0].Type.IsTypeParam() || !gSig.Parameters[0].Type.IsTypeParam() {
+		t.Fatalf("generic params not preserved: f=%+v g=%+v", fSig.Parameters[0].Type, gSig.Parameters[0].Type)
+	}
 }
 
 func TestNormalizeGenericSignature_typeAliasAndGenericCoexist(t *testing.T) {
@@ -90,7 +98,17 @@ func main() {
 	println(string(n))
 }
 `
-	MustTypecheck(t, src, testutil.TypecheckOpts{FileID: "alias_and_generic.ft"})
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{FileID: "alias_and_generic.ft"})
+	sig, ok := tc.Functions[ast.Identifier("f")]
+	if !ok || len(sig.Parameters) == 0 {
+		t.Fatal("expected f signature")
+	}
+	if !sig.Parameters[0].Type.IsTypeParam() {
+		t.Fatalf("generic T param not preserved: %+v", sig.Parameters[0].Type)
+	}
+	if !sig.ReturnTypes[0].IsTypeParam() {
+		t.Fatalf("generic T return not preserved: %+v", sig.ReturnTypes[0])
+	}
 }
 
 func TestNormalizeGenericSignature_fromParsedAST(t *testing.T) {

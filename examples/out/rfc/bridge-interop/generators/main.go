@@ -6,7 +6,7 @@ import os "os"
 
 func main() {
 	var syncSum float64 = 0
-	_, syncSeqErr := forst_bridge_open_seq_legacy_generators_js_syncNumbers()
+	syncSeq, syncSeqErr := forst_bridge_open_seq_legacy_generators_js_syncNumbers()
 	if !(syncSeqErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", syncSeqErr)
@@ -14,7 +14,7 @@ func main() {
 		}
 	}
 	{
-		_nodeIt :=
+		_nodeIt := syncSeq
 		defer _nodeIt.Close()
 		var (
 			_nodeStep     forstBridgeGenStep_float64
@@ -49,7 +49,7 @@ func main() {
 	}
 	println("sync:" + strconv.FormatFloat(syncSum, 'f', 0, 64))
 	var asyncSum float64 = 0
-	_, asyncSeqErr := forst_bridge_open_seq_legacy_generators_js_asyncNumbers()
+	asyncSeq, asyncSeqErr := forst_bridge_open_seq_legacy_generators_js_asyncNumbers()
 	if !(asyncSeqErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", asyncSeqErr)
@@ -57,7 +57,7 @@ func main() {
 		}
 	}
 	{
-		_nodeIt :=
+		_nodeIt := asyncSeq
 		defer _nodeIt.Close()
 		var (
 			_nodeStep     forstBridgeGenStep_float64
@@ -92,7 +92,7 @@ func main() {
 	}
 	println("async:" + strconv.FormatFloat(asyncSum, 'f', 0, 64))
 	var emptyCount int = 0
-	_, emptySeqErr := forst_bridge_open_seq_legacy_generators_js_emptyGen()
+	emptySeq, emptySeqErr := forst_bridge_open_seq_legacy_generators_js_emptyGen()
 	if !(emptySeqErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", emptySeqErr)
@@ -100,7 +100,7 @@ func main() {
 		}
 	}
 	{
-		_nodeIt :=
+		_nodeIt := emptySeq
 		defer _nodeIt.Close()
 		var (
 			_nodeStep     forstBridgeGenStep_float64
@@ -134,7 +134,7 @@ func main() {
 	}
 	println("empty:" + strconv.Itoa(emptyCount))
 	var breakCount int = 0
-	_, finallySeqErr := forst_bridge_open_seq_legacy_generators_js_withFinally()
+	finallySeq, finallySeqErr := forst_bridge_open_seq_legacy_generators_js_withFinally()
 	if !(finallySeqErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", finallySeqErr)
@@ -142,7 +142,7 @@ func main() {
 		}
 	}
 	{
-		_nodeIt :=
+		_nodeIt := finallySeq
 		defer _nodeIt.Close()
 		var (
 			_nodeStep     forstBridgeGenStep_float64

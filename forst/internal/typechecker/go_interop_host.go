@@ -142,42 +142,23 @@ func (tc *TypeChecker) goSignatureFromForstFunctionType(f ast.TypeNode) types.Ty
 	if !f.IsFunctionType() {
 		return nil
 	}
-	params := make([]*types.Var, 0, len(f.FuncParams))
+	params := make([]goSignatureParam, 0, len(f.FuncParams))
 	for i, p := range f.FuncParams {
 		sp, ok := p.(ast.SimpleParamNode)
 		if !ok {
-			return nil
-		}
-		pt := tc.goTypeForForstType(sp.Type)
-		if pt == nil {
 			return nil
 		}
 		name := string(sp.Ident.ID)
 		if name == "" {
 			name = "arg" + strconv.Itoa(i)
 		}
-		params = append(params, types.NewParam(0, nil, name, pt))
+		params = append(params, goSignatureParam{name: name, typ: sp.Type})
 	}
-	paramTuple := types.NewTuple(params...)
-
-	var resultVars []*types.Var
-	for _, rt := range f.FuncReturns {
-		if rt.Ident == ast.TypeVoid {
-			continue
-		}
-		gt := tc.goTypeForForstType(rt)
-		if gt == nil {
-			return nil
-		}
-		resultVars = append(resultVars, types.NewParam(0, nil, "", gt))
+	sig := tc.buildGoSignature(nil, params, f.FuncReturns)
+	if sig == nil {
+		return nil
 	}
-	var resultTuple *types.Tuple
-	if len(resultVars) == 0 {
-		resultTuple = types.NewTuple()
-	} else {
-		resultTuple = types.NewTuple(resultVars...)
-	}
-	return types.NewSignatureType(nil, nil, nil, paramTuple, resultTuple, false)
+	return sig
 }
 
 func (tc *TypeChecker) goTypeFromForstShapeType(f ast.TypeNode) types.Type {
@@ -221,9 +202,16 @@ func (tc *TypeChecker) goTypeForForstUserType(ident ast.TypeIdent) types.Type {
 	underlying := types.NewStruct(nil, nil)
 	named := types.NewNamed(obj, underlying, nil)
 	recv := types.NewVar(0, nil, "", named)
-	for methodName, msig := range methods {
+	methodNames := make([]string, 0, len(methods))
+	for name := range methods {
+		methodNames = append(methodNames, name)
+	}
+	sort.Strings(methodNames)
+	for _, methodName := range methodNames {
+		msig := methods[methodName]
 		goSig := tc.goSignatureFromForstFunctionSignature(msig, recv)
 		if goSig == nil {
+			tc.log.WithField("method", methodName).Debug("skipping Forst method: could not build Go signature")
 			continue
 		}
 		m := types.NewFunc(0, nil, methodName, goSig)
@@ -232,22 +220,27 @@ func (tc *TypeChecker) goTypeForForstUserType(ident ast.TypeIdent) types.Type {
 	return named
 }
 
-func (tc *TypeChecker) goSignatureFromForstFunctionSignature(msig FunctionSignature, recv *types.Var) *types.Signature {
-	params := make([]*types.Var, 0, len(msig.Parameters))
-	for i, p := range msig.Parameters {
-		pt := tc.goTypeForForstType(p.Type)
+type goSignatureParam struct {
+	name string
+	typ  ast.TypeNode
+}
+
+func (tc *TypeChecker) buildGoSignature(recv *types.Var, params []goSignatureParam, returns []ast.TypeNode) *types.Signature {
+	goParams := make([]*types.Var, 0, len(params))
+	for i, p := range params {
+		pt := tc.goTypeForForstType(p.typ)
 		if pt == nil {
 			return nil
 		}
-		name := string(p.Ident.ID)
+		name := p.name
 		if name == "" {
 			name = "arg" + strconv.Itoa(i)
 		}
-		params = append(params, types.NewParam(0, nil, name, pt))
+		goParams = append(goParams, types.NewParam(0, nil, name, pt))
 	}
-	paramTuple := types.NewTuple(params...)
+	paramTuple := types.NewTuple(goParams...)
 	var resultVars []*types.Var
-	for _, rt := range msig.ReturnTypes {
+	for _, rt := range returns {
 		if rt.Ident == ast.TypeVoid {
 			continue
 		}
@@ -264,4 +257,12 @@ func (tc *TypeChecker) goSignatureFromForstFunctionSignature(msig FunctionSignat
 		resultTuple = types.NewTuple(resultVars...)
 	}
 	return types.NewSignatureType(recv, nil, nil, paramTuple, resultTuple, false)
+}
+
+func (tc *TypeChecker) goSignatureFromForstFunctionSignature(msig FunctionSignature, recv *types.Var) *types.Signature {
+	params := make([]goSignatureParam, len(msig.Parameters))
+	for i, p := range msig.Parameters {
+		params[i] = goSignatureParam{name: string(p.Ident.ID), typ: p.Type}
+	}
+	return tc.buildGoSignature(recv, params, msig.ReturnTypes)
 }

@@ -237,6 +237,10 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			if err != nil {
 				return nil, err
 			}
+			funExpr, err = t.wrapCallFunWithTypeArgs(funExpr, e.TypeArgs)
+			if err != nil {
+				return nil, err
+			}
 			args, err := t.transformFunctionCallArgs(ast.Identifier("_callee"), e.Arguments)
 			if err != nil {
 				return nil, err
@@ -297,8 +301,12 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
+		funExpr, err := t.wrapCallFunWithTypeArgs(t.goFunExprFromForstCallIdentWithNarrowing(e.Function), e.TypeArgs)
+		if err != nil {
+			return nil, err
+		}
 		call := &goast.CallExpr{
-			Fun:      t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
+			Fun:      funExpr,
 			Args:     args.exprs,
 			Ellipsis: args.ellipsis,
 		}
@@ -408,4 +416,19 @@ func (t *Transformer) transformGoBoundDottedMethodCall(e ast.FunctionCallNode) (
 		Args:     args.exprs,
 		Ellipsis: args.ellipsis,
 	}, true, nil
+}
+
+func (t *Transformer) wrapCallFunWithTypeArgs(fun goast.Expr, typeArgs []ast.TypeNode) (goast.Expr, error) {
+	if len(typeArgs) == 0 {
+		return fun, nil
+	}
+	indices := make([]goast.Expr, len(typeArgs))
+	for i, ta := range typeArgs {
+		gt, err := t.transformType(ta)
+		if err != nil {
+			return nil, err
+		}
+		indices[i] = gt
+	}
+	return &goast.IndexListExpr{X: fun, Indices: indices}, nil
 }

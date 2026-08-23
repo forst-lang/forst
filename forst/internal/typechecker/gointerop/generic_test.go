@@ -2,6 +2,7 @@ package gointerop_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"go/types"
@@ -23,11 +24,6 @@ func TestCheckFuncCall_genericGoAPI_instantiatesFromArgs(t *testing.T) {
 	if pkgp == nil || pkgp.Types == nil {
 		t.Skip("slices package types unavailable")
 	}
-	obj := pkgp.Types.Scope().Lookup("Contains")
-	if obj == nil {
-		t.Fatal("slices.Contains not found")
-	}
-	fn := obj.(*types.Func)
 
 	host := sliceContainsHost{}
 	argTypes := [][]ast.TypeNode{
@@ -52,7 +48,6 @@ func TestCheckFuncCall_genericGoAPI_instantiatesFromArgs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected slices.Contains to instantiate, got err=%v code=%q msg=%q", err, gotCode, gotMsg)
 	}
-	_ = fn
 }
 
 type sliceContainsHost struct{}
@@ -99,7 +94,7 @@ func TestCheckFuncCall_unexportedSymbol_rejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unexported symbol")
 	}
-	if gotMsg == "" {
-		t.Fatal("expected diagnostic message")
+	if !strings.Contains(gotMsg, "not exported") {
+		t.Fatalf("expected unexported diagnostic, got %q", gotMsg)
 	}
 }

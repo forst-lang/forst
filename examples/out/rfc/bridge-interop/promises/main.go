@@ -13,7 +13,7 @@ type T_NTbLJjyksQg struct {
 }
 
 func main() {
-	_, resultErr := forst_bridge_callasync_legacy_payment_js_create()
+	result, resultErr := forst_bridge_callasync_legacy_payment_js_create()
 	if !(resultErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", resultErr)
@@ -21,7 +21,7 @@ func main() {
 		}
 	}
 	println(result.Id)
-	_, echoErr := forst_bridge_callasync_legacy_payment_js_concurrentEcho()
+	echo, echoErr := forst_bridge_callasync_legacy_payment_js_concurrentEcho()
 	if !(echoErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", echoErr)
