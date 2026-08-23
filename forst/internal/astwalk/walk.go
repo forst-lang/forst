@@ -31,7 +31,45 @@ func WalkStmts(stmts []ast.Node, v StmtVisitor) {
 
 // WalkNode descends through statement bodies when visitor hooks allow.
 func WalkNode(n ast.Node, v StmtVisitor) {
+	if n == nil {
+		return
+	}
 	switch node := n.(type) {
+	case *ast.IfNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.ForNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.WithNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.FunctionNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.EnsureNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.DeferNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
+	case *ast.GoStmtNode:
+		if node == nil {
+			return
+		}
+		WalkNode(*node, v)
 	case ast.WithNode:
 		if v.OnWith != nil && !v.OnWith(node) {
 			return

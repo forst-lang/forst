@@ -365,7 +365,7 @@ func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []as
 				ParameterIndex: i,
 			}
 			expectedTypeForShape := t.getExpectedTypeForShape(&shapeArg, context)
-			argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape)
+			argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape, context)
 			if err != nil {
 				return transformedCallArgs{}, err
 			}

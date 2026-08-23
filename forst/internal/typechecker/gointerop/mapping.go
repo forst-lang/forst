@@ -279,12 +279,6 @@ func mapGoStructType(host AssignabilityHost, st *types.Struct) (ast.TypeNode, bo
 	if st == nil {
 		return ast.TypeNode{}, false
 	}
-	for i := 0; i < st.NumFields(); i++ {
-		f := st.Field(i)
-		if f == nil || f.Anonymous() || !f.Exported() {
-			return ast.TypeNode{Ident: ast.TypeImplicit}, true
-		}
-	}
 	if st.NumFields() == 0 {
 		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	}
@@ -294,21 +288,49 @@ func mapGoStructType(host AssignabilityHost, st *types.Struct) (ast.TypeNode, bo
 		node ast.ShapeFieldNode
 	}
 	entries := make([]fieldEntry, 0, st.NumFields())
-	for i := 0; i < st.NumFields(); i++ {
-		f := st.Field(i)
-		ft, ok := MapGoType(host, f.Type())
-		if !ok {
-			return ast.TypeNode{}, false
+	seen := make(map[types.Type]bool)
+	var collectFields func(*types.Struct)
+	collectFields = func(str *types.Struct) {
+		if str == nil {
+			return
 		}
-		forstName := forstFieldNameFromGoField(f, st.Tag(i))
-		if forstName == "" {
-			return ast.TypeNode{Ident: ast.TypeImplicit}, true
+		for i := 0; i < str.NumFields(); i++ {
+			f := str.Field(i)
+			if f == nil || !f.Exported() {
+				continue
+			}
+			if f.Anonymous() {
+				embedded := types.Unalias(f.Type())
+				if ptr, ok := embedded.(*types.Pointer); ok {
+					embedded = types.Unalias(ptr.Elem())
+				}
+				if embStruct, ok := embedded.Underlying().(*types.Struct); ok {
+					if seen[embedded] {
+						continue
+					}
+					seen[embedded] = true
+					collectFields(embStruct)
+					continue
+				}
+			}
+			ft, ok := MapGoType(host, f.Type())
+			if !ok {
+				continue
+			}
+			forstName := forstFieldNameFromGoField(f, str.Tag(i))
+			if forstName == "" {
+				continue
+			}
+			ftCopy := ft
+			entries = append(entries, fieldEntry{
+				name: forstName,
+				node: ast.ShapeFieldNode{Type: &ftCopy},
+			})
 		}
-		ftCopy := ft
-		entries = append(entries, fieldEntry{
-			name: forstName,
-			node: ast.ShapeFieldNode{Type: &ftCopy},
-		})
+	}
+	collectFields(st)
+	if len(entries) == 0 {
+		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
 

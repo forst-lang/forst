@@ -50,7 +50,11 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode, expe
 }
 
 // determineStructType robustly enforce named type for struct literals
-func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *ast.TypeNode) (goast.Expr, error) {
+func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *ast.TypeNode, shapeCtx *ShapeContext) (goast.Expr, error) {
+	if shapeCtx != nil && shapeCtx.FunctionName != "" &&
+		t.usesInlineGenericShapeParam(ast.Identifier(shapeCtx.FunctionName), shapeCtx.ParameterIndex) {
+		return t.inlineStructTypeFromShapeLiteral(shape)
+	}
 	t.log.WithFields(logrus.Fields{
 		"function":     "determineStructType",
 		"expectedType": expectedType,
@@ -269,7 +273,7 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 			} else {
 				fieldExpectedType = expectedTypeForField
 			}
-			value, err = t.transformShapeNodeWithExpectedType(&shapeNode, fieldExpectedType)
+			value, err = t.transformShapeNodeWithExpectedType(&shapeNode, fieldExpectedType, nil)
 		} else if vn, ok := field.Node.(ast.VariableNode); ok && expectedTypeForField != nil && expectedTypeForField.IsResultType() &&
 			len(expectedTypeForField.TypeParams) >= 2 && expectedTypeForField.TypeParams[1].Ident == ast.TypeError &&
 			t.resultLocalSplit != nil {
@@ -308,7 +312,7 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 		} else {
 			fieldExpectedType = expectedTypeForField
 		}
-		return t.transformShapeNodeWithExpectedType(field.Shape, fieldExpectedType)
+		return t.transformShapeNodeWithExpectedType(field.Shape, fieldExpectedType, nil)
 	} else if field.Assertion != nil {
 		var fieldExpectedType *ast.TypeNode
 		if fieldDef.Type != nil {
@@ -435,7 +439,7 @@ func (t *Transformer) buildTypeValue(fieldType *ast.TypeNode) (goast.Expr, error
 }
 
 // transformShapeNodeWithExpectedType generates a struct literal using the expected type if possible
-func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedType *ast.TypeNode) (goast.Expr, error) {
+func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedType *ast.TypeNode, shapeCtx *ShapeContext) (goast.Expr, error) {
 	// PINPOINT: Log entry with detailed context
 	var ident string
 	var typeKind ast.TypeKind
@@ -469,7 +473,7 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 			"result":   "using expected type for composite literal",
 		}).Debug("[PINPOINT] Using expected type for composite literal")
 
-		structType, err := t.determineStructType(shape, expectedType)
+		structType, err := t.determineStructType(shape, expectedType, shapeCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -494,7 +498,7 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 	}).Debug("[PINPOINT] Falling back to structural matching")
 
 	// Determine the struct type to use for the composite literal
-	structType, err := t.determineStructType(shape, expectedType)
+	structType, err := t.determineStructType(shape, expectedType, shapeCtx)
 	if err != nil {
 		return nil, err
 	}

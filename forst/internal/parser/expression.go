@@ -237,10 +237,40 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 	return p.parsePostfixSuffixChain(base, depth)
 }
 
-// parsePostfixSuffixChain parses [index], .method(), and .field suffixes.
+// parsePostfixSuffixChain parses [index], [T]( generic ), .method(), and .field suffixes.
 func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast.ExpressionNode {
-	base = p.parseIndexSuffixChain(base, depth)
 	for {
+		if typeArgs, ok := p.tryParseGenericTypeArgSuffix(); ok {
+			lparen := p.current()
+			p.advance()
+			args, argSpans := p.parseCallArguments()
+			rparen := p.expect(ast.TokenRParen)
+			if vn, ok := base.(ast.VariableNode); ok {
+				base = ast.FunctionCallNode{
+					Function:  vn.Ident,
+					TypeArgs:  typeArgs,
+					Arguments: args,
+					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+					ArgSpans:  argSpans,
+				}
+			} else {
+				base = ast.FunctionCallNode{
+					Callee:    base,
+					TypeArgs:  typeArgs,
+					Arguments: args,
+					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+					ArgSpans:  argSpans,
+				}
+			}
+			continue
+		}
+		if p.current().Type == ast.TokenLBracket {
+			prev := base
+			base = p.parseIndexSuffixChain(base, depth)
+			if base != prev {
+				continue
+			}
+		}
 		if p.current().Type == ast.TokenLParen {
 			lparen := p.current()
 			p.advance()
@@ -297,6 +327,64 @@ func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast
 		}
 	}
 	return base
+}
+
+// tryParseGenericTypeArgSuffix parses [T, ...] when followed by ( as explicit generic instantiation.
+func (p *Parser) tryParseGenericTypeArgSuffix() ([]ast.TypeNode, bool) {
+	if p.current().Type != ast.TokenLBracket {
+		return nil, false
+	}
+	if !p.tokenCanStartTypeArg(1) {
+		return nil, false
+	}
+	saved := p.currentIndex
+	p.advance()
+	typeArgs, ok := p.tryParseTypeArgList()
+	if !ok || p.current().Type != ast.TokenRBracket {
+		p.currentIndex = saved
+		return nil, false
+	}
+	p.advance()
+	if p.current().Type != ast.TokenLParen {
+		p.currentIndex = saved
+		return nil, false
+	}
+	return typeArgs, true
+}
+
+func (p *Parser) tokenCanStartTypeArg(offset int) bool {
+	switch p.peekTypeAt(offset) {
+	case ast.TokenStar, ast.TokenArray, ast.TokenLBrace, ast.TokenString, ast.TokenInt, ast.TokenFloat,
+		ast.TokenBool, ast.TokenVoid, ast.TokenMap, ast.TokenFunc, ast.TokenLBracket, ast.TokenIdentifier,
+		ast.TokenChan:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Parser) peekTypeAt(offset int) ast.TokenIdent {
+	idx := p.currentIndex + offset
+	if idx < 0 || idx >= len(p.tokens) {
+		return ast.TokenEOF
+	}
+	return p.tokens[idx].Type
+}
+
+func (p *Parser) tryParseTypeArgList() ([]ast.TypeNode, bool) {
+	if p.current().Type == ast.TokenRBracket || !p.tokenCanStartTypeArg(0) {
+		return nil, false
+	}
+	first := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+	out := []ast.TypeNode{first}
+	for p.current().Type == ast.TokenComma {
+		p.advance()
+		if !p.tokenCanStartTypeArg(0) {
+			return nil, false
+		}
+		out = append(out, p.parseType(TypeIdentOpts{AllowLowercaseTypes: true}))
+	}
+	return out, true
 }
 
 // parseIdentifierPrimary parses call, typed shape literal, or variable; caller must be positioned

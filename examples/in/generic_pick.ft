@@ -1,0 +1,12 @@
+package main
+
+// Generic function with two independent type parameters.
+// Golden output: ../out/generic_pick.go
+func pick[T any, U any](a T, b U): T {
+	return a
+}
+
+func main() {
+	n := pick(1, "x")
+	println(string(n))
+}

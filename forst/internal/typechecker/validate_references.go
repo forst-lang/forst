@@ -36,6 +36,9 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 	}
 
 	for _, sig := range tc.Functions {
+		if err := tc.validateFunctionTypeParamConstraints(sig); err != nil {
+			return err
+		}
 		fnName := string(sig.Ident.ID)
 		for _, p := range sig.Parameters {
 			ctx := fmt.Sprintf("function %s parameter %q", fnName, p.GetIdent())
@@ -147,13 +150,18 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 			}
 			return nil
 		}
-		// Structural hash idents may only be registered during inference; skip until infer has run.
+		if t.IsTypeParam() {
+			return nil
+		}
 		if strings.HasPrefix(string(t.Ident), "T_") {
 			return nil
 		}
 		def, ok := tc.Defs[t.Ident]
 		if !ok {
 			return fmt.Errorf("%s: unknown type %q", ctx, t.Ident)
+		}
+		if tn, ok := def.(ast.TypeNode); ok && (tn.IsTypeParam() || tn.TypeKind == ast.TypeKindUserDefined) {
+			return nil
 		}
 		if _, ok := def.(ast.TypeDefNode); !ok {
 			return fmt.Errorf("%s: %q is not a type name", ctx, t.Ident)

@@ -70,3 +70,26 @@ func TestResolveShapeFieldsFromAssertion_constraintParamMapping(t *testing.T) {
 		t.Fatalf("expected ctx base type TYPE_STRING, got %q", *field.Assertion.BaseType)
 	}
 }
+
+func TestResolveShapeFieldsFromAssertion_matchInlineShape(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+
+	matchShape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"value": {Type: &ast.TypeNode{Ident: "T"}},
+		},
+	}
+	baseType := ast.TypeIdent(ast.TypeShape)
+	got := tc.resolveShapeFieldsFromAssertion(&ast.AssertionNode{
+		BaseType: &baseType,
+		Constraints: []ast.ConstraintNode{{
+			Name: ConstraintMatch,
+			Args: []ast.ConstraintArgumentNode{{Shape: &matchShape}},
+		}},
+	})
+	field, ok := got["value"]
+	if !ok || field.Type == nil || field.Type.Ident != "T" {
+		t.Fatalf("expected value:T field from Match constraint, got %+v", got)
+	}
+}

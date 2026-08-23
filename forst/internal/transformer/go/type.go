@@ -147,6 +147,9 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	case ast.TypeFunc:
 		return t.transformFunctionType(n)
 	default:
+		if n.IsTypeParam() {
+			return goast.NewIdent(string(n.Ident)), nil
+		}
 		if sel, ok := t.transformGoImportQualifiedType(n.Ident); ok {
 			return sel, nil
 		}

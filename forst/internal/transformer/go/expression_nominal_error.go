@@ -24,7 +24,7 @@ func (t *Transformer) transformNominalErrorConstructorCall(e ast.FunctionCallNod
 		return nil, true, fmt.Errorf("%s(...) argument must be a shape literal", e.Function.ID)
 	}
 	expected := &ast.TypeNode{Ident: def.Ident}
-	lit, err := t.transformShapeNodeWithExpectedType(&shape, expected)
+	lit, err := t.transformShapeNodeWithExpectedType(&shape, expected, nil)
 	if err != nil {
 		return nil, true, err
 	}

@@ -166,52 +166,19 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 		return
 	}
 
-	// Store function signature
-	params := make([]ParameterSignature, len(fn.Params))
+	sig := normalizeGenericSignature(fn)
+	tc.Functions[fn.Ident.ID] = sig
+
 	for i, param := range fn.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			params[i] = ParameterSignature{
-				Ident:    p.Ident,
-				Type:     p.Type,
-				Variadic: p.Variadic,
-			}
-		case ast.DestructuredParamNode:
-			params[i] = ParameterSignature{
-				Ident: ast.Ident{ID: ast.Identifier(p.GetIdent())},
-				Type:  p.Type,
-			}
-		}
-	}
-
-	// Ensure return types have correct TypeKind
-	processedReturnTypes := make([]ast.TypeNode, len(fn.ReturnTypes))
-	for i, returnType := range fn.ReturnTypes {
-		// For user-defined types, ensure they're marked as user-defined
-		if returnType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(returnType.Ident) {
-			processedReturnTypes[i] = ensureUserDefinedType(returnType)
-		} else {
-			processedReturnTypes[i] = returnType
-		}
-	}
-
-	tc.Functions[fn.Ident.ID] = FunctionSignature{
-		Ident:       fn.Ident,
-		Parameters:  params,
-		ReturnTypes: processedReturnTypes,
-	}
-
-	// Store parameter symbols
-	for _, param := range fn.Params {
-		switch p := param.(type) {
-		case ast.SimpleParamNode:
-			paramType := p.Type
+			paramType := sig.Parameters[i].Type
 			if p.Variadic {
-				paramType = ast.NewArrayType(p.Type)
+				paramType = ast.NewArrayType(paramType)
 			}
 			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{paramType}, SymbolParameter)
 		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
+			tc.registerDestructuredParamSymbols(p.Fields, sig.Parameters[i].Type, SymbolParameter)
 		}
 	}
 }

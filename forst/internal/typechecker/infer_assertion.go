@@ -418,7 +418,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 	typeIdent := hash.ToTypeIdent()
 
 	// Register the hash-based type and its fields
-	RegisterHashBasedType(tc, typeIdent, mergedFields)
+	RegisterHashBasedType(tc, typeIdent, tc.markGenericTypeParamShapeFields(mergedFields))
 
 	// Robust named type preservation: If BaseType is a named type and compatible, use it
 	if assertion.BaseType != nil && !strings.HasPrefix(string(*assertion.BaseType), "T_") {

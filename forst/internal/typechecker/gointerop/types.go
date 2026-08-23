@@ -14,6 +14,8 @@ type FuncCall struct {
 	Call            ast.FunctionCallNode
 	ArgTypes        [][]ast.TypeNode
 	WantSingleValue bool
+	// RequireExported rejects unexported symbols (imported packages). Same-package calls leave this false.
+	RequireExported bool
 }
 
 // SignatureCheck validates arguments and maps results for a Go function/method signature.

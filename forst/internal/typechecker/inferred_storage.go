@@ -10,16 +10,7 @@ import (
 
 // storeInferredType associates inferred types with an AST node using its structural hash.
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
-	// Ensure types have correct TypeKind
-	processedTypes := make([]ast.TypeNode, len(types))
-	for i, typ := range types {
-		// For user-defined types, ensure they're marked as user-defined
-		if !typ.IsHashBased() && !typ.IsGoBuiltin() && !tc.isBuiltinType(typ.Ident) {
-			processedTypes[i] = ensureUserDefinedType(typ)
-		} else {
-			processedTypes[i] = typ
-		}
-	}
+	processedTypes := tc.normalizeTypesForStorage(types)
 
 	if vn, ok := node.(ast.VariableNode); ok && vn.Ident.Span.IsSet() {
 		k := variableOccurrenceKey{ident: vn.Ident.ID, span: vn.Ident.Span}
@@ -57,13 +48,7 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 	resolvedReturnTypes := make([]ast.TypeNode, len(returnTypes))
 	for i, returnType := range returnTypes {
 		resolvedType := tc.resolveAliasedType(returnType)
-
-		// Ensure user-defined types have the correct TypeKind
-		if resolvedType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(resolvedType.Ident) {
-			resolvedReturnTypes[i] = ensureUserDefinedType(resolvedType)
-		} else {
-			resolvedReturnTypes[i] = resolvedType
-		}
+		resolvedReturnTypes[i] = tc.normalizeTypeForStorage(resolvedType)
 	}
 	if IsVoidReturnTypes(resolvedReturnTypes) {
 		resolvedReturnTypes = nil

@@ -55,7 +55,7 @@ func (tc *TypeChecker) resolveShapeFieldsFromAssertion(assertion *ast.AssertionN
 	for i, constraint := range assertion.Constraints {
 		tc.log.Debugf("[resolveShapeFieldsFromAssertion] Processing constraint %d: %s with args: %+v", i, constraint.Name, constraint.Args)
 
-		if constraint.Name == "Shape" {
+		if constraint.Name == ConstraintMatch || constraint.Name == "Shape" {
 			for _, arg := range constraint.Args {
 				if arg.Shape != nil {
 					for k, v := range arg.Shape.Fields {

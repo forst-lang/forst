@@ -31,16 +31,28 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 		}
 		return nil, diag(sp, "go-call", "%s is not a function", qual)
 	}
+	if c.RequireExported && !fn.Exported() {
+		sp := c.Call.Function.Span
+		if !sp.IsSet() {
+			sp = c.Call.CallSpan
+		}
+		return nil, diag(sp, "go-call", "%s is not exported", qual)
+	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return nil, diag(c.Call.CallSpan, "go-call", "%s: invalid signature", qual)
 	}
 	if sig.TypeParams() != nil && sig.TypeParams().Len() > 0 {
-		sp := c.Call.Function.Span
-		if !sp.IsSet() {
-			sp = c.Call.CallSpan
+		argGoTypes := GoTypesFromForstArgs(host, c.ArgTypes)
+		instSig, err := InstantiateFuncSignature(fn, argGoTypes)
+		if err != nil {
+			sp := c.Call.Function.Span
+			if !sp.IsSet() {
+				sp = c.Call.CallSpan
+			}
+			return nil, diag(sp, "go-call", "%s: generic Go API: %v", qual, err)
 		}
-		return nil, diag(sp, "go-call", "%s: generic Go API requires type arguments (not yet supported)", qual)
+		sig = instSig
 	}
 	return CheckSignature(host, diag, SignatureCheck{
 		Sig:             sig,

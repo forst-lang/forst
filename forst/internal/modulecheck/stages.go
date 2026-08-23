@@ -175,6 +175,7 @@ func (s *ModuleScan) LoadGoPackages() error {
 		s.log.WithError(err).Debug("module-wide go/packages batch load failed; Forst↔Go boundary checks may be skipped")
 	}
 	for _, tc := range tcs {
+		tc.RecordUnloadedGoImportPaths(loaded, err)
 		tc.InitGoPackagesFromBatch(loaded)
 	}
 	return nil

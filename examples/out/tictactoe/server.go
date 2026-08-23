@@ -45,11 +45,11 @@ type T_PNXTj8VxMub struct {
 
 func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	if !G_cADKLRyByvZ(req.State) {
-		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
 	}
 	playing := req.State.Status == "playing"
 	if !playing {
-		return MoveResponse{State: GameState{Status: "", Cells: nil, NextPlayer: ""}, Message: ""}, invalidMove("game already finished")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("game already finished")
 	}
 	row := req.Row
 	if row <= -1 {
@@ -60,10 +60,10 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	}
 	col := req.Col
 	if col <= -1 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be >= 0")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
+		return MoveResponse{Message: "", State: GameState{Status: "", Cells: nil, NextPlayer: ""}}, invalidMove("col must be <= 2")
 	}
 	idx := cellIndex(row, col)
 	cellEmpty := req.State.Cells[idx] == ""

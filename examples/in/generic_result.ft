@@ -1,0 +1,17 @@
+package main
+
+// Generic function with Result(T, Error) parameter; inference from call site.
+// Golden output: ../out/generic_result.go
+func one() {
+	n := 1
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func accept[T any](r Result(T, Error)): Bool {
+	return true
+}
+
+func main() {
+	println(accept(one()))
+}
