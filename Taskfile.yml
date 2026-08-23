@@ -374,6 +374,18 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_variadic.ft
 
+  example:generic-shape:
+    desc: Compile user generic shape example (golden examples/out/generic_shape.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_shape.ft
+
+  example:generic-result:
+    desc: Compile user generic Result param example (golden examples/out/generic_result.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_result.ft
+
   example:function:
     desc: Compile function example
     dir: forst

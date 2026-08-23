@@ -16,7 +16,7 @@ func (t *Transformer) transformEnsureErrorFallback(errorNode ast.EnsureErrorNode
 				if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
 					if shape, ok := e.ErrorArgs[0].(ast.ShapeNode); ok {
 						expected := &ast.TypeNode{Ident: def.Ident}
-						return t.transformShapeNodeWithExpectedType(&shape, expected)
+						return t.transformShapeNodeWithExpectedType(&shape, expected, nil)
 					}
 				}
 			}

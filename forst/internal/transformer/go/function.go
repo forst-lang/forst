@@ -8,13 +8,13 @@ import (
 	goast "go/ast"
 )
 
-func (t *Transformer) transformFunctionParamField(paramName string, paramType ast.TypeNode, variadic bool) (*goast.Field, error) {
+func (t *Transformer) transformFunctionParamFields(fnIdent ast.Identifier, paramIndex int, paramName string, paramType ast.TypeNode, variadic bool) ([]*goast.Field, error) {
 	if ast.IsTestingTParamType(paramType) || typechecker.IsGoTypesTestingT(t.TypeChecker.GoTypeForVariable(ast.Identifier(paramName))) {
 		t.Output.EnsureImport("testing")
-		return &goast.Field{
+		return []*goast.Field{{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
 			Type:  testingTGoTypeExpr(),
-		}, nil
+		}}, nil
 	}
 
 	var inferredTypes []ast.TypeNode
@@ -29,10 +29,10 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 				if err != nil {
 					return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
 				}
-				return &goast.Field{
+				return []*goast.Field{{
 					Names: []*goast.Ident{goast.NewIdent(paramName)},
 					Type:  goast.NewIdent(name),
-				}, nil
+				}}, nil
 			}
 		}
 		inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false, "", nil)
@@ -47,6 +47,34 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 		return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
 	}
 
+	if len(inferredTypes) == 1 && inferredTypes[0].IsResultType() {
+		fields, err := t.transformTypes(inferredTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform Result type for parameter %s: %w", paramName, err)
+		}
+		out := make([]*goast.Field, 0, len(fields.List))
+		for i, f := range fields.List {
+			field := *f
+			if i == 0 && paramName != "" {
+				field.Names = []*goast.Ident{goast.NewIdent(paramName)}
+			} else if i == 1 {
+				field.Names = []*goast.Ident{goast.NewIdent("_")}
+			}
+			out = append(out, &field)
+		}
+		return out, nil
+	}
+
+	if inlineType, ok, err := t.tryInlineGenericShapeParamType(fnIdent, paramType); err != nil {
+		return nil, err
+	} else if ok {
+		t.markInlineGenericShapeParam(fnIdent, paramIndex)
+		return []*goast.Field{{
+			Names: []*goast.Ident{goast.NewIdent(paramName)},
+			Type:  inlineType,
+		}}, nil
+	}
+
 	typeExpr, err := t.transformType(inferredTypes[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform type for parameter %s: %w", paramName, err)
@@ -59,7 +87,7 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 	if paramName != "" {
 		field.Names = []*goast.Ident{goast.NewIdent(paramName)}
 	}
-	return field, nil
+	return []*goast.Field{field}, nil
 }
 
 func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []ast.ParamNode) (*goast.FieldList, error) {
@@ -82,11 +110,11 @@ func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []a
 				paramType = sig.Parameters[i].Type
 			}
 			t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, p.Ident.ID, paramType.Ident)
-			field, err := t.transformFunctionParamField(string(p.Ident.ID), paramType, p.Variadic)
+			paramFields, err := t.transformFunctionParamFields(fnIdent, i, string(p.Ident.ID), paramType, p.Variadic)
 			if err != nil {
 				return nil, err
 			}
-			fields.List = append(fields.List, field)
+			fields.List = append(fields.List, paramFields...)
 		case ast.DestructuredParamNode:
 			shapeFields, ok := t.TypeChecker.ShapeFieldsFromParamType(p.Type)
 			if !ok {
@@ -102,11 +130,11 @@ func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []a
 					return nil, fmt.Errorf("destructured field %s has no type", fieldName)
 				}
 				t.log.Debugf("transformFunctionParams: destructured field %s has type %q", fieldName, fieldType.Ident)
-				field, err := t.transformFunctionParamField(fieldName, fieldType, false)
+				paramFields, err := t.transformFunctionParamFields(fnIdent, i, fieldName, fieldType, false)
 				if err != nil {
 					return nil, err
 				}
-				fields.List = append(fields.List, field)
+				fields.List = append(fields.List, paramFields...)
 			}
 		default:
 			return nil, fmt.Errorf("unsupported parameter type %T", param)

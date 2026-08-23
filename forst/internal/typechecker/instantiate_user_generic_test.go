@@ -209,6 +209,40 @@ func main() {
 			fileID: "generic_variadic.ft",
 		},
 		{
+			name: "genericShapeFieldAccess",
+			src: `package main
+
+func getValue[T any](b { value: T }): T {
+	return b.value
+}
+
+func main() {
+	println(string(getValue({ value: 42 })))
+}
+`,
+			fileID: "generic_shape.ft",
+		},
+		{
+			name: "genericResultParam",
+			src: `package main
+
+func one() {
+	n := 1
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func accept[T any](r Result(T, Error)): Bool {
+	return true
+}
+
+func main() {
+	println(accept(one()))
+}
+`,
+			fileID: "generic_result.ft",
+		},
+		{
 			name: "unboundTypeParamHint",
 			src: `package main
 

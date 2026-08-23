@@ -37,6 +37,52 @@ func TestPrintParam_destructured(t *testing.T) {
 	}
 }
 
+func TestPrintParam_variadic(t *testing.T) {
+	t.Parallel()
+	var p printer
+	p.cfg = DefaultConfig()
+	got, err := p.printParam(ast.SimpleParamNode{
+		Ident:    ast.Ident{ID: ast.Identifier("xs")},
+		Type:     ast.NewTypeParamType("T"),
+		Variadic: true,
+	})
+	if err != nil || got != "xs ...T" {
+		t.Fatalf("variadic: %q err=%v", got, err)
+	}
+}
+
+func TestFormatSource_genericVariadicParam_idempotent(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func ignore[T any](xs ...T): Bool {
+	return true
+}
+
+func main() {
+	println(ignore(1, 2, 3))
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "generic_variadic.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if !strings.Contains(out, "xs ...T") {
+		t.Fatalf("expected variadic param preserved, got:\n%s", out)
+	}
+	if strings.Contains(out, "xs T") && !strings.Contains(out, "xs ...T") {
+		t.Fatalf("fmt stripped variadic ellipsis:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "generic_variadic.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "generic_variadic.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
 func TestFormatSource_functionParams_goStyleNoColonBeforeType(t *testing.T) {
 	t.Parallel()
 	const src = `package main

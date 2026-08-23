@@ -194,7 +194,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"expectedType": expectedType.Ident,
 							}).Debug("[PINPOINT] Wrapping shape (robust) in named struct")
 						}
-						expr, err := t.transformShapeNodeWithExpectedType(shapeNode, expectedType)
+						expr, err := t.transformShapeNodeWithExpectedType(shapeNode, expectedType, nil)
 						if err != nil {
 							return nil, fmt.Errorf("transformReturnStatement: failed to transform shape node: %w", err)
 						}
@@ -290,7 +290,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"isHashBased":  expectedTypeForShape != nil && expectedTypeForShape.IsHashBased(),
 							}).Debug("[PINPOINT] Processing struct literal in return statement")
 						}
-						valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, useType)
+						valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, useType, nil)
 						if err != nil {
 							return nil, err
 						}
@@ -469,7 +469,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					VariableName: vn.Ident.String(),
 				}
 				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
-				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
+				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape, context)
 				if err != nil {
 					return nil, err
 				}
@@ -627,7 +627,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				if vn, vok := s.LValues[0].(ast.VariableNode); vok {
 					varName = vn.Ident.String()
 				}
-				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}))
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}), nil)
 				if err != nil {
 					return nil, err
 				}

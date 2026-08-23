@@ -337,7 +337,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		context := &ShapeContext{}
 		expectedType := t.getExpectedTypeForShape(&e, context)
 		// Always use the unified aliasing logic for shape literals
-		return t.transformShapeNodeWithExpectedType(&e, expectedType)
+		return t.transformShapeNodeWithExpectedType(&e, expectedType, nil)
 
 	case ast.OkExprNode, ast.ErrExprNode:
 		return nil, fmt.Errorf("Ok(...) and Err(...) are lowered in return statements only (not as a value expression)")
@@ -373,7 +373,7 @@ func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArra
 	for _, item := range e.Value {
 		var ex goast.Expr
 		if shapeNode, ok := item.(ast.ShapeNode); ok {
-			ex, err = t.transformShapeNodeWithExpectedType(&shapeNode, &elemType)
+			ex, err = t.transformShapeNodeWithExpectedType(&shapeNode, &elemType, nil)
 		} else {
 			ex, err = t.transformExpression(item)
 		}

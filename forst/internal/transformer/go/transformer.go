@@ -54,6 +54,9 @@ type Transformer struct {
 	// currentFnProvidersSlots is the slot set for the active function (for pass-through lowering).
 	currentFnProvidersSlots []typechecker.ProviderSlot
 
+	// inlineGenericShapeParams records function parameters lowered as inline struct{ ... T } (generic shape params).
+	inlineGenericShapeParams map[ast.Identifier]map[int]struct{}
+
 	// OmitPackageTypeDefs skips emitting package types when a lib shim already defines them.
 	OmitPackageTypeDefs bool
 	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
@@ -82,8 +85,9 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		TypeChecker:          tc,
 		Output:               &TransformerOutput{},
 		log:                  log,
-		functionsWithEnsure:  make(map[string]bool),
-		providersStructByKey: make(map[string]string),
+		functionsWithEnsure:        make(map[string]bool),
+		providersStructByKey:       make(map[string]string),
+		inlineGenericShapeParams:   make(map[ast.Identifier]map[int]struct{}),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {
@@ -117,6 +121,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			def := t.TypeChecker.Defs[name]
 			switch def := def.(type) {
 			case ast.TypeDefNode:
+				if t.shapeTypeDefUsesGenericTypeParams(def) {
+					continue
+				}
 				t.log.WithFields(logrus.Fields{
 					"typeDef":  def.GetIdent(),
 					"function": "TransformForstFileToGo",
@@ -530,6 +537,14 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def an
 			"function":  "emitTypeAndReferencedTypes",
 			"typeIdent": typeIdent,
 		}).Debug("[DEBUG] Type already emitted, skipping")
+		return nil
+	}
+
+	if typeDef, ok := def.(ast.TypeDefNode); ok && t.shapeTypeDefUsesGenericTypeParams(typeDef) {
+		t.log.WithFields(logrus.Fields{
+			"function":  "emitTypeAndReferencedTypes",
+			"typeIdent": typeIdent,
+		}).Debug("[DEBUG] Skipping generic shape type def emission (lowered inline at use sites)")
 		return nil
 	}
 

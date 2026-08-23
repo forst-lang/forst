@@ -29,6 +29,8 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"generic_map.ft",
 		"generic_pointer.ft",
 		"generic_variadic.ft",
+		"generic_shape.ft",
+		"generic_result.ft",
 		"go_builtins.ft",
 		"slices.ft",
 		"go_interop/cli.ft",

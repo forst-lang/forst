@@ -482,7 +482,15 @@ func (p *printer) printTypeGuard(tg ast.TypeGuardNode) (string, error) {
 func (p *printer) printParam(param ast.ParamNode) (string, error) {
 	switch x := param.(type) {
 	case ast.SimpleParamNode:
-		return string(x.Ident.ID) + " " + printType(x.Type), nil
+		var b strings.Builder
+		b.WriteString(string(x.Ident.ID))
+		if x.Variadic {
+			b.WriteString(" ...")
+		} else {
+			b.WriteByte(' ')
+		}
+		b.WriteString(printType(x.Type))
+		return b.String(), nil
 	case ast.DestructuredParamNode:
 		var b strings.Builder
 		b.WriteByte('{')

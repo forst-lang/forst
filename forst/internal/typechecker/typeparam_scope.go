@@ -122,6 +122,31 @@ func normalizeTypesWithTypeParams(t ast.TypeNode, params typeParamSet) ast.TypeN
 	return out
 }
 
+func (tc *TypeChecker) IsDeclaredGenericTypeParam(id ast.TypeIdent) bool {
+	for _, sig := range tc.Functions {
+		if sig.TypeParamNames.contains(id) {
+			return true
+		}
+	}
+	return false
+}
+
+func (tc *TypeChecker) markGenericTypeParamShapeFields(fields map[string]ast.ShapeFieldNode) map[string]ast.ShapeFieldNode {
+	if len(fields) == 0 {
+		return fields
+	}
+	out := make(map[string]ast.ShapeFieldNode, len(fields))
+	for name, field := range fields {
+		sf := field
+		if field.Type != nil && !field.Type.IsTypeParam() && tc.IsDeclaredGenericTypeParam(field.Type.Ident) {
+			tn := ast.NewTypeParamType(field.Type.Ident)
+			sf.Type = &tn
+		}
+		out[name] = sf
+	}
+	return out
+}
+
 func normalizeGenericSignature(fn ast.FunctionNode) FunctionSignature {
 	tpSet := newTypeParamSet(fn.TypeParams)
 	params := make([]ParameterSignature, len(fn.Params))

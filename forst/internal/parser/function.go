@@ -15,7 +15,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 		}
 		return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 	}
-	if p.peek().Type == ast.TokenLParen {
+	if p.current().Type == ast.TokenLParen {
 		assertion := p.parseAssertionChain(true)
 		return ast.TypeNode{
 			Ident:     ast.TypeAssertion,
@@ -114,18 +114,6 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 			Variadic: variadic,
 		}
 	}
-	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLParen {
-		assertion := p.parseAssertionChain(true)
-		return ast.SimpleParamNode{
-			Ident: ident,
-			Type: ast.TypeNode{
-				Ident:     ast.TypeAssertion,
-				Assertion: &assertion,
-			},
-			Variadic: variadic,
-		}
-	}
-
 	if tok.Type == ast.TokenIdentifier && tok.Value == "Shape" {
 		// Check if this is Shape({...})
 		if p.peek().Type == ast.TokenLParen {

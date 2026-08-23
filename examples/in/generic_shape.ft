@@ -1,0 +1,11 @@
+package main
+
+// Generic function with inline shape parameter; field access in body.
+// Golden output: ../out/generic_shape.go
+func getValue[T any](b { value: T }): T {
+	return b.value
+}
+
+func main() {
+	println(string(getValue({ value: 42 })))
+}
