@@ -2,6 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "ft",
   "scopeName": "source.forst",
+  "fileTypes": [
+    "ft"
+  ],
   "patterns": [
     {
       "include": "#comments"
@@ -29,6 +32,9 @@
     },
     {
       "include": "#nominal-error-decl"
+    },
+    {
+      "include": "#nominal-error-use"
     },
     {
       "include": "#function-call"
@@ -212,6 +218,15 @@
         }
       }
     },
+    "nominal-error-use": {
+      "comment": "ensure … or ErrorName( — constructor at failure site",
+      "match": "\\bor\\s+([A-Za-z_][\\w]*)\\s*(?=\\()",
+      "captures": {
+        "1": {
+          "name": "entity.name.type.error.forst"
+        }
+      }
+    },
     "function-call": {
       "patterns": [
         {
@@ -305,8 +320,5 @@
       "match": "(==|!=|>=|<=|&&|\\|\\||:=|\\+\\+|--|->|[+\\-*/%&|^!~<>=?:;,.\\(\\)\\[\\]{}])",
       "name": "keyword.operator"
     }
-  },
-  "fileTypes": [
-    "ft"
-  ]
+  }
 }

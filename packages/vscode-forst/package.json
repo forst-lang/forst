@@ -48,9 +48,12 @@
               }
             },
             {
-              "scope": "entity.name.type.error.forst",
+              "scope": [
+                "entity.name.type.error.forst",
+                "entity.name.type.error"
+              ],
               "settings": {
-                "foreground": "#F44747"
+                "foreground": "#F29595"
               }
             }
           ]
