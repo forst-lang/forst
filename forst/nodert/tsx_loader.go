@@ -1,7 +1,6 @@
 package nodert
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -34,5 +33,5 @@ func ResolveTsxLoaderPath(startDirs ...string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("node runtime: tsx loader not found (install tsx in the project or monorepo root)")
+	return "", bridgeRuntimeErr("tsx loader not found (install tsx in the project or monorepo root)")
 }

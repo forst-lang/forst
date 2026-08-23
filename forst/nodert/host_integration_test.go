@@ -64,9 +64,9 @@ func TestHostMode_hostNotStarted_timesOut(t *testing.T) {
 	manifest := hostCounterManifest(root)
 
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
-	t.Setenv(envNodeSocket, shortHostSocketPath(t))
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
+	t.Setenv(envBridgeSocket, shortHostSocketPath(t))
 
 	hostAutoRegister := false
 	writeHostFtconfig(t, root, []string{"app/server.mjs"}, 1, &hostAutoRegister)
@@ -160,7 +160,7 @@ func setupRemixServeIntegrationRoot(t *testing.T) string {
 	if _, err := os.Stat(filepath.Join(root, "node_modules", ".bin", "remix-serve")); err != nil {
 		t.Skipf("remix-serve example deps not installed (bun install in example dir): %v", err)
 	}
-	t.Setenv(envNodeSocket, shortHostSocketPath(t))
+	t.Setenv(envBridgeSocket, shortHostSocketPath(t))
 	t.Setenv("HOST", "127.0.0.1")
 	t.Cleanup(func() {
 		_ = os.RemoveAll(filepath.Join(root, ".forst"))
@@ -216,8 +216,13 @@ export function inc(): number {
 	}
 
 	linkTsxFromRepo(t, root)
+<<<<<<< Updated upstream:forst/nodert/host_integration_test.go
 	linkNodeRuntimeFromRepo(t, root)
 	t.Setenv(envNodeSocket, shortHostSocketPath(t))
+=======
+	linkBridgeRuntimeFromRepo(t, root)
+	t.Setenv(envBridgeSocket, shortHostSocketPath(t))
+>>>>>>> Stashed changes:forst/bridgert/host_integration_test.go
 
 	writeHostFtconfig(t, root, []string{"app/server.mjs"}, 30)
 	return root, hostJS
@@ -295,8 +300,8 @@ func runHostCounterRPC(t *testing.T, _ string, manifest Manifest, firstWant, sec
 
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {
@@ -332,8 +337,8 @@ func runHostEditCountRPC(t *testing.T, _ string, manifest Manifest, firstWant, s
 
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {

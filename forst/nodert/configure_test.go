@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-func TestResolveNodeBinary_envOverridesFtconfig(t *testing.T) {
+func TestResolveBridgeBinary_envOverridesFtconfig(t *testing.T) {
 	root := t.TempDir()
 	custom := filepath.Join(root, "custom-node")
 	if err := os.WriteFile(custom, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(envNodeBinary, custom)
-	got, err := ResolveNodeBinary(root, "from-config")
+	t.Setenv(envBridgeBinary, custom)
+	got, err := ResolveBridgeBinary(root, "from-config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,14 +28,14 @@ func TestResolveNodeBinary_envOverridesFtconfig(t *testing.T) {
 	}
 }
 
-func TestResolveNodeBinary_usesConfiguredWhenEnvUnset(t *testing.T) {
+func TestResolveBridgeBinary_usesConfiguredWhenEnvUnset(t *testing.T) {
 	root := t.TempDir()
 	nodePath := filepath.Join(root, "node-bin")
 	if err := os.WriteFile(nodePath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(envNodeBinary, "")
-	got, err := ResolveNodeBinary(root, nodePath)
+	t.Setenv(envBridgeBinary, "")
+	got, err := ResolveBridgeBinary(root, nodePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +59,13 @@ func TestResolveBootstrapPath_relativeToBoundaryRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
+<<<<<<< Updated upstream:forst/nodert/configure_test.go
 	t.Setenv(envNodeBootstrap, "")
 	got, err := ResolveBootstrapPath(root, "node_modules/@forst/node-runtime/dist/bootstrap.js")
+=======
+	t.Setenv(envBridgeBootstrap, "")
+	got, err := ResolveBootstrapPath(root, "node_modules/@forst/runtime/dist/bootstrap.js")
+>>>>>>> Stashed changes:forst/bridgert/configure_test.go
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +103,11 @@ func TestResolveBootstrapPath_envRelativeFallsBackToMonorepo(t *testing.T) {
 	if err := os.Chdir(sandbox); err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< Updated upstream:forst/nodert/configure_test.go
 	t.Setenv(envNodeBootstrap, "../packages/node-runtime/dist/bootstrap.js")
+=======
+	t.Setenv(envBridgeBootstrap, "../packages/runtime/dist/bootstrap.js")
+>>>>>>> Stashed changes:forst/bridgert/configure_test.go
 
 	got, err := ResolveBootstrapPath(boundary, "")
 	if err != nil {
@@ -114,13 +123,17 @@ func TestResolveBootstrapPath_envRelativeFallsBackToMonorepo(t *testing.T) {
 }
 
 func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
-	env := buildNodeChildEnv(ProcessOptions{
+	env := buildBridgeChildEnv(ProcessOptions{
 		BoundaryRoot: "/tmp/project",
 		FilesExclude: []string{"**/node_modules/**", "**/.git/**"},
 	})
 
 	assertEnvVar(t, env, "FORST_ROOT", "/tmp/project")
+<<<<<<< Updated upstream:forst/nodert/configure_test.go
 	assertEnvVar(t, env, "FORST_NODE_PROTOCOL", envNodeProtocolDefault)
+=======
+	assertEnvVar(t, env, "FORST_BRIDGE_PROTOCOL", envBridgeProtocolDefault)
+>>>>>>> Stashed changes:forst/bridgert/configure_test.go
 
 	raw := envValue(t, env, "FORST_FILES_EXCLUDE")
 	var patterns []string
@@ -133,7 +146,7 @@ func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 }
 
 func TestBuildNodeChildEnv_overridesExistingKeys(t *testing.T) {
-	env := buildNodeChildEnv(ProcessOptions{
+	env := buildBridgeChildEnv(ProcessOptions{
 		Env:          []string{"FORST_ROOT=old", "PATH=/bin"},
 		BoundaryRoot: "/new/root",
 	})
@@ -145,8 +158,13 @@ func TestBuildNodeChildEnv_hostAppReadyModulePreservesParentEnviron(t *testing.T
 	t.Setenv("PATH", "/usr/bin:/bin")
 	t.Setenv("HOME", "/tmp/home")
 
+<<<<<<< Updated upstream:forst/nodert/configure_test.go
 	env := buildNodeChildEnv(ProcessOptions{
 		Env: []string{"FORST_NODE_APP_READY_MODULE=/tmp/build/server/index.js"},
+=======
+	env := buildBridgeChildEnv(ProcessOptions{
+		Env: []string{"FORST_BRIDGE_APP_READY_MODULE=/tmp/build/server/index.js"},
+>>>>>>> Stashed changes:forst/bridgert/configure_test.go
 	})
 
 	assertEnvVar(t, env, "FORST_NODE_APP_READY_MODULE", "/tmp/build/server/index.js")
@@ -203,8 +221,8 @@ func TestConfigureFromManifest_usesBoundaryRootEnv(t *testing.T) {
 	manifestJSON := `{"version":1,"exports":[{"moduleId":"legacy/payment.ts","name":"create","kind":"function"}]}`
 
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	if err := configureFromManifest(manifestJSON); err != nil {
 		t.Fatal(err)
@@ -278,8 +296,8 @@ func TestConfigureFromManifest_discoversBoundaryRootWhenEmbeddedOmitsIt(t *testi
 	manifestJSON := `{"version":1,"exports":[{"moduleId":"legacy/payment.ts","name":"create","kind":"function"}]}`
 
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	if err := configureFromManifest(manifestJSON); err != nil {
 		t.Fatal(err)
@@ -357,8 +375,8 @@ func TestConfigureFromManifest_readsFtconfigNodeSection(t *testing.T) {
 	}
 
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	if err := configureFromManifest(string(manifestJSON)); err != nil {
 		t.Fatal(err)

@@ -44,7 +44,7 @@ type HostInvokeAuthRelay struct {
 func NewHostInvokeAuthRelay() (*HostInvokeAuthRelay, error) {
 	hostRead, hostWrite, err := os.Pipe()
 	if err != nil {
-		return nil, fmt.Errorf("node runtime: host invoke auth pipe: %w", err)
+		return nil, bridgeRuntimeErr("host invoke auth pipe: %w", err)
 	}
 	r := &HostInvokeAuthRelay{
 		hostRead:  hostRead,
@@ -73,12 +73,12 @@ func (r *HostInvokeAuthRelay) HostExtraFile() *os.File {
 // PrepareGoChild closes any prior go handoff pipe and returns the write end for a new child.
 func (r *HostInvokeAuthRelay) PrepareGoChild() (*os.File, error) {
 	if r == nil {
-		return nil, fmt.Errorf("node runtime: invoke auth relay is nil")
+		return nil, bridgeRuntimeErr("invoke auth relay is nil")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.closed {
-		return nil, fmt.Errorf("node runtime: invoke auth relay is closed")
+		return nil, bridgeRuntimeErr("invoke auth relay is closed")
 	}
 	if r.goRead != nil {
 		_ = r.goRead.Close()
@@ -90,7 +90,7 @@ func (r *HostInvokeAuthRelay) PrepareGoChild() (*os.File, error) {
 	}
 	goRead, goWrite, err := os.Pipe()
 	if err != nil {
-		return nil, fmt.Errorf("node runtime: go invoke auth pipe: %w", err)
+		return nil, bridgeRuntimeErr("go invoke auth pipe: %w", err)
 	}
 	r.goRead = goRead
 	r.goWrite = goWrite

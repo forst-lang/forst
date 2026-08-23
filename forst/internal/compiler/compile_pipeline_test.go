@@ -40,7 +40,11 @@ func TestRequireNoNode_ignoredWhenFlagUnset(t *testing.T) {
 
 func TestFormatNodeRuntimeLogLine_notRequired(t *testing.T) {
 	t.Parallel()
+<<<<<<< Updated upstream
 	if got := FormatNodeRuntimeLogLine(typechecker.New(nil, false)); got != "node runtime: not required" {
+=======
+	if got := FormatBridgeRuntimeLogLine(typechecker.New(nil, false)); got != "bridge runtime: not required" {
+>>>>>>> Stashed changes
 		t.Fatalf("got %q", got)
 	}
 }
@@ -58,8 +62,13 @@ func TestFormatNodeRuntimeLogLine_requiredWithModules(t *testing.T) {
 			},
 		},
 	})
+<<<<<<< Updated upstream
 	got := FormatNodeRuntimeLogLine(tc)
 	want := "node runtime: required (2 modules, 3 exports) — legacy/events.ts, legacy/payment.ts"
+=======
+	got := FormatBridgeRuntimeLogLine(tc)
+	want := "bridge runtime: required (2 modules, 3 exports) — legacy/events.ts, legacy/payment.ts"
+>>>>>>> Stashed changes
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -80,7 +89,7 @@ func TestLogNodeRuntimeRequirement_notRequiredUsesDebug(t *testing.T) {
 	if len(spy.info) != 0 {
 		t.Fatalf("info = %v, want none", spy.info)
 	}
-	if len(spy.debug) != 1 || spy.debug[0] != "node runtime: not required" {
+	if len(spy.debug) != 1 || spy.debug[0] != "bridge runtime: not required" {
 		t.Fatalf("debug = %v", spy.debug)
 	}
 }
@@ -94,7 +103,7 @@ func TestLogNodeRuntimeRequirement_requiredUsesInfo(t *testing.T) {
 	if len(spy.debug) != 0 {
 		t.Fatalf("debug = %v, want none", spy.debug)
 	}
-	if len(spy.info) != 1 || !strings.HasPrefix(spy.info[0], "node runtime: required") {
+	if len(spy.info) != 1 || !strings.HasPrefix(spy.info[0], "bridge runtime: required") {
 		t.Fatalf("info = %v", spy.info)
 	}
 }

@@ -6,26 +6,30 @@ import (
 	"fmt"
 )
 
-// Sentinel errors for node runtime client failures.
+// Sentinel errors for bridge runtime client failures.
 var (
+<<<<<<< Updated upstream:forst/nodert/errors.go
 	ErrNodeRuntimeDied    = errors.New("node runtime process exited")
+=======
+	ErrBridgeRuntimeDied  = errors.New("bridge runtime process exited")
+>>>>>>> Stashed changes:forst/bridgert/errors.go
 	ErrForbidden          = errors.New("forbidden: module or export not in manifest")
-	ErrNotInitialized     = errors.New("node runtime not initialized")
+	ErrNotInitialized     = errors.New("bridge runtime not initialized")
 	ErrInitializeRequired = errors.New("initialize required before rpc call")
 	ErrMethodNotFound     = errors.New("json-rpc method not found")
 	ErrCallAsyncNotReady  = errors.New("forst.node/callAsync not implemented")
-	ErrCallTimeout        = errors.New("node rpc call timed out")
+	ErrCallTimeout        = errors.New("bridge rpc call timed out")
 	ErrInvalidModuleID    = errors.New("invalid moduleId")
 )
 
-// JSON-RPC error codes used by the node runtime protocol.
+// JSON-RPC error codes used by the bridge runtime protocol.
 const (
 	ErrCodeServerError    = -32000
 	ErrCodeForbidden      = -32001
 	ErrCodeMethodNotFound = -32601
 )
 
-// RPCError is a JSON-RPC error returned by the node runtime.
+// RPCError is a JSON-RPC error returned by the bridge runtime.
 type RPCError struct {
 	Code    int
 	Message string

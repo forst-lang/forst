@@ -12,7 +12,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
-// SupervisorConfig configures the singleton node runtime supervisor.
+// SupervisorConfig configures the singleton bridge runtime supervisor.
 type SupervisorConfig struct {
 	HostMode           bool
 	HostSocketPath     string

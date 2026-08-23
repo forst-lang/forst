@@ -18,7 +18,7 @@ func TestIntegration_CallAsync_realBootstrap(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")
@@ -89,7 +89,7 @@ func TestIntegration_CallSync_realBootstrap(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")

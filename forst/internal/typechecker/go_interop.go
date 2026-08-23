@@ -672,3 +672,10 @@ func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName str
 	}
 	return sig
 }
+<<<<<<< Updated upstream
+=======
+
+
+
+
+>>>>>>> Stashed changes

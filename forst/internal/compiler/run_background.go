@@ -68,7 +68,11 @@ const reloadStopGrace = 1 * time.Second
 
 // ReloadStopGrace returns the SIGTERM grace for dev reload child stop.
 func ReloadStopGrace() time.Duration {
+<<<<<<< Updated upstream
 	if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+=======
+	if os.Getenv(bridgert.EnvBridgeAttachOnly) == "1" {
+>>>>>>> Stashed changes
 		return reloadStopGrace
 	}
 	return defaultGoProgramStopGrace

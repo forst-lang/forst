@@ -11,10 +11,10 @@ import (
 	"forst/internal/unixpath"
 )
 
-const nodeSocketTmpPrefix = "forst-bs-"
+const bridgeSocketTmpPrefix = "forst-bs-"
 
 func ensureUnixSocketPathLength(abs string) string {
-	return unixpath.EnsureLength(abs, nodeSocketTmpPrefix)
+	return unixpath.EnsureLength(abs, bridgeSocketTmpPrefix)
 }
 
 func readyPathForSocket(socketPath string) string {
@@ -68,6 +68,7 @@ func readyPathForSocket(socketPath string) string {
 //     live host is reachable, GetClient fails with an attach-only error instead
 //     of starting a second Vite process.
 const (
+<<<<<<< Updated upstream:forst/nodert/spawn.go
 	envNodeHost       = "FORST_NODE_HOST"
 	envNodeHostLeader = "FORST_NODE_HOST_LEADER"
 	envNodeSocket     = "FORST_NODE_SOCKET"
@@ -77,6 +78,17 @@ const (
 
 // EnvNodeAttachOnly is FORST_NODE_ATTACH_ONLY; see block comment above.
 const EnvNodeAttachOnly = envNodeAttachOnly
+=======
+	envBridgeHost       = "FORST_BRIDGE_HOST"
+	envBridgeHostLeader = "FORST_BRIDGE_HOST_LEADER"
+	envBridgeSocket     = "FORST_BRIDGE_SOCKET"
+	envBridgeHostReady  = "FORST_BRIDGE_HOST_READY"
+	envBridgeAttachOnly = "FORST_BRIDGE_ATTACH_ONLY"
+)
+
+// EnvBridgeAttachOnly is FORST_BRIDGE_ATTACH_ONLY; see block comment above.
+const EnvBridgeAttachOnly = envBridgeAttachOnly
+>>>>>>> Stashed changes:forst/bridgert/spawn.go
 
 // mergeNodeOptions appends import flags idempotently to existing NODE_OPTIONS.
 func mergeNodeOptions(existing string, additions ...string) string {
@@ -186,11 +198,17 @@ func setEnvDefault(env []string, key, value string) []string {
 	return setEnvVar(env, key, value)
 }
 
+<<<<<<< Updated upstream:forst/nodert/spawn.go
 // ResolveNodeBinary returns the Node or shim executable path.
 // Priority: FORST_NODE_BINARY env → configured → "node".
 func ResolveNodeBinary(boundaryRoot, configured string) (string, error) {
+=======
+// ResolveBridgeBinary returns the bridge host interpreter executable path.
+// Priority: FORST_BRIDGE_BINARY env → configured → "node".
+func ResolveBridgeBinary(boundaryRoot, configured string) (string, error) {
+>>>>>>> Stashed changes:forst/bridgert/spawn.go
 	candidate := configured
-	if path := os.Getenv(envNodeBinary); path != "" {
+	if path := os.Getenv(envBridgeBinary); path != "" {
 		candidate = path
 	}
 	if candidate == "" {
@@ -201,7 +219,7 @@ func ResolveNodeBinary(boundaryRoot, configured string) (string, error) {
 
 func resolveExecutablePath(boundaryRoot, candidate string) (string, error) {
 	if candidate == "" {
-		return "", fmt.Errorf("node runtime: executable path is empty")
+		return "", bridgeRuntimeErr("executable path is empty")
 	}
 
 	resolved := candidate
@@ -210,7 +228,7 @@ func resolveExecutablePath(boundaryRoot, candidate string) (string, error) {
 			var err error
 			boundaryRoot, err = os.Getwd()
 			if err != nil {
-				return "", fmt.Errorf("node runtime: getwd: %w", err)
+				return "", bridgeRuntimeErr("getwd: %w", err)
 			}
 		}
 		resolved = filepath.Join(boundaryRoot, resolved)
@@ -231,7 +249,7 @@ func resolveExecutablePath(boundaryRoot, candidate string) (string, error) {
 
 	abs, err := filepath.Abs(resolved)
 	if err != nil {
-		return "", fmt.Errorf("node runtime: resolve executable path: %w", err)
+		return "", bridgeRuntimeErr("resolve executable path: %w", err)
 	}
 	eval, err := filepath.EvalSymlinks(abs)
 	if err != nil {
@@ -239,10 +257,10 @@ func resolveExecutablePath(boundaryRoot, candidate string) (string, error) {
 	}
 	st, err := os.Stat(eval)
 	if err != nil {
-		return "", fmt.Errorf("node runtime: executable not found at %s: %w", eval, err)
+		return "", bridgeRuntimeErr("executable not found at %s: %w", eval, err)
 	}
 	if st.IsDir() {
-		return "", fmt.Errorf("node runtime: executable path is a directory: %s", eval)
+		return "", bridgeRuntimeErr("executable path is a directory: %s", eval)
 	}
 	return eval, nil
 }
@@ -258,7 +276,7 @@ func lookPathExecutable(name string) (string, error) {
 	}
 	st, err := os.Stat(path)
 	if err != nil || st.IsDir() {
-		return "", fmt.Errorf("node runtime: executable not found at %s", name)
+		return "", bridgeRuntimeErr("executable not found at %s", name)
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -273,10 +291,10 @@ func lookPathExecutable(name string) (string, error) {
 
 // ResolveHostSocketPath returns the absolute Unix socket path under boundaryRoot.
 func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, error) {
-	if path := strings.TrimSpace(os.Getenv(envNodeSocket)); path != "" {
+	if path := strings.TrimSpace(os.Getenv(envBridgeSocket)); path != "" {
 		abs, err := filepath.Abs(path)
 		if err != nil {
-			return "", "", fmt.Errorf("node runtime: resolve host socket: %w", err)
+			return "", "", bridgeRuntimeErr("resolve host socket: %w", err)
 		}
 		abs = ensureUnixSocketPathLength(abs)
 		return abs, readyPathForSocket(abs), nil
@@ -285,22 +303,22 @@ func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, err
 		configured = ".forst/node.sock"
 	}
 	if filepath.IsAbs(configured) {
-		return "", "", fmt.Errorf("node runtime: hostSocket must be relative to boundary root")
+		return "", "", bridgeHostErr("hostSocket must be relative to boundary root")
 	}
 	clean := filepath.Clean(configured)
 	if clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) || strings.Contains(clean, "..") {
-		return "", "", fmt.Errorf("node runtime: hostSocket escapes boundary: %q", configured)
+		return "", "", bridgeHostErr("hostSocket escapes boundary: %q", configured)
 	}
 	if boundaryRoot == "" {
 		var err error
 		boundaryRoot, err = os.Getwd()
 		if err != nil {
-			return "", "", fmt.Errorf("node runtime: getwd: %w", err)
+			return "", "", bridgeRuntimeErr("getwd: %w", err)
 		}
 	}
 	socketPath, err := filepath.Abs(filepath.Join(boundaryRoot, clean))
 	if err != nil {
-		return "", "", fmt.Errorf("node runtime: resolve host socket: %w", err)
+		return "", "", bridgeRuntimeErr("resolve host socket: %w", err)
 	}
 	socketPath = ensureUnixSocketPathLength(socketPath)
 	return socketPath, readyPathForSocket(socketPath), nil
@@ -316,22 +334,22 @@ func ResolveBootstrapSocketPath(boundaryRoot string) (string, string, error) {
 func PrepareHostSocket(socketPath, readyPath string) error {
 	if readyPath != "" {
 		if marker, ok := readHostReadyMarker(readyPath); ok && processAlive(marker.PID) {
-			return fmt.Errorf("node runtime: host already running (pid=%d, socket=%s)", marker.PID, socketPath)
+			return bridgeHostErr("host already running (pid=%d, socket=%s)", marker.PID, socketPath)
 		}
 	}
 	if socketPath != "" {
 		if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("node runtime: remove stale host socket: %w", err)
+			return bridgeHostErr("remove stale host socket: %w", err)
 		}
 	}
 	if readyPath != "" {
 		if err := os.Remove(readyPath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("node runtime: remove stale host ready file: %w", err)
+			return bridgeHostErr("remove stale host ready file: %w", err)
 		}
 	}
 	dir := filepath.Dir(socketPath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return fmt.Errorf("node runtime: create host socket dir: %w", err)
+		return bridgeHostErr("create host socket dir: %w", err)
 	}
 	return nil
 }
@@ -407,6 +425,7 @@ func sameResolvedExecutable(a, b string) bool {
 	return evalA == evalB
 }
 
+<<<<<<< Updated upstream:forst/nodert/spawn.go
 // hostSpawnExecutableAndArgs returns argv for host mode. --import flags are Node
 // flags; when ftconfig node.binary is a shim (e.g. remix-serve), spawn the real
 // node interpreter with the shim script as the first positional argument.
@@ -414,6 +433,16 @@ func hostSpawnExecutableAndArgs(boundaryRoot, shimExecutable string, shimArgs, i
 	nodeBin, err := ResolveNodeBinary(boundaryRoot, "node")
 	if err != nil {
 		return "", nil, err
+=======
+// hostSpawnExecutableAndArgs returns argv for host mode using the configured bridge interpreter.
+func hostSpawnExecutableAndArgs(boundaryRoot, interpreter, shimExecutable string, shimArgs, prefixArgs []string) (string, []string, error) {
+	if interpreter == "" {
+		var err error
+		interpreter, err = ResolveBridgeBinary(boundaryRoot, "node")
+		if err != nil {
+			return "", nil, err
+		}
+>>>>>>> Stashed changes:forst/bridgert/spawn.go
 	}
 	args := append([]string(nil), shimArgs...)
 	executable := shimExecutable
@@ -537,19 +566,19 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 		FilesExclude: in.FilesExclude,
 		Env:          in.Env,
 	}
-	env := buildNodeChildEnv(opts)
+	env := buildBridgeChildEnv(opts)
 	existing := lookupEnvValue(env, "NODE_OPTIONS")
 	merged := mergeNodeOptions(existing, in.NodeOptions...)
 	env = setEnvVar(env, "NODE_OPTIONS", merged)
 	if in.SocketPath != "" {
-		env = setEnvVar(env, envNodeSocket, in.SocketPath)
+		env = setEnvVar(env, envBridgeSocket, in.SocketPath)
 	}
 	if in.ReadyPath != "" {
-		env = setEnvVar(env, envNodeHostReady, in.ReadyPath)
+		env = setEnvVar(env, envBridgeHostReady, in.ReadyPath)
 	}
 	if in.HostMode {
-		env = setEnvVar(env, envNodeHost, "1")
-		env = setEnvVar(env, envNodeHostLeader, "1")
+		env = setEnvVar(env, envBridgeHost, "1")
+		env = setEnvVar(env, envBridgeHostLeader, "1")
 		env = setEnvDefault(env, "HOST", "127.0.0.1")
 		env = sanitizeHostChildEnv(env)
 		env = applyHostSpawnColorEnv(env)
@@ -560,9 +589,13 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 // BuildHostSpawnCommand builds argv/env for app shim spawn in host mode.
 func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 	if len(in.ShimArgs) == 0 {
+<<<<<<< Updated upstream:forst/nodert/spawn.go
 		return HostSpawnCommand{}, fmt.Errorf("node runtime: hostMode requires non-empty node.args")
+=======
+		return HostSpawnCommand{}, bridgeHostErr("hostMode requires non-empty bridge.args")
+>>>>>>> Stashed changes:forst/bridgert/spawn.go
 	}
-	shimExecutable, err := ResolveNodeBinary(in.BoundaryRoot, in.Executable)
+	shimExecutable, err := ResolveBridgeBinary(in.BoundaryRoot, in.Executable)
 	if err != nil {
 		return HostSpawnCommand{}, err
 	}
@@ -601,7 +634,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		importPaths = append(importPaths, registerPath)
 	}
 	if in.HostAppReadyModule != "" {
-		childEnv = setEnvVar(childEnv, envNodeAppReadyModule, in.HostAppReadyModule)
+		childEnv = setEnvVar(childEnv, envBridgeAppReadyModule, in.HostAppReadyModule)
 	}
 	if port := portFromShimArgs(in.ShimArgs); port != "" {
 		childEnv = setEnvVar(childEnv, "PORT", port)

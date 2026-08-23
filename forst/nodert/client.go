@@ -167,7 +167,7 @@ func (c *Client) Initialize(manifest Manifest, filesExclude []string) error {
 		"boundary_root": manifest.BoundaryRoot,
 		"export_count":  len(manifest.Exports),
 		"protocol":      c.wireProto,
-	}).Debug("node runtime initialized")
+	}).Debug("bridge runtime initialized")
 	return nil
 }
 
@@ -189,7 +189,7 @@ func (c *Client) Shutdown() error {
 	c.log.WithFields(logrus.Fields{
 		"component": "nodert",
 		"event":     "shutdown",
-	}).Debug("node runtime shutdown")
+	}).Debug("bridge runtime shutdown")
 	return nil
 }
 

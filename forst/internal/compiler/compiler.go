@@ -103,7 +103,11 @@ func formatRunProgramError(err error, stderr string) error {
 	if strings.Contains(stderr, "go.mod") || strings.Contains(stderr, "module not found") {
 		hint = "Go module linking failed — add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 	} else if code == 1 {
+<<<<<<< Updated upstream
 		hint = "node runtime or ensure check failed — verify tsx, @forst/node-runtime, and host shim args in ftconfig.json"
+=======
+		hint = "bridge runtime or ensure check failed — verify tsx, @forst/runtime, and host shim args in ftconfig.json"
+>>>>>>> Stashed changes
 	}
 	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
@@ -208,8 +212,13 @@ func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 		}
 	}
 	filtered = append(filtered, rootPrefix+boundaryRoot)
+<<<<<<< Updated upstream
 	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
 		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
+=======
+	if v := os.Getenv(bridgert.EnvBridgeAttachOnly); v != "" {
+		filtered = appendRunEnvVar(filtered, bridgert.EnvBridgeAttachOnly, v)
+>>>>>>> Stashed changes
 	}
 	if v := os.Getenv(envInvokePort); v != "" {
 		filtered = appendRunEnvVar(filtered, envInvokePort, v)
@@ -243,7 +252,7 @@ func RunBoundaryRoot(args Args) string {
 	return filepath.Dir(abs)
 }
 
-const errForstCompilerModuleRequired = "forst run: node runtime / invoke server require the forst runtime module; add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
+const errForstCompilerModuleRequired = "forst run: bridge runtime / invoke server require the forst runtime module; add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 
 func needsForstCompilerModule(nodeRuntimeCode, invokeServerCode string) bool {
 	return nodeRuntimeCode != "" || invokeServerCode != ""
@@ -401,10 +410,17 @@ func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 			return "", fmt.Errorf("write extra package %q: %w", pkg, err)
 		}
 	}
+<<<<<<< Updated upstream
 	if nodeRuntimeCode != "" {
 		runtimePath := filepath.Join(tempDir, transformer_go.ForstNodeRuntimeFileName()+".go")
 		if err := os.WriteFile(runtimePath, []byte(nodeRuntimeCode), 0644); err != nil {
 			return "", fmt.Errorf("failed to write node runtime temp file: %v", err)
+=======
+	if bridgeRuntimeCode != "" {
+		runtimePath := filepath.Join(tempDir, transformer_go.ForstBridgeRuntimeFileName()+".go")
+		if err := os.WriteFile(runtimePath, []byte(bridgeRuntimeCode), 0644); err != nil {
+			return "", fmt.Errorf("failed to write bridge runtime temp file: %v", err)
+>>>>>>> Stashed changes
 		}
 	}
 	if invokeServerCode != "" {

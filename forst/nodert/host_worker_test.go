@@ -22,8 +22,8 @@ func TestHostMode_workerEnvWithoutRegisterImportDoesNotBindSocket(t *testing.T) 
 	readyPath := socketPath + ".ready"
 
 	resetSupervisorForTest()
-	t.Setenv(envNodeBootstrap, "")
-	t.Setenv(envNodeBinary, "")
+	t.Setenv(envBridgeBootstrap, "")
+	t.Setenv(envBridgeBinary, "")
 
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestHostMode_workerEnvWithoutRegisterImportDoesNotBindSocket(t *testing.T) 
 
 	worker := exec.Command("node", "-e", "")
 	worker.Dir = root
-	worker.Env = filterEnv(hostCmd.Env, envNodeHostLeader)
+	worker.Env = filterEnv(hostCmd.Env, envBridgeHostLeader)
 	if err := worker.Run(); err != nil {
 		t.Fatalf("worker node: %v", err)
 	}

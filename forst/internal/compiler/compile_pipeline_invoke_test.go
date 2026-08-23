@@ -273,8 +273,13 @@ func ComparePassword(input ComparePasswordRequest) {
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
+<<<<<<< Updated upstream
 	if nodeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
+=======
+	if bridgeRuntime == "" {
+		t.Fatal("expected bridge runtime companion for host mode")
+>>>>>>> Stashed changes
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
 	if !ok || bcryptPkg == "" {
@@ -294,8 +299,13 @@ func ComparePassword(input ComparePasswordRequest) {
 	if !strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main should call shutdown when companion present:\n%s", mainCode)
 	}
+<<<<<<< Updated upstream
 	if !strings.Contains(nodeRuntime, "forstNodeManifestJSON") {
 		t.Fatalf("node runtime missing manifest:\n%s", nodeRuntime)
+=======
+	if !strings.Contains(bridgeRuntime, "forstBridgeManifestJSON") {
+		t.Fatalf("bridge runtime missing manifest:\n%s", bridgeRuntime)
+>>>>>>> Stashed changes
 	}
 }
 
@@ -495,8 +505,13 @@ func ComparePassword(input {
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
+<<<<<<< Updated upstream
 	if nodeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
+=======
+	if bridgeRuntime == "" {
+		t.Fatal("expected bridge runtime companion for host mode")
+>>>>>>> Stashed changes
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
 	if !ok || bcryptPkg == "" {
@@ -571,11 +586,19 @@ func main() {
 	if invokeCode != "" {
 		t.Fatalf("expected no invoke companion, got:\n%s", invokeCode)
 	}
+<<<<<<< Updated upstream
 	if nodeRuntime == "" {
 		t.Fatal("expected node runtime companion")
 	}
 	if !strings.Contains(nodeRuntime, "ForstNodeWaitForShutdown") {
 		t.Fatalf("node runtime missing shutdown helper:\n%s", nodeRuntime)
+=======
+	if bridgeRuntime == "" {
+		t.Fatal("expected bridge runtime companion")
+	}
+	if !strings.Contains(bridgeRuntime, "ForstBridgeWaitForShutdown") {
+		t.Fatalf("bridge runtime missing shutdown helper:\n%s", bridgeRuntime)
+>>>>>>> Stashed changes
 	}
 	if !strings.Contains(mainCode, "ForstNodeWaitForShutdown") {
 		t.Fatalf("main should call ForstNodeWaitForShutdown:\n%s", mainCode)
@@ -602,8 +625,13 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
+<<<<<<< Updated upstream
 	if nodeRuntime == "" {
 		t.Fatal("expected node runtime companion")
+=======
+	if bridgeRuntime == "" {
+		t.Fatal("expected bridge runtime companion")
+>>>>>>> Stashed changes
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke server companion")

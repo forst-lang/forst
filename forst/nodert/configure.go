@@ -13,10 +13,17 @@ import (
 )
 
 const (
+<<<<<<< Updated upstream:forst/nodert/configure.go
 	envNodeBootstrap       = "FORST_NODE_BOOTSTRAP"
 	envNodeBinary          = "FORST_NODE_BINARY"
 	envNodeAppReadyModule  = "FORST_NODE_APP_READY_MODULE"
 	envNodeProtocolDefault = WireProtocolProtoV1
+=======
+	envBridgeBootstrap       = "FORST_BRIDGE_BOOTSTRAP"
+	envBridgeBinary          = "FORST_BRIDGE_BINARY"
+	envBridgeAppReadyModule  = "FORST_BRIDGE_APP_READY_MODULE"
+	envBridgeProtocolDefault = WireProtocolProtoV1
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 	// EnvRoot is the ftconfig project root for Node interop.
 	EnvRoot = ftconfig.EnvRoot
 )
@@ -39,14 +46,14 @@ func MustConfigureFromManifest(manifestJSON string) {
 
 func configureFromManifest(manifestJSON string) error {
 	if manifestJSON == "" {
-		return fmt.Errorf("node runtime: empty manifest JSON")
+		return bridgeRuntimeErr("empty manifest JSON")
 	}
 	var manifest Manifest
 	if err := json.Unmarshal([]byte(manifestJSON), &manifest); err != nil {
-		return fmt.Errorf("node runtime: parse manifest: %w", err)
+		return bridgeRuntimeErr("parse manifest: %w", err)
 	}
 	if err := manifest.ValidateEmbedded(); err != nil {
-		return fmt.Errorf("node runtime: invalid embedded manifest: %w", err)
+		return bridgeRuntimeErr("invalid embedded manifest: %w", err)
 	}
 
 	workDir := strings.TrimSpace(manifest.BoundaryRoot)
@@ -58,20 +65,24 @@ func configureFromManifest(manifestJSON string) error {
 	if workDir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("node runtime: getwd: %w", err)
+			return bridgeRuntimeErr("getwd: %w", err)
 		}
 		workDir, err = ftconfig.BoundaryRootFromDir(cwd)
 		if err != nil {
-			return fmt.Errorf("node runtime: discover boundary root: %w", err)
+			return bridgeRuntimeErr("discover boundary root: %w", err)
 		}
 	}
 
 	cfg, err := ftconfig.LoadFromDir(workDir)
 	if err != nil {
-		return fmt.Errorf("node runtime: load ftconfig: %w", err)
+		return bridgeRuntimeErr("load ftconfig: %w", err)
 	}
 
+<<<<<<< Updated upstream:forst/nodert/configure.go
 	nodeBinary, err := ResolveNodeBinary(workDir, cfg.Node.Binary)
+=======
+	nodeBinary, err := ResolveBridgeBinary(workDir, cfg.Bridge.Binary)
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 	if err != nil {
 		return err
 	}
@@ -86,16 +97,22 @@ func configureFromManifest(manifestJSON string) error {
 
 	boundaryRoot, err := filepath.Abs(workDir)
 	if err != nil {
-		return fmt.Errorf("node runtime: resolve boundary root: %w", err)
+		return bridgeRuntimeErr("resolve boundary root: %w", err)
 	}
 	manifest.BoundaryRoot = boundaryRoot
 	if err := manifest.Validate(); err != nil {
-		return fmt.Errorf("node runtime: manifest: %w", err)
+		return bridgeRuntimeErr("manifest: %w", err)
 	}
 
+<<<<<<< Updated upstream:forst/nodert/configure.go
 	effectiveHostMode := cfg.Node.HostMode && !SkipNodeHostEnabled()
 	if effectiveHostMode && len(cfg.Node.Args) == 0 {
 		return fmt.Errorf("node runtime: hostMode requires non-empty node.args in ftconfig.json")
+=======
+	effectiveHostMode := cfg.Bridge.HostMode && !SkipNodeHostEnabled()
+	if effectiveHostMode && len(cfg.Bridge.Args) == 0 {
+		return bridgeHostErr("hostMode requires non-empty bridge.args in ftconfig.json")
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 	}
 
 	hostProcessCfg, err := HostProcessConfigFromFTConfig(cfg, boundaryRoot, nil)
@@ -103,6 +120,26 @@ func configureFromManifest(manifestJSON string) error {
 		return err
 	}
 
+<<<<<<< Updated upstream:forst/nodert/configure.go
+=======
+	bridge, err := ftconfig.EffectiveBridge(cfg)
+	if err != nil {
+		return bridgeRuntimeErr("%w", err)
+	}
+	moduleIDs := manifestModuleIDs(manifest)
+
+	modulesDir := ""
+	if bridge.ModuleFormat == ftconfig.LegacyModuleCompiled && manifestUsesCompiledModules(manifest) {
+		modulesDir, err = ftconfig.ResolveModulesDir(boundaryRoot, cfg)
+		if err != nil {
+			return bridgeRuntimeErr("resolve compiled modules directory: %w", err)
+		}
+		if err := validateCompiledModulesDir(modulesDir); err != nil {
+			return err
+		}
+	}
+
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: effectiveHostMode,
 		HostSocketPath: hostProcessCfg.SocketPath,
@@ -111,7 +148,12 @@ func configureFromManifest(manifestJSON string) error {
 		HostAutoRegister: hostProcessCfg.HostAutoRegister,
 		HostAppReadyModule: hostProcessCfg.HostAppReadyModule,
 		ShimArgs: hostProcessCfg.ShimArgs,
+<<<<<<< Updated upstream:forst/nodert/configure.go
 		AttachOnly: os.Getenv(EnvNodeAttachOnly) == "1",
+=======
+		AttachOnly: os.Getenv(EnvBridgeAttachOnly) == "1",
+		ModulesDir: modulesDir,
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 		ProcessOptions: ProcessOptions{
 			NodePath:      nodeBinary,
 			BootstrapPath: bootstrap,
@@ -132,7 +174,7 @@ func configureFromManifest(manifestJSON string) error {
 // ResolveBootstrapPath returns the Node bootstrap script path.
 // Priority: FORST_NODE_BOOTSTRAP env → ftconfig.node.bootstrap (relative to boundaryRoot) → monorepo walk-up.
 func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, error) {
-	if path := strings.TrimSpace(os.Getenv(envNodeBootstrap)); path != "" {
+	if path := strings.TrimSpace(os.Getenv(envBridgeBootstrap)); path != "" {
 		if abs, err := firstExistingBootstrap(resolveBootstrapCandidates(boundaryRoot, path)...); err == nil {
 			return abs, nil
 		}
@@ -144,7 +186,11 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 				return abs, nil
 			}
 		}
+<<<<<<< Updated upstream:forst/nodert/configure.go
 		return "", fmt.Errorf("node runtime: bootstrap not found at %s (set %s to an absolute path or build packages/node-runtime)", path, envNodeBootstrap)
+=======
+		return "", bridgeRuntimeErr("bootstrap not found at %s (set %s to an absolute path or build packages/runtime)", path, envBridgeBootstrap)
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 	}
 
 	if configuredBootstrap != "" {
@@ -154,19 +200,19 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 				var err error
 				boundaryRoot, err = os.Getwd()
 				if err != nil {
-					return "", fmt.Errorf("node runtime: %w", err)
+					return "", bridgeRuntimeErr("%w", err)
 				}
 			}
 			candidate = filepath.Join(boundaryRoot, configuredBootstrap)
 		}
 		abs, err := filepath.Abs(candidate)
 		if err != nil {
-			return "", fmt.Errorf("node runtime: resolve bootstrap path: %w", err)
+			return "", bridgeRuntimeErr("resolve bootstrap path: %w", err)
 		}
 		if st, statErr := os.Stat(abs); statErr != nil {
-			return "", fmt.Errorf("node runtime: bootstrap not found at %s: %w", abs, statErr)
+			return "", bridgeRuntimeErr("bootstrap not found at %s: %w", abs, statErr)
 		} else if st.IsDir() {
-			return "", fmt.Errorf("node runtime: bootstrap path is a directory: %s", abs)
+			return "", bridgeRuntimeErr("bootstrap path is a directory: %s", abs)
 		}
 		return abs, nil
 	}
@@ -176,7 +222,7 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 		var err error
 		startDir, err = os.Getwd()
 		if err != nil {
-			return "", fmt.Errorf("node runtime: %w", err)
+			return "", bridgeRuntimeErr("%w", err)
 		}
 	}
 	startDir, err := filepath.Abs(startDir)
@@ -186,7 +232,7 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 	if abs, ok := findMonorepoBootstrap(startDir); ok {
 		return abs, nil
 	}
-	return "", fmt.Errorf("node runtime: bootstrap not found (set %s or node.bootstrap in ftconfig.json)", envNodeBootstrap)
+	return "", bridgeRuntimeErr("bootstrap not found (set %s or bridge.bootstrap in ftconfig.json)", envBridgeBootstrap)
 }
 
 func resolveBootstrapCandidates(boundaryRoot, path string) []string {
@@ -269,12 +315,12 @@ func resolveHostAppReadyModule(boundaryRoot, configured string) (string, error) 
 	}
 	abs, err := filepath.Abs(candidate)
 	if err != nil {
-		return "", fmt.Errorf("node runtime: resolve hostAppReadyModule: %w", err)
+		return "", bridgeRuntimeErr("resolve hostAppReadyModule: %w", err)
 	}
 	if st, statErr := os.Stat(abs); statErr != nil {
-		return "", fmt.Errorf("node runtime: hostAppReadyModule not found at %s: %w", abs, statErr)
+		return "", bridgeRuntimeErr("hostAppReadyModule not found at %s: %w", abs, statErr)
 	} else if st.IsDir() {
-		return "", fmt.Errorf("node runtime: hostAppReadyModule is a directory: %s", abs)
+		return "", bridgeRuntimeErr("hostAppReadyModule is a directory: %s", abs)
 	}
 	return abs, nil
 }
@@ -285,7 +331,7 @@ func ResolveHostRegisterPath(boundaryRoot string) (string, error) {
 		var err error
 		boundaryRoot, err = os.Getwd()
 		if err != nil {
-			return "", fmt.Errorf("node runtime: %w", err)
+			return "", bridgeRuntimeErr("%w", err)
 		}
 	}
 	boundaryRoot, err := filepath.Abs(boundaryRoot)
@@ -310,5 +356,60 @@ func ResolveHostRegisterPath(boundaryRoot string) (string, error) {
 			break
 		}
 	}
+<<<<<<< Updated upstream:forst/nodert/configure.go
 	return "", fmt.Errorf("node runtime: host register.mjs not found (build packages/node-runtime or install @forst/node-runtime)")
+=======
+	return "", bridgeHostErr("host register.mjs not found (build packages/runtime or install @forst/runtime)")
+}
+
+func validateCompiledModulesDir(modulesDir string) error {
+	if strings.TrimSpace(modulesDir) == "" {
+		return bridgeRuntimeErr(
+			"compiled modules directory is not configured (set %s or bridge.legacyModules.dir in ftconfig.json)",
+			ftconfig.EnvBridgeModulesDir,
+		)
+	}
+	st, err := os.Stat(modulesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return bridgeRuntimeErr(
+			"compiled modules directory %q does not exist (copy or mount .forst/js and set %s if not at the default location)",
+				modulesDir,
+				ftconfig.EnvBridgeModulesDir,
+			)
+		}
+		return bridgeRuntimeErr("compiled modules directory %q: %w", modulesDir, err)
+	}
+	if !st.IsDir() {
+		return bridgeRuntimeErr("compiled modules path %q is not a directory", modulesDir)
+	}
+	return nil
+}
+
+func manifestUsesCompiledModules(m Manifest) bool {
+	for _, exp := range m.Exports {
+		ext := strings.ToLower(filepath.Ext(strings.TrimSpace(exp.ModuleID)))
+		if ext == ".js" {
+			return true
+		}
+	}
+	return false
+}
+
+func manifestModuleIDs(m Manifest) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, exp := range m.Exports {
+		id := strings.TrimSpace(exp.ModuleID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+>>>>>>> Stashed changes:forst/bridgert/configure.go
 }

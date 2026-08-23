@@ -81,9 +81,17 @@ func (o *HostOrchestrator) Shutdown() error {
 }
 
 func (o *HostOrchestrator) activateAttachOnly() {
+<<<<<<< Updated upstream
 	_ = os.Setenv(nodert.EnvNodeAttachOnly, "1")
 }
 
 func (o *HostOrchestrator) deactivateAttachOnly() {
 	_ = os.Unsetenv(nodert.EnvNodeAttachOnly)
+=======
+	_ = os.Setenv(bridgert.EnvBridgeAttachOnly, "1")
+}
+
+func (o *HostOrchestrator) deactivateAttachOnly() {
+	_ = os.Unsetenv(bridgert.EnvBridgeAttachOnly)
+>>>>>>> Stashed changes
 }

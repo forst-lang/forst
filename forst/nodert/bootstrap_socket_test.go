@@ -34,7 +34,7 @@ func TestResolveBootstrapSocketPath_defaultAndOverride(t *testing.T) {
 		t.Fatalf("ready = %q want %q", readyPath, readyPathForSocket(wantSocket))
 	}
 
-	t.Setenv(envNodeSocket, filepath.Join(root, "custom.sock"))
+	t.Setenv(envBridgeSocket, filepath.Join(root, "custom.sock"))
 	socketPath, readyPath, err = ResolveBootstrapSocketPath(root)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +81,7 @@ func TestBuildBootstrapSpawnCommand_setsSocketEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< Updated upstream:forst/nodert/bootstrap_socket_test.go
 	if got := lookupEnvValue(cmd.Env, envNodeSocket); got != socketPath {
 		t.Fatalf("FORST_NODE_SOCKET = %q want %q", got, socketPath)
 	}
@@ -89,6 +90,16 @@ func TestBuildBootstrapSpawnCommand_setsSocketEnv(t *testing.T) {
 	}
 	if got := lookupEnvValue(cmd.Env, envNodeHost); got != "" {
 		t.Fatalf("FORST_NODE_HOST = %q want unset", got)
+=======
+	if got := lookupEnvValue(cmd.Env, envBridgeSocket); got != socketPath {
+		t.Fatalf("FORST_BRIDGE_SOCKET = %q want %q", got, socketPath)
+	}
+	if got := lookupEnvValue(cmd.Env, envBridgeHostReady); got != readyPath {
+		t.Fatalf("FORST_BRIDGE_HOST_READY = %q want %q", got, readyPath)
+	}
+	if got := lookupEnvValue(cmd.Env, envBridgeHost); got != "" {
+		t.Fatalf("FORST_BRIDGE_HOST = %q want unset", got)
+>>>>>>> Stashed changes:forst/bridgert/bootstrap_socket_test.go
 	}
 }
 
@@ -104,7 +115,7 @@ func TestBootstrapSocket_writesReadyMarkerAndAcceptsRPC(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")
@@ -174,7 +185,7 @@ func TestBootstrapSocket_rejectsSecondConnection(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")
@@ -239,7 +250,7 @@ func TestBootstrapSocket_bothStreamsForwardedAsLogs(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")
@@ -352,7 +363,7 @@ func configureBootstrapTestSupervisor(t *testing.T, cfg bootstrapTestConfig) {
 	nodePath := cfg.nodePath
 	if nodePath == "" {
 		var err error
-		nodePath, err = ResolveNodeBinary(cfg.root, "node")
+		nodePath, err = ResolveBridgeBinary(cfg.root, "node")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -144,7 +144,7 @@ func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*
 		"bootstrap_path":  spawnCmd.Args[0],
 		"loader":          opts.Loader,
 		"socket_path":     socketPath,
-	}).Debug("spawned node runtime")
+	}).Debug("spawned bridge runtime")
 
 	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
 	stderrRing := newOutputRing(childStderrRingCap)
@@ -213,7 +213,7 @@ func (p *managedProcess) terminate() error {
 			p.log.WithFields(logrus.Fields{
 				"component": "nodert",
 				"event":     "timeout",
-			}).Warn("node runtime graceful shutdown timed out, sending SIGKILL")
+			}).Warn("bridge runtime graceful shutdown timed out, sending SIGKILL")
 		}
 		if err := p.cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("kill node process: %w", err)
@@ -225,7 +225,7 @@ func (p *managedProcess) terminate() error {
 
 const shutdownGracePeriod = 5 * time.Second
 
-func buildNodeChildEnv(opts ProcessOptions) []string {
+func buildBridgeChildEnv(opts ProcessOptions) []string {
 	env := append([]string(nil), os.Environ()...)
 	for _, entry := range opts.Env {
 		if key, _, ok := strings.Cut(entry, "="); ok {
@@ -235,7 +235,14 @@ func buildNodeChildEnv(opts ProcessOptions) []string {
 	if opts.BoundaryRoot != "" {
 		env = setEnvVar(env, EnvRoot, opts.BoundaryRoot)
 	}
+<<<<<<< Updated upstream:forst/nodert/process.go
 	env = setEnvVar(env, "FORST_NODE_PROTOCOL", envNodeProtocolDefault)
+=======
+	if opts.ModulesDir != "" {
+		env = setEnvVar(env, ftconfig.EnvBridgeModulesDir, opts.ModulesDir)
+	}
+	env = setEnvVar(env, "FORST_BRIDGE_PROTOCOL", envBridgeProtocolDefault)
+>>>>>>> Stashed changes:forst/bridgert/process.go
 	if len(opts.FilesExclude) > 0 {
 		data, err := json.Marshal(opts.FilesExclude)
 		if err == nil {

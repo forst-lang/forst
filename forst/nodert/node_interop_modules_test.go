@@ -17,7 +17,7 @@ func TestIntegration_nestedModuleResolution_realBootstrap(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := nodeInteropModulesDir(t)
 	manifest := Manifest{

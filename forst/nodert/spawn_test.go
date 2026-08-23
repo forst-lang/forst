@@ -33,7 +33,7 @@ func TestMergeNodeOptions(t *testing.T) {
 	}
 }
 
-func TestResolveNodeBinary_relativeShim(t *testing.T) {
+func TestResolveBridgeBinary_relativeShim(t *testing.T) {
 	root := t.TempDir()
 	shimDir := filepath.Join(root, "node_modules", ".bin")
 	if err := os.MkdirAll(shimDir, 0o755); err != nil {
@@ -44,7 +44,7 @@ func TestResolveNodeBinary_relativeShim(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := ResolveNodeBinary(root, "node_modules/.bin/mock-node")
+	got, err := ResolveBridgeBinary(root, "node_modules/.bin/mock-node")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,9 +57,9 @@ func TestResolveNodeBinary_relativeShim(t *testing.T) {
 	}
 }
 
-func TestResolveNodeBinary_missingFile(t *testing.T) {
+func TestResolveBridgeBinary_missingFile(t *testing.T) {
 	root := t.TempDir()
-	_, err := ResolveNodeBinary(root, "missing/shim")
+	_, err := ResolveBridgeBinary(root, "missing/shim")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -211,7 +211,7 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 	}
 	wantRegister := filepath.Join(root, "node_modules", "@forst", "node-runtime", "dist", "host", "register.mjs")
 	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
-	nodeBin, err := ResolveNodeBinary(root, "node")
+	nodeBin, err := ResolveBridgeBinary(root, "node")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,21 +231,26 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
 		}
 	}
-	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
+	if lookupEnvValue(cmd.Env, envBridgeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
 	}
-	if lookupEnvValue(cmd.Env, envNodeHostLeader) != "1" {
+	if lookupEnvValue(cmd.Env, envBridgeHostLeader) != "1" {
 		t.Fatalf("missing leader env: %#v", cmd.Env)
 	}
-	if lookupEnvValue(cmd.Env, envNodeSocket) == "" {
+	if lookupEnvValue(cmd.Env, envBridgeSocket) == "" {
 		t.Fatalf("missing socket env: %#v", cmd.Env)
 	}
 	nodeOpts := lookupEnvValue(cmd.Env, "NODE_OPTIONS")
 	if strings.Contains(nodeOpts, "register.mjs") {
 		t.Fatalf("register.mjs must not be in NODE_OPTIONS, got %q", nodeOpts)
 	}
+<<<<<<< Updated upstream:forst/nodert/spawn_test.go
 	if got := lookupEnvValue(cmd.Env, envNodeAppReadyModule); got != appReadyModule {
 		t.Fatalf("FORST_NODE_APP_READY_MODULE = %q want %q", got, appReadyModule)
+=======
+	if got := lookupEnvValue(cmd.Env, envBridgeAppReadyModule); got != appReadyModule {
+		t.Fatalf("FORST_BRIDGE_APP_READY_MODULE = %q want %q", got, appReadyModule)
+>>>>>>> Stashed changes:forst/bridgert/spawn_test.go
 	}
 }
 
@@ -275,7 +280,7 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
-	nodeBin, err := ResolveNodeBinary(root, "node")
+	nodeBin, err := ResolveBridgeBinary(root, "node")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,16 +300,16 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
 		}
 	}
-	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
+	if lookupEnvValue(cmd.Env, envBridgeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
 	}
-	if lookupEnvValue(cmd.Env, envNodeHostLeader) != "1" {
+	if lookupEnvValue(cmd.Env, envBridgeHostLeader) != "1" {
 		t.Fatalf("missing leader env: %#v", cmd.Env)
 	}
 	if lookupEnvValue(cmd.Env, "HOST") != "127.0.0.1" {
 		t.Fatalf("HOST = %q want 127.0.0.1", lookupEnvValue(cmd.Env, "HOST"))
 	}
-	if lookupEnvValue(cmd.Env, envNodeSocket) == "" {
+	if lookupEnvValue(cmd.Env, envBridgeSocket) == "" {
 		t.Fatalf("missing socket env: %#v", cmd.Env)
 	}
 }
@@ -387,7 +392,7 @@ func TestBuildHostSpawnCommand_directNodeBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodeBin, err := ResolveNodeBinary(root, "node")
+	nodeBin, err := ResolveBridgeBinary(root, "node")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +440,7 @@ func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodeBin, err := ResolveNodeBinary(root, "node")
+	nodeBin, err := ResolveBridgeBinary(root, "node")
 	if err != nil {
 		t.Fatal(err)
 	}
