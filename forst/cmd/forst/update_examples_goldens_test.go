@@ -101,7 +101,7 @@ func shouldSkipExampleGoldenUpdate(relPath string) bool {
 	if strings.HasPrefix(relPath, "rfc/providers/") {
 		return true
 	}
-	if strings.HasPrefix(relPath, "rfc/node-interop/") {
+	if strings.HasPrefix(relPath, "rfc/bridge-interop/") {
 		return true
 	}
 	if strings.HasPrefix(relPath, "rfc/embedded-invoke/") {

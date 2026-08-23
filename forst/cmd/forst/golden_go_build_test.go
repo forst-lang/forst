@@ -102,15 +102,15 @@ func TestBuildGoProgram_nodeSeqInnerPointerMismatch(t *testing.T) {
 
 import (
 	"encoding/json"
-	"forst/nodert"
+	"forst/bridgert"
 )
 
 type forstNodeSeq_float64 struct {
-	inner nodert.Seq[float64]
+	inner bridgert.Seq[float64]
 }
 
 func forst_node_open_seq_legacy_generators_ts_syncNumbers() (*forstNodeSeq_float64, error) {
-	var seq, err = nodert.OpenSeqArgs[float64]("legacy/generators.ts", "syncNumbers", nodert.ExportKindGenerator, json.RawMessage("[3]"))
+	var seq, err = bridgert.OpenSeqArgs[float64]("legacy/generators.ts", "syncNumbers", bridgert.ExportKindGenerator, json.RawMessage("[3]"))
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func forst_node_open_seq_legacy_generators_ts_syncNumbers() (*forstNodeSeq_float
 `
 	err := compiler.BuildGoProgram(mainCode, runtimeCode, "", nil, "")
 	if err == nil {
-		t.Fatal("expected go build to fail when inner stores *nodert.Seq as value")
+		t.Fatal("expected go build to fail when inner stores *bridgert.Seq as value")
 	}
 	if !strings.Contains(err.Error(), "cannot use seq") {
 		t.Fatalf("unexpected build error:\n%v", err)

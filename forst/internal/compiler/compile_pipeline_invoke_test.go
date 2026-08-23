@@ -194,7 +194,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -219,7 +219,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import host "../host" node
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()
@@ -317,7 +317,7 @@ func TestCompile_embeddedInvoke_devSession_crossPackageExports(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -413,7 +413,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -438,7 +438,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import host "../host" node
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()
@@ -534,7 +534,7 @@ func TestCompile_hostModeWithoutInvoke_appendsNodeShutdown(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{
   "server": {"embedded": true},
-  "node": {
+  "bridge": {
     "hostMode": true,
     "binary": "node",
     "args": ["scripts/host.mjs"]
@@ -547,7 +547,7 @@ func TestCompile_hostModeWithoutInvoke_appendsNodeShutdown(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import host "./host" node
+import host "./host" js
 
 func main() {
   ready := host.ping()
@@ -586,7 +586,7 @@ func main() {
 }
 
 func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
-	root := filepath.Join("..", "..", "examples", "in", "rfc", "node-interop", "remix-serve")
+	root := filepath.Join("..", "..", "examples", "in", "rfc", "bridge-interop", "remix-serve")
 	mainPath := filepath.Join(root, "main", "main.ft")
 	if _, err := os.Stat(mainPath); err != nil {
 		t.Skip("remix-serve example not present:", err)
@@ -610,7 +610,7 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 	}
 	for _, want := range []string{
 		"forstNodeManifestJSON",
-		"nodert.CallSync",
+		"bridgert.CallSync",
 		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_ListTodos",
@@ -639,7 +639,7 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -664,7 +664,7 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import host "../host" node
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()

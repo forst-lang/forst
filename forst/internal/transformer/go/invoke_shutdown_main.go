@@ -14,7 +14,7 @@ func (t *Transformer) AppendInvokeShutdownIfNeeded() {
 }
 
 // AppendNodeHostShutdownIfNeeded adds ForstNodeWaitForShutdown() to func main for host-mode
-// nodert binaries without an invoke server companion.
+// bridgert binaries without an invoke server companion.
 func (t *Transformer) AppendNodeHostShutdownIfNeeded() {
 	if t == nil || !t.EmbedNodeHostMode || !t.isMainPackage() || !EmitNeedsNodeRuntime(t.TypeChecker) {
 		return

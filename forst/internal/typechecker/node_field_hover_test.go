@@ -52,5 +52,5 @@ func TestFieldHoverMarkdown_nodeInteropResultAfterOk(t *testing.T) {
 func nodeInteropSyncExampleDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "node-interop", "sync"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "bridge-interop", "sync"))
 }

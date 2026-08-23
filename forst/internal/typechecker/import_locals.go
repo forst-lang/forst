@@ -35,7 +35,7 @@ func (ctx importLocalContext) takenSet() importlocal.TakenSet {
 	}
 	for _, imp := range ctx.nodeImports {
 		b := importlocal.BindingFromAST(imp, importlocal.BindingOpts{
-			Kind:     importlocal.KindNode,
+			Kind:     importlocal.KindBridge,
 			ModuleID: imp.Path,
 		})
 		if !b.Skip {
@@ -58,7 +58,7 @@ func (ctx importLocalContext) checkReserved(binding importlocal.Binding, kind im
 			moduleID = binding.ImportPath
 		}
 		msg := importlocal.ReservedLocalDiagnostic(binding.Local, binding.ImportPath, moduleID, ctx.takenSet(), kind, err)
-		code := "node-import-reserved-local"
+		code := "js-import-reserved-local"
 		if kind == importlocal.KindGo {
 			code = "go-import-reserved-local"
 		}
@@ -75,24 +75,24 @@ func (ctx importLocalContext) checkCrossKindConflict(local string, kind importlo
 	case importlocal.KindGo:
 		for _, imp := range ctx.nodeImports {
 			b := importlocal.BindingFromAST(imp, importlocal.BindingOpts{
-				Kind:     importlocal.KindNode,
+				Kind:     importlocal.KindBridge,
 				ModuleID: imp.Path,
 			})
 			if !b.Skip && b.Local == local {
-				return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with node import", local)
+				return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with JS import", local)
 			}
 		}
 		if _, ok := ctx.nodeByLocal[local]; ok {
-			return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with node import", local)
+			return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with JS import", local)
 		}
-	case importlocal.KindNode:
+	case importlocal.KindBridge:
 		for _, imp := range ctx.goImports {
 			b := importlocal.BindingFromAST(imp, importlocal.BindingOpts{
 				Kind:     importlocal.KindGo,
 				ModuleID: importlocal.GoModuleID(imp.Path),
 			})
 			if !b.Skip && b.Local == local {
-				return diagnosticf(ast.SourceSpan{}, "node-import", "node import local name %q conflicts with Go import", local)
+				return diagnosticf(ast.SourceSpan{}, "js-import", "JS import local name %q conflicts with Go import", local)
 			}
 		}
 	}
@@ -108,7 +108,7 @@ func (ctx importLocalContext) checkDuplicate(local, pathKey string, kind importl
 		case importlocal.KindGo:
 			return diagnosticf(ast.SourceSpan{}, "go-import", "duplicate Go import local name %q", local)
 		default:
-			return diagnosticf(ast.SourceSpan{}, "node-import", "duplicate node import local name %q", local)
+			return diagnosticf(ast.SourceSpan{}, "js-import", "duplicate JS import local name %q", local)
 		}
 	}
 	seen[local] = pathKey
@@ -181,13 +181,13 @@ func goBindingFromLoaded(imp ast.ImportNode, loaded map[string]*packages.Package
 
 func (tc *TypeChecker) validateNodeImportLocal(binding importlocal.Binding, seen map[string]string) error {
 	ctx := tc.importLocalContext()
-	if err := ctx.checkReserved(binding, importlocal.KindNode); err != nil {
+	if err := ctx.checkReserved(binding, importlocal.KindBridge); err != nil {
 		return err
 	}
-	if err := ctx.checkCrossKindConflict(binding.Local, importlocal.KindNode); err != nil {
+	if err := ctx.checkCrossKindConflict(binding.Local, importlocal.KindBridge); err != nil {
 		return err
 	}
-	return ctx.checkDuplicate(binding.Local, binding.ModuleID, importlocal.KindNode, seen)
+	return ctx.checkDuplicate(binding.Local, binding.ModuleID, importlocal.KindBridge, seen)
 }
 
 func (tc *TypeChecker) registerImportLocalsFromAST() {

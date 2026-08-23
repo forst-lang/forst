@@ -30,7 +30,7 @@ flowchart LR
 
   GenTypes -.->|"@forst/gen"| NodeToForst
   NodeToForst -->|"POST /invoke"| ForstBinary[Compiled Forst]
-  ForstToJS -->|"import ./path node"| LegacyJS["legacy .ts / .js"]
+  ForstToJS -->|"import ./path js"| LegacyJS["legacy .ts / .js"]
 ```
 
 ## Pick your path
@@ -42,7 +42,7 @@ flowchart LR
 | Call Forst functions from Express, Remix loaders, or scripts | [Call Forst from Node](/interop/node/call-forst) |
 | Stub Forst in tests | [Testing](/interop/node/testing) |
 | Use Effect with the generated client | [Effect mode](/interop/node/effect) |
-| Call existing `.ts`/`.js` modules from compiled Forst | [Call JavaScript from Forst](/interop/node/call-javascript) |
+| Call existing `.ts`/`.js` modules from compiled Forst | [Call JavaScript from Forst](/interop/bridge/call-javascript) |
 | Hot-reload while editing `.ft` files | [Dev server](/workflow/dev-server) |
 
 <Info>
@@ -55,7 +55,7 @@ Node interop paths are at different maturity levels. Read the caveats on the pag
 
 - **Generated types are structural only.** No runtime constraint rules in declarations. [Generate a TypeScript client § Caveats](/interop/node/generate-types#caveats)
 - **Invoke from Node** (dev server, built-in HTTP server, generated `@forst/gen` client) is experimental. [Call Forst from Node § Caveats](/interop/node/call-forst#caveats)
-- **Call legacy JavaScript from Forst** (`import "./path" node`, [`forst/nodert`](https://github.com/forst-lang/forst/tree/main/forst/nodert)) is experimental and may require Node in the deploy image. [Call JavaScript from Forst § Caveats](/interop/node/call-javascript#caveats)
+- **Call legacy JavaScript from Forst** (`import "./path" js`, [`forst/bridgert`](https://github.com/forst-lang/forst/tree/main/forst/bridgert)) is experimental and may require a JavaScript host in the deploy image. [Call JavaScript from Forst § Caveats](/interop/bridge/call-javascript#caveats)
 
 ## Related
 

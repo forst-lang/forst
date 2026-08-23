@@ -147,7 +147,7 @@ Forst supports three common Go module layouts. Pick one and stay consistent with
 
 **`forst run`** transpiles your entry, writes a temp sandbox under `.forst/run/` with its own `go.mod`, and executes via `go run`. **Go-native** projects (root `go.mod`, not only `.forst-gomod/`) use **Mode B**: an auto-managed `.forst/go.work` workspace instead of a fragile `replace` in the sandbox. **Node-primary** projects keep **Mode A** (`replace forst => …` in the sandbox `go.mod`). For mixed `.ft` + hand-written `.go` you want to commit or inspect, use **`forst generate`** with `generate.go.entry` / `generate.go.out` (or `--go-entry` / `--go-out`) and the normal Go toolchain.
 
-Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/node-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
+Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/bridge-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
 
 ## Runtime validation
 
@@ -215,7 +215,7 @@ Shape fields lower to unexported Go identifiers by default. For JSON marshaling,
   <Card title="Node overview" icon="server" href="/interop/node">
     Share types, call Forst from Node, or call JavaScript from Forst.
   </Card>
-  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/node/call-javascript">
+  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/bridge/call-javascript">
     Call legacy `.ts`/`.js` from Forst at runtime.
   </Card>
 </CardGroup>

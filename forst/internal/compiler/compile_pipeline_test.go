@@ -4,36 +4,36 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	"forst/internal/typechecker"
 )
 
-func TestRequireNoNode_allowsWhenNoNodeRuntime(t *testing.T) {
+func TestRequireNoBridge_allowsWhenNoNodeRuntime(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	if err := checkRequireNoNode(Args{RequireNoNode: true}, tc); err != nil {
+	if err := checkRequireNoBridge(Args{RequireNoBridge: true}, tc); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRequireNoNode_rejectsWhenNeedsNodeRuntime(t *testing.T) {
+func TestRequireNoBridge_rejectsWhenNeedsNodeRuntime(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
 	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
-	err := checkRequireNoNode(Args{RequireNoNode: true}, tc)
+	err := checkRequireNoBridge(Args{RequireNoBridge: true}, tc)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "require-no-node") {
+	if !strings.Contains(err.Error(), "require-no-bridge") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
-func TestRequireNoNode_ignoredWhenFlagUnset(t *testing.T) {
+func TestRequireNoBridge_ignoredWhenFlagUnset(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
 	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
-	if err := checkRequireNoNode(Args{}, tc); err != nil {
+	if err := checkRequireNoBridge(Args{}, tc); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -50,8 +50,8 @@ func TestFormatNodeRuntimeLogLine_requiredWithModules(t *testing.T) {
 	tc := typechecker.New(nil, false)
 	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{
 		NeedsNodeRuntime: true,
-		Manifest: nodeinterop.ManifestV1{
-			Exports: []nodeinterop.ExportEntry{
+		Manifest: bridgeinterop.ManifestV1{
+			Exports: []bridgeinterop.ExportEntry{
 				{ModuleID: "legacy/payment.ts", Name: "create", Kind: "asyncFunction"},
 				{ModuleID: "legacy/payment.ts", Name: "refund", Kind: "function"},
 				{ModuleID: "legacy/events.ts", Name: "emit", Kind: "function"},

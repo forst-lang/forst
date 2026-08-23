@@ -5,7 +5,7 @@
       "mustContain": ["$GameState", "$MoveRequest", "PlayMove", "export const $main", "../transport/runtime.js", "./pkg/main.js"]
     },
     {
-      "path": "rfc/node-interop/remix-serve",
+      "path": "rfc/bridge-interop/remix-serve",
       "mustContain": ["ListTodos", "AddTodo", "CompleteTodo", "GetDashboard", "export const $main", "../transport/runtime.js", "./pkg/main.js"]
     },
     {

@@ -18,7 +18,7 @@ const (
 	forstNodeGenStepErrorIdent = "forstNodeGenStepError"
 	forstNodeGenStepTypePrefix = "forstNodeGenStep"
 	forstNodeSeqTypePrefix     = "forstNodeSeq"
-	nodertImportPath           = "forst/nodert"
+	nodertImportPath           = "forst/bridgert"
 )
 
 // ForstNodeRuntimeFileName is the base name (without .go) for the generated node runtime companion file.
@@ -64,7 +64,7 @@ func (t *Transformer) appendNodeHostShutdownHelperIfNeeded() {
 		Body: &goast.BlockStmt{List: []goast.Stmt{
 			&goast.ExprStmt{X: &goast.CallExpr{
 				Fun: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent("WaitForShutdown"),
 				},
 			}},
@@ -116,7 +116,7 @@ func (t *Transformer) appendNodeRuntimeInitIfNeeded() {
 				&goast.ExprStmt{
 					X: &goast.CallExpr{
 						Fun: &goast.SelectorExpr{
-							X:   goast.NewIdent("nodert"),
+							X:   goast.NewIdent("bridgert"),
 							Sel: goast.NewIdent("MustConfigureFromManifest"),
 						},
 						Args: []goast.Expr{goast.NewIdent(forstNodeManifestVarName)},
@@ -235,7 +235,7 @@ func (t *Transformer) registerNodeCallWrapper(
 		inner = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
 				X: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent(bridgeFnName),
 				},
 				Index: retGoType,
@@ -255,7 +255,7 @@ func (t *Transformer) registerNodeCallWrapper(
 		inner = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
 				X: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent(bridgeFnName),
 				},
 				Index: retGoType,
@@ -394,13 +394,13 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 	if argsJSON, ok := t.tryEmitStaticNodeCallArgsJSONInRuntime(e.Arguments); ok {
 		openCall = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
-				X: &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("OpenSeqArgs")},
+				X: &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("OpenSeqArgs")},
 				Index: elemGoType,
 			},
 			Args: []goast.Expr{
 				nodeBridgeStringLit(target.ModuleID),
 				nodeBridgeStringLit(target.ExportName),
-				&goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent(kindSel)},
+				&goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent(kindSel)},
 				argsJSON,
 			},
 		}
@@ -412,11 +412,11 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 		}
 		goArgs := t.nodeBridgeCallArgsFromParamIdents(target, paramIdents)
 		goArgs = append(goArgs[:2], append([]goast.Expr{
-			&goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent(kindSel)},
+			&goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent(kindSel)},
 		}, goArgs[2:]...)...)
 		openCall = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
-				X: &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("OpenSeq")},
+				X: &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("OpenSeq")},
 				Index: elemGoType,
 			},
 			Args: goArgs,
@@ -518,7 +518,7 @@ func (t *Transformer) ensureForstNodeSeqTypes(ret ast.TypeNode) (string, *goast.
 					Name: seqIdent,
 					Type: &goast.StructType{Fields: &goast.FieldList{List: []*goast.Field{
 						{Names: []*goast.Ident{goast.NewIdent("inner")}, Type: &goast.StarExpr{X: &goast.IndexExpr{
-							X:     &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("Seq")},
+							X:     &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("Seq")},
 							Index: elemGoType,
 						}}},
 					}}},
@@ -548,7 +548,7 @@ func (t *Transformer) emitForstNodeSeqMethods(seqIdent, stepIdent *goast.Ident, 
 	recv := &goast.FieldList{List: []*goast.Field{{Names: []*goast.Ident{goast.NewIdent("s")}, Type: &goast.StarExpr{X: seqIdent}}}}
 	stepSlice := &goast.ArrayType{Elt: stepIdent}
 	nodertGenStep := &goast.IndexExpr{
-		X:     &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("GenStep")},
+		X:     &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("GenStep")},
 		Index: elemGoType,
 	}
 	out.AddFunction(&goast.FuncDecl{

@@ -33,9 +33,9 @@ func TestBuiltHostModeProgram_invokeReadyHandoffAndHostSpawn(t *testing.T) {
 
 	forstModule := forstCompilerModuleRoot(t)
 	repoRoot := filepath.Clean(filepath.Join(forstModule, ".."))
-	hostJS := filepath.Join(repoRoot, "packages", "node-runtime", "dist", "host.js")
+	hostJS := filepath.Join(repoRoot, "packages", "runtime", "dist", "host.js")
 	if _, err := os.Stat(hostJS); err != nil {
-		t.Skipf("node-runtime not built: %v", err)
+		t.Skipf("/runtime not built: %v", err)
 	}
 
 	dir := t.TempDir()
@@ -92,7 +92,7 @@ await signalForstAppReady();
 	ftconfig := `{
   "server": {"embedded": true, "port": "` + portStr + `"},
   "files": {"include": ["**/*.ft", "**/*.ts"], "exclude": ["**/node_modules/**"]},
-  "node": {
+  "bridge": {
     "enabled": true,
     "runtimeEnabled": true,
     "hostMode": true,
@@ -109,7 +109,7 @@ await signalForstAppReady();
 
 	mainFT := `package main
 
-import "./legacy/counter" node
+import "./legacy/counter" js
 import "strconv"
 
 type EchoRequest = {
@@ -172,7 +172,7 @@ func main() {
 	cmd.Dir = dir
 	cmd.Env = []string{
 		"FORST_ROOT=" + dir,
-		"FORST_NODE_BINARY=" + nodeBin,
+		"FORST_BRIDGE_BINARY=" + nodeBin,
 		"FORST_INVOKE_TRANSPORT=tcp",
 		"FORST_INVOKE_PORT=" + portStr,
 		"PATH=/usr/bin:/bin:" + filepath.Join(dir, "node_modules", ".bin"),
@@ -244,7 +244,7 @@ func linkMonorepoNodeDeps(t *testing.T, root, repoRoot string) {
 	if _, err := os.Stat(tsxSrc); err != nil {
 		t.Skipf("tsx not installed in monorepo: %v", err)
 	}
-	nodeRTSrc := filepath.Join(repoRoot, "packages", "node-runtime")
+	nodeRTSrc := filepath.Join(repoRoot, "packages", "runtime")
 	if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func linkMonorepoNodeDeps(t *testing.T, root, repoRoot string) {
 	if err := os.MkdirAll(filepath.Join(root, "node_modules", "@forst"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(nodeRTSrc, filepath.Join(root, "node_modules", "@forst", "node-runtime")); err != nil {
+	if err := os.Symlink(nodeRTSrc, filepath.Join(root, "node_modules", "@forst", "runtime")); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -52,7 +52,7 @@
         "ROADMAP.md",
         "packages/cli/",
         "packages/sidecar/",
-        "packages/node-runtime/",
+        "packages/runtime/",
         "packages/errors/"
       ]
     },
@@ -76,7 +76,7 @@
         "cmd/",
         "ROADMAP.md",
         "packages/sidecar/",
-        "packages/node-runtime/",
+        "packages/runtime/",
         "packages/vscode-forst/",
         "packages/errors/"
       ],
@@ -106,7 +106,7 @@
         "examples/",
         "cmd/",
         "ROADMAP.md",
-        "packages/node-runtime/",
+        "packages/runtime/",
         "packages/vscode-forst/",
         "packages/errors/"
       ],
@@ -118,9 +118,9 @@
         }
       ]
     },
-    "packages/node-runtime": {
+    "packages/runtime": {
       "release-type": "node",
-      "package-name": "@forst/node-runtime",
+      "package-name": "@forst/runtime",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
@@ -170,7 +170,7 @@
         "packages/vscode-forst/",
         "packages/cli/",
         "packages/sidecar/",
-        "packages/node-runtime/"
+        "packages/runtime/"
       ],
       "extra-files": [
         {

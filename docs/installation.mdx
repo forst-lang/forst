@@ -160,9 +160,9 @@ CMD ["/app/.forst/build/bin/main"]
 
 Adjust paths for your layout. Read `manifest.json` `binary` for the linked executable name.
 
-**Invoke-only / no Node imports:** The runtime image needs only the linked binary and `FORST_ROOT`. You do not need Node in the image when the program does not import TypeScript and you are not using `node.hostMode`.
+**Invoke-only / no JS imports:** The runtime image needs only the linked binary and `FORST_ROOT`. You do not need Node in the image when the program does not import TypeScript and you are not using `bridge.hostMode`.
 
-**`node.hostMode`:** Copy the Node host entry files referenced in `node.args`, install production dependencies (`tsx`, `@forst/node-runtime`), and run the linked binary as the parent process. `@forst/gen` is a build-time TypeScript artifact from `forst generate`. It is not a runtime Node requirement for the Go binary alone when Node is not spawned.
+**`bridge.hostMode`:** Copy the Node host entry files referenced in `bridge.args`, install production dependencies (`tsx`, `@forst/runtime`), and run the linked binary as the parent process. `@forst/gen` is a build-time TypeScript artifact from `forst generate`. It is not a runtime Node requirement for the Go binary alone when Node is not spawned.
 
 ## Editor support
 

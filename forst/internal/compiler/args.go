@@ -36,8 +36,8 @@ type Args struct {
 	ExportStructFields bool
 	// PackageRoot, if non-empty, enables merging all same-package .ft files that share one directory under this tree with the entry file (aligned with sidecar / discovery).
 	PackageRoot string
-	// RequireNoNode, when true, fails the build if the program needs the Node runtime (opted-in TS imports).
-	RequireNoNode bool
+	// RequireNoBridge, when true, fails the build if the program needs the script bridge runtime (opted-in JS imports).
+	RequireNoBridge bool
 	// ReloadProfile enables structured compile sub-phase timing logs for forst dev hot reload.
 	ReloadProfile bool
 	// DevStableSandbox reuses boundaryRoot/.forst/run/dev/ instead of a new temp dir each reload.
@@ -93,7 +93,7 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	reportPhases := flags.Bool("report-phases", false, "Report when phases start")
 	exportStructFields := flags.Bool("export-struct-fields", false, "Emit exported struct fields with json tags (for encoding/json and TS-aligned wire shapes)")
 	packageRoot := flags.String("root", "", "Root directory: merge same-package .ft files that share one directory with the entry file (optional)")
-	requireNoNode := flags.Bool("require-no-node", false, "Fail if the program requires the Node runtime (opted-in TypeScript imports)")
+	requireNoBridge := flags.Bool("require-no-bridge", false, "Fail if the program requires the script bridge runtime (opted-in JavaScript imports)")
 	goos := flags.String("goos", "", "Target GOOS for forst build (default: host)")
 	goarch := flags.String("goarch", "", "Target GOARCH for forst build (default: host)")
 	help := flags.Bool("help", false, "Show help message")
@@ -179,7 +179,7 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 		ReportPhases:       *reportPhases,
 		ExportStructFields: *exportStructFields,
 		PackageRoot:        pkgRoot,
-		RequireNoNode:      *requireNoNode,
+		RequireNoBridge:    *requireNoBridge,
 		GoOS:               *goos,
 		GoARCH:             *goarch,
 	}
@@ -204,7 +204,7 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  -report-phases          Report when phases start")
 	log.Infof("  -export-struct-fields   Emit exported struct fields with json tags for JSON marshaling")
 	log.Infof("  -root <dir>             Merge same-package .ft files under dir with the entry file")
-	log.Infof("  -require-no-node        Fail if the program requires the Node runtime")
+	log.Infof("  -require-no-bridge      Fail if the program requires the script bridge runtime")
 	log.Infof("  -help                   Show this help message")
 	log.Infof("  -version                Show version information")
 }

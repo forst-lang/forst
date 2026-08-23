@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
 // NodeCallTarget describes a resolved opted-in TypeScript call target.
@@ -23,7 +23,7 @@ func (tc *TypeChecker) NodeExportParamTypes(moduleID, exportName string) ([]ast.
 	return params, err
 }
 
-// NodeCallTarget returns compile-time facts for pkgLocal.exportName when it is a node import call.
+// NodeCallTarget returns compile-time facts for pkgLocal.exportName when it is a JS import call.
 func (tc *TypeChecker) NodeCallTarget(pkgLocal, exportName string) (NodeCallTarget, bool) {
 	if tc == nil {
 		return NodeCallTarget{}, false
@@ -46,7 +46,7 @@ func (tc *TypeChecker) NodeCallTarget(pkgLocal, exportName string) (NodeCallTarg
 	}, true
 }
 
-// NodeModuleForLocal exposes node import binding lookup for codegen.
+// NodeModuleForLocal exposes JS import binding lookup for codegen.
 func (tc *TypeChecker) NodeModuleForLocal(local string) (moduleID string, ok bool) {
 	mod, ok := tc.nodeModuleForLocal(local)
 	if !ok {
@@ -56,13 +56,13 @@ func (tc *TypeChecker) NodeModuleForLocal(local string) (moduleID string, ok boo
 }
 
 // NodeExportKindFunction is the sync export kind constant for codegen checks.
-const NodeExportKindFunction = nodeinterop.ExportKindFunction
+const NodeExportKindFunction = bridgeinterop.ExportKindFunction
 
 // NodeExportKindGenerator is the sync generator export kind.
-const NodeExportKindGenerator = nodeinterop.ExportKindGenerator
+const NodeExportKindGenerator = bridgeinterop.ExportKindGenerator
 
 // NodeExportKindAsyncGenerator is the async generator export kind.
-const NodeExportKindAsyncGenerator = nodeinterop.ExportKindAsyncGenerator
+const NodeExportKindAsyncGenerator = bridgeinterop.ExportKindAsyncGenerator
 
 // NodeExportKindAsyncFunction is the async export kind constant for codegen checks.
-const NodeExportKindAsyncFunction = nodeinterop.ExportKindAsyncFunction
+const NodeExportKindAsyncFunction = bridgeinterop.ExportKindAsyncFunction

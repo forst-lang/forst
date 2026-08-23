@@ -61,7 +61,7 @@ func (r Root) RunSession(sessionID string) SessionPaths {
 		GoMod:        filepath.Join(dir, "go.mod"),
 		HostMain:     filepath.Join(dir, "cmd", "host", "main"+SuffixGen),
 		InvokeServer: filepath.Join(dir, "internal", "invoke", FileInvokeServer),
-		NodeRuntime:  filepath.Join(dir, "internal", "nodert", FileNodeRuntime),
+		NodeRuntime:  filepath.Join(dir, "internal", "bridgert", FileNodeRuntime),
 	}
 }
 

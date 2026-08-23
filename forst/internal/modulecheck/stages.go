@@ -16,7 +16,7 @@ import (
 )
 // ModuleScan holds per-package typecheckers and parsed ASTs for one
 // module-wide compile pass. Its methods are the pipeline stages driven by
-// runModulePipeline: scan -> collect types -> resolve node imports -> load
+// runModulePipeline: scan -> collect types -> resolve JS imports -> load
 // Go packages -> infer provider slots -> merge/validate.
 type ModuleScan struct {
 	scanRoot        string

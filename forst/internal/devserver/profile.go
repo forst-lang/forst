@@ -27,7 +27,7 @@ func ResolveProfile(cfg *ftconfig.Config) Profile {
 }
 
 func autoDetectProfile(cfg *ftconfig.Config) Profile {
-	if cfg.Server.Embedded || cfg.Node.HostMode {
+	if cfg.Server.Embedded || cfg.Bridge.HostMode {
 		return ProfileRuntime
 	}
 	return ProfileExecutor

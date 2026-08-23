@@ -8,7 +8,7 @@
   "workspaces": [
     "packages/cli",
     "packages/errors",
-    "packages/node-runtime",
+    "packages/runtime",
     "packages/sidecar",
     "packages/client",
     "packages/vscode-forst",

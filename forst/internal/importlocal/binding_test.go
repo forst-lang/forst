@@ -45,20 +45,20 @@ func TestBindingFromAST(t *testing.T) {
 		},
 		{
 			name: "node implicit from module id",
-			imp:  ast.ImportNode{Path: "./legacy/type.ts", NodeOptIn: true},
-			opts: BindingOpts{Kind: KindNode, ModuleID: "legacy/type.ts"},
+			imp:  ast.ImportNode{Path: "./legacy/type.ts", BridgeOptIn: true},
+			opts: BindingOpts{Kind: KindBridge, ModuleID: "legacy/type.ts"},
 			want: Binding{Local: "type", ImportPath: "./legacy/type.ts", ModuleID: "legacy/type.ts", Skip: false},
 		},
 		{
 			name: "node explicit alias",
-			imp:  ast.ImportNode{Path: "./legacy/type.ts", Alias: &ast.Ident{ID: "typePkg"}, NodeOptIn: true},
-			opts: BindingOpts{Kind: KindNode, ModuleID: "legacy/type.ts"},
+			imp:  ast.ImportNode{Path: "./legacy/type.ts", Alias: &ast.Ident{ID: "typePkg"}, BridgeOptIn: true},
+			opts: BindingOpts{Kind: KindBridge, ModuleID: "legacy/type.ts"},
 			want: Binding{Local: "typePkg", ImportPath: "./legacy/type.ts", ModuleID: "legacy/type.ts", Skip: false},
 		},
 		{
 			name: "node bare specifier",
-			imp:  ast.ImportNode{Path: "map", NodeOptIn: true},
-			opts: BindingOpts{Kind: KindNode, ModuleID: "map"},
+			imp:  ast.ImportNode{Path: "map", BridgeOptIn: true},
+			opts: BindingOpts{Kind: KindBridge, ModuleID: "map"},
 			want: Binding{Local: "map", ImportPath: "map", ModuleID: "map", Skip: false},
 		},
 	}

@@ -7,9 +7,9 @@ func SuggestAlias(moduleID, importPath string, taken map[string]struct{}) string
 	return SuggestAliasForKind(moduleID, importPath, TakenSet(taken), KindGo)
 }
 
-// SuggestNodeAlias returns a valid, unused Node import alias.
+// SuggestNodeAlias returns a valid, unused JS import alias.
 func SuggestNodeAlias(moduleID, importPath string, taken map[string]struct{}) string {
-	return SuggestAliasForKind(moduleID, importPath, TakenSet(taken), KindNode)
+	return SuggestAliasForKind(moduleID, importPath, TakenSet(taken), KindBridge)
 }
 
 // SuggestAliasForKind returns a valid, unused import alias for the given kind.
@@ -46,10 +46,10 @@ func SuggestAliasForKind(moduleID, importPath string, taken TakenSet, kind Kind)
 
 	root := sanitized + "Pkg"
 	if root == "Pkg" {
-		root = "nodePkg"
+		root = "jsPkg"
 	}
 	if Validate(root, kind) != nil {
-		root = "nodePkg"
+		root = "jsPkg"
 	}
 	for i := 2; i < 100; i++ {
 		c := fmt.Sprintf("%s%d", root, i)
@@ -69,7 +69,7 @@ func SuggestAliasWithValidator(moduleID, importPath string, taken map[string]str
 	kind := KindGo
 	if validate != nil {
 		if validate("node") != nil {
-			kind = KindNode
+			kind = KindBridge
 		}
 	}
 	return SuggestAliasForKind(moduleID, importPath, TakenSet(taken), kind)

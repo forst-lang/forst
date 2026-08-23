@@ -156,13 +156,13 @@ func TestParseArgs_buildRequiresOutputDir(t *testing.T) {
 func TestParseArgs_requireNoNodeFlag(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	args := ParseArgsFrom([]string{"forst", "build", "-o", "out", "-require-no-node", "main.ft"}, log)
-	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || !args.RequireNoNode {
+	args := ParseArgsFrom([]string{"forst", "build", "-o", "out", "-require-no-bridge", "main.ft"}, log)
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || !args.RequireNoBridge {
 		t.Fatalf("got %+v", args)
 	}
-	args = ParseArgsFrom([]string{"forst", "run", "-require-no-node", "main.ft"}, log)
-	if args.Command != "run" || !args.RequireNoNode {
-		t.Fatalf("run with -require-no-node: got %+v", args)
+	args = ParseArgsFrom([]string{"forst", "run", "-require-no-bridge", "main.ft"}, log)
+	if args.Command != "run" || !args.RequireNoBridge {
+		t.Fatalf("run with -require-no-bridge: got %+v", args)
 	}
 }
 

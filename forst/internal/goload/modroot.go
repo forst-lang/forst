@@ -37,7 +37,7 @@ func IsForstCompilerModule(dir string) bool {
 }
 
 // ForstCompilerModuleRoot returns the filesystem root of the Forst compiler Go module
-// (module forst). Used when generated companion Go imports forst/nodert or forst/internal/*.
+// (module forst). Used when generated companion Go imports forst/bridgert or forst/internal/*.
 func ForstCompilerModuleRoot() string {
 	if forstCompilerRootHook != nil {
 		return forstCompilerRootHook()

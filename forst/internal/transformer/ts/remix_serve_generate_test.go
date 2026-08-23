@@ -11,7 +11,7 @@ import (
 func TestParseMergedTypecheckProject_remixServeNodeInterop(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", "..", ".."))
-	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "node-interop", "remix-serve")
+	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "bridge-interop", "remix-serve")
 	mainFT := filepath.Join(exampleRoot, "main", "main.ft")
 
 	log := testutil.TestLogger(t, nil)

@@ -7,7 +7,7 @@ REPO="${REPO:-$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel 2>/dev/null
 REPO="$(cd "$REPO" && pwd)"
 
 FORST_BINARY="${FORST_BINARY:-$REPO/bin/forst}"
-FT_ROOT="$REPO/examples/in/rfc/node-interop/multi-package-dev"
+FT_ROOT="$REPO/examples/in/rfc/bridge-interop/multi-package-dev"
 HOST_READY="$FT_ROOT/.forst/node.sock.ready"
 RELOAD_MARKER="$FT_ROOT/.forst/reloading"
 
@@ -62,8 +62,8 @@ if [[ ! -x "$FORST_BINARY" ]]; then
   echo "forst binary missing: $FORST_BINARY" >&2
   exit 1
 fi
-if [[ ! -f "$REPO/packages/node-runtime/dist/host.js" ]]; then
-  echo "node-runtime not built: $REPO/packages/node-runtime/dist/host.js" >&2
+if [[ ! -f "$REPO/packages/runtime/dist/host.js" ]]; then
+  echo "runtime not built: $REPO/packages/runtime/dist/host.js" >&2
   exit 1
 fi
 

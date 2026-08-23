@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"forst/nodert"
+	"forst/bridgert"
 
 	"github.com/sirupsen/logrus"
 )
@@ -85,7 +85,7 @@ func ReapOrphanedGoChild(boundaryRoot string, currentPID int, log *logrus.Logger
 	if log != nil {
 		log.Infof("Reaping orphaned go child pid=%d (invoke port should be free)", pid)
 	}
-	if err := nodert.TerminateHostPID(pid, nodert.DefaultHostShutdownGrace()); err != nil && log != nil {
+	if err := bridgert.TerminateHostPID(pid, bridgert.DefaultHostShutdownGrace()); err != nil && log != nil {
 		log.Warnf("reap orphaned go child pid=%d: %v", pid, err)
 	}
 	_ = ClearGoChildPID(boundaryRoot)

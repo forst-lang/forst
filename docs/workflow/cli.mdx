@@ -205,14 +205,14 @@ FORST_ROOT=/app /app/.forst/build/bin/main
 
 #### How the binary fits with Node
 
-When `node.hostMode` is enabled, the built binary can run Forst and talk to Node in one of two layouts.
+When `bridge.hostMode` is enabled, the built binary can run Forst and talk to Node in one of two layouts.
 
 **All-in-one (default):** One process runs your Forst entry point, starts the small HTTP server that `@forst/gen` uses to call Forst functions, and starts your Node app (for example remix-serve) as a **child process**:
 
 ```text
 bin/main
   ├─ HTTP server for @forst/gen (.forst/invoke.ready)
-  └─ Node app child (node.binary + node.args)
+  └─ Node app child (bridge.binary + bridge.args)
        └─ @forst/gen calls Forst over HTTP
 ```
 
@@ -228,7 +228,7 @@ bin/main
 | --- | --- |
 | `kind` | `"program"` — embedded program binary, not a separate invoke daemon |
 | `binary` | Relative path to the linked executable (from entry stem) |
-| `hostMode` | `node.hostMode` from `ftconfig.json` at build time |
+| `hostMode` | `bridge.hostMode` from `ftconfig.json` at build time |
 | `embeddedInvoke` | Always `true` for `forst build` |
 | `boundaryRoot` | Project root used at build time |
 | `contractVersion` | Invoke HTTP contract version |

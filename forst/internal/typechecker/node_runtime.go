@@ -3,13 +3,13 @@ package typechecker
 import (
 	"sort"
 
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
 // NodeRuntimeInfo holds compile-time facts about Node interop for the linked program.
 type NodeRuntimeInfo struct {
 	NeedsNodeRuntime bool
-	Manifest         nodeinterop.ManifestV1
+	Manifest         bridgeinterop.ManifestV1
 	ManifestJSON     string
 }
 
@@ -26,7 +26,7 @@ func (tc *TypeChecker) NeedsNodeRuntime() bool {
 	return tc.NodeRuntimeInfo().NeedsNodeRuntime
 }
 
-// SetNodeRuntimeInfo sets node runtime facts (populated by nodeinterop analysis or tests).
+// SetNodeRuntimeInfo sets node runtime facts (populated by bridgeinterop analysis or tests).
 func (tc *TypeChecker) SetNodeRuntimeInfo(info NodeRuntimeInfo) {
 	if tc == nil {
 		return

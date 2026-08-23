@@ -11,23 +11,23 @@ import (
 	"testing"
 	"time"
 
-	"forst/nodert"
+	"forst/bridgert"
 )
 
 func TestNewGoRunCommand_attachesInvokeAuthHandoff(t *testing.T) {
-	if !nodert.SupportsInvokeAuthFDHandoff() {
+	if !bridgert.SupportsInvokeAuthFDHandoff() {
 		t.Skip("invoke auth fd handoff not supported on this platform")
 	}
 
-	relay, err := nodert.NewHostInvokeAuthRelay()
+	relay, err := bridgert.NewHostInvokeAuthRelay()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		nodert.SetActiveHostInvokeAuthRelay(nil)
+		bridgert.SetActiveHostInvokeAuthRelay(nil)
 		_ = relay.Close()
 	})
-	nodert.SetActiveHostInvokeAuthRelay(relay)
+	bridgert.SetActiveHostInvokeAuthRelay(relay)
 
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "main.go")

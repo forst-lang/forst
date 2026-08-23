@@ -16,7 +16,7 @@ import (
 func TestNodeInteropExampleFile_typechecks(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", ".."))
-	entry := filepath.Join(projectRoot, "examples", "in", "rfc", "node-interop", "main.ft")
+	entry := filepath.Join(projectRoot, "examples", "in", "rfc", "bridge-interop", "main.ft")
 	src, err := os.ReadFile(entry)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestNodeInteropExampleFile_typechecks(t *testing.T) {
 	}
 	for _, n := range nodes {
 		if imp, ok := n.(ast.ImportNode); ok {
-			t.Logf("import NodeOptIn=%v path=%q", imp.NodeOptIn, imp.Path)
+			t.Logf("import BridgeOptIn=%v path=%q", imp.BridgeOptIn, imp.Path)
 		}
 	}
 	tc := New(log, false)

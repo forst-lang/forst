@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	"forst/internal/testutil"
 )
 
@@ -29,7 +29,7 @@ func TestNodeCallTarget_resolvesSyncExport(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func main() {
 	payment.create(10.0, "usd")
@@ -46,7 +46,7 @@ func main() {
 	if target.ModuleID != "legacy/payment.ts" || target.ExportName != "create" {
 		t.Fatalf("target = %+v", target)
 	}
-	if target.Kind != nodeinterop.ExportKindAsyncFunction {
+	if target.Kind != bridgeinterop.ExportKindAsyncFunction {
 		t.Fatalf("kind = %q", target.Kind)
 	}
 }
@@ -56,7 +56,7 @@ func TestNodeExportParamTypes_returnsIndexSignature(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func main() {
 	payment.create(10.0, "usd")
@@ -80,7 +80,7 @@ func TestNodeExportParamTypes_missingExportErrors(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func main() {}
 `
@@ -99,7 +99,7 @@ func TestNodeModuleForLocal_resolvesAlias(t *testing.T) {
 	writeNodeFixture(t, root)
 
 	src := `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func main() {}
 `

@@ -2,7 +2,7 @@ package devserver
 
 import (
 	"forst/internal/invokeserver"
-	"forst/nodert"
+	"forst/bridgert"
 )
 
 func hostInvokeAuthDisabled() bool {
@@ -13,19 +13,19 @@ func attachHostInvokeAuthRelay(hostOrch *HostOrchestrator, boundaryRoot string) 
 	if hostOrch == nil || !hostModeEnabled(boundaryRoot) || hostInvokeAuthDisabled() {
 		return nil
 	}
-	if !nodert.SupportsInvokeAuthFDHandoff() {
+	if !bridgert.SupportsInvokeAuthFDHandoff() {
 		// Windows has no ExtraFiles inheritance; connect/env token delivery covers auth there.
 		return nil
 	}
 	if hostOrch.authRelay != nil {
-		nodert.SetActiveHostInvokeAuthRelay(hostOrch.authRelay)
+		bridgert.SetActiveHostInvokeAuthRelay(hostOrch.authRelay)
 		return nil
 	}
-	relay, err := nodert.NewHostInvokeAuthRelay()
+	relay, err := bridgert.NewHostInvokeAuthRelay()
 	if err != nil {
 		return err
 	}
 	hostOrch.authRelay = relay
-	nodert.SetActiveHostInvokeAuthRelay(relay)
+	bridgert.SetActiveHostInvokeAuthRelay(relay)
 	return nil
 }

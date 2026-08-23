@@ -3,18 +3,18 @@ package typechecker
 import (
 	"testing"
 
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
 func TestNodeRuntimeSummary_deduplicatesAndSortsModuleIDs(t *testing.T) {
 	tc := &TypeChecker{}
 	tc.SetNodeRuntimeInfo(NodeRuntimeInfo{
 		NeedsNodeRuntime: true,
-		Manifest: nodeinterop.ManifestV1{
-			Exports: []nodeinterop.ExportEntry{
-				{ModuleID: "legacy/b.ts", Name: "mul", Kind: nodeinterop.ExportKindFunction},
-				{ModuleID: "legacy/a.ts", Name: "sub", Kind: nodeinterop.ExportKindFunction},
-				{ModuleID: "legacy/b.ts", Name: "add", Kind: nodeinterop.ExportKindFunction},
+		Manifest: bridgeinterop.ManifestV1{
+			Exports: []bridgeinterop.ExportEntry{
+				{ModuleID: "legacy/b.ts", Name: "mul", Kind: bridgeinterop.ExportKindFunction},
+				{ModuleID: "legacy/a.ts", Name: "sub", Kind: bridgeinterop.ExportKindFunction},
+				{ModuleID: "legacy/b.ts", Name: "add", Kind: bridgeinterop.ExportKindFunction},
 			},
 		},
 	})

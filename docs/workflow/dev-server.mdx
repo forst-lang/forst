@@ -75,7 +75,7 @@ Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
 
 ### Runtime profile (embedded / host mode)
 
-When `server.embedded` or `node.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor.
+When `server.embedded` or `bridge.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor.
 
 By default, `dev.hotReload` is **true** in `ftconfig.json`, so the CLI watches `.ft` files under `-root`, recompiles on change, and restarts the generated program. Set `"dev": { "hotReload": false, "watch": false }` for a one-shot compile+run (no file watching).
 

@@ -45,7 +45,7 @@ flowchart TB
 TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same on both sides of your stack:
 
 - **Go:** Ship native binaries with `go build` and typed boundaries layered on top. See [Go interop](/interop/go).
-- **Node:** Stay type-aligned with the frontend and migrate route by route without a big bang rewrite. See [Node interop](/interop/node).
+- **Node:** Stay type-aligned with the frontend and migrate route by route without a big bang rewrite. See [JS bridge interop](/interop/node).
 
 ## Feature comparison
 
@@ -59,7 +59,7 @@ How each stack talks to other languages and adopts code incrementally.
 | --- | --- | --- | --- |
 | Incremental migration | Adopt TS file by file | Mix packages over time | [Mix `.ft`, `.go`, and legacy JS/TS](/interop/node) |
 | Go module ecosystem | No (WASM only) | Native | [Import Go packages](/interop/go) |
-| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/node/call-javascript) via `import "./path" node` |
+| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/bridge/call-javascript) via `import "./path" node` |
 | Call backend from Node | Same runtime | No | [Generated client + HTTP invoke](/interop/node/call-forst) |
 | Shared types (server ↔ client) | Straightforward | Manual / separate | [`forst generate`](/interop/node/generate-types) |
 | OpenAPI, RPC, and route files | Separate codegen from schemas | `go generate` | [Plugins](/workflow/plugins) emit them from your `.ft` backend |
@@ -97,7 +97,7 @@ How you ship, debug, and adopt each stack day to day.
 | Open source | Yes | Yes | Yes |
 
 <Info>
-  Go import loading, Node interop, Providers, generate plugins, and several invoke paths are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+  Go import loading, JS bridge interop, Providers, generate plugins, and several invoke paths are **experimental**. See the [roadmap](/resources/roadmap) for current status.
 </Info>
 
 ## What you get

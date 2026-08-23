@@ -24,12 +24,12 @@ func TestImportReservedLocalQuickFixActions(t *testing.T) {
 			wantFix:   `import typePkg "fmt"`,
 		},
 		{
-			name:      "node import",
-			code:      "node-import-reserved-local",
-			message:   "node import local name \"type\" is a Forst keyword and cannot be used without an alias\n  import typePkg \"./legacy/type.ts\" node",
-			content:   "package main\nimport \"./legacy/type.ts\" node\n",
-			wantTitle: `Add alias "typePkg" to node import`,
-			wantFix:   `import typePkg "./legacy/type.ts" node`,
+			name:      "JS import",
+			code:      "js-import-reserved-local",
+			message:   "JS import local name \"type\" is a Forst keyword and cannot be used without an alias\n  import typePkg \"./legacy/type.ts\" js",
+			content:   "package main\nimport \"./legacy/type.ts\" js\n",
+			wantTitle: `Add alias "typePkg" to JS import`,
+			wantFix:   `import typePkg "./legacy/type.ts" js`,
 		},
 	}
 	for _, tt := range tests {
@@ -59,8 +59,8 @@ func TestExtractImportFixLine(t *testing.T) {
 	if got := extractImportFixLine(goMsg, importlocal.KindGo); got != `import typePkg "fmt"` {
 		t.Fatalf("go fix = %q", got)
 	}
-	nodeMsg := "node import local name \"type\" is a Forst keyword and cannot be used without an alias\n  import typePkg \"./legacy/type.ts\" node"
-	if got := extractImportFixLine(nodeMsg, importlocal.KindNode); got != `import typePkg "./legacy/type.ts" node` {
+	nodeMsg := "JS import local name \"type\" is a Forst keyword and cannot be used without an alias\n  import typePkg \"./legacy/type.ts\" js"
+	if got := extractImportFixLine(nodeMsg, importlocal.KindBridge); got != `import typePkg "./legacy/type.ts" js` {
 		t.Fatalf("node fix = %q", got)
 	}
 }

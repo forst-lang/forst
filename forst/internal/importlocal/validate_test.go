@@ -12,15 +12,16 @@ func TestValidate_matrix(t *testing.T) {
 		kind    Kind
 		wantErr Reason
 	}{
-		{"go node alias ok", "node", KindGo, -1},
-		{"node node reserved", "node", KindNode, ReasonReservedImport},
+		{"go js alias ok", "js", KindGo, -1},
+		{"bridge js reserved", "js", KindBridge, ReasonReservedImport},
 		{"go type keyword", "type", KindGo, ReasonForstKeyword},
-		{"node type keyword", "type", KindNode, ReasonForstKeyword},
+		{"bridge type keyword", "type", KindBridge, ReasonForstKeyword},
 		{"go var keyword", "var", KindGo, ReasonForstKeyword},
 		{"blank reserved go", "_", KindGo, ReasonReservedImport},
-		{"blank reserved node", "_", KindNode, ReasonReservedImport},
+		{"blank reserved bridge", "_", KindBridge, ReasonReservedImport},
 		{"hyphen invalid", "my-package", KindGo, ReasonInvalidSyntax},
-		{"payment ok", "payment", KindNode, -1},
+		{"payment ok", "payment", KindBridge, -1},
+		{"node ok on bridge import", "node", KindBridge, -1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -40,10 +41,10 @@ func TestValidate_matrix(t *testing.T) {
 }
 
 func TestValidateLegacyWrappers(t *testing.T) {
-	if err := ValidateForstImportLocal("node"); err != nil {
-		t.Fatalf("node should be valid Go import alias: %v", err)
+	if err := ValidateForstImportLocal("js"); err != nil {
+		t.Fatalf("js should be valid Go import alias: %v", err)
 	}
-	if err := ValidateNodeImportLocal("node"); err == nil {
-		t.Fatal("node should be reserved for node imports")
+	if err := ValidateBridgeImportLocal("js"); err == nil {
+		t.Fatal("js should be reserved for bridge imports")
 	}
 }

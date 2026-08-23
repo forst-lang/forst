@@ -3,7 +3,7 @@ package typechecker
 import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	"go/types"
 
 	"github.com/sirupsen/logrus"
@@ -50,8 +50,8 @@ type TypeChecker struct {
 	nodeImports []ast.ImportNode
 	// nodeImportsByLocal maps import local name (e.g. payment) to resolved TS module + index.
 	nodeImportsByLocal map[string]nodeImportBinding
-	// nodeIndexResolver holds in-memory forst-index-v1 data for node imports.
-	nodeIndexResolver *nodeinterop.IndexResolver
+	// nodeIndexResolver holds in-memory forst-index-v1 data for JS imports.
+	nodeIndexResolver *bridgeinterop.IndexResolver
 	// NodeBoundaryRoot is the project root for resolving TS import paths (defaults to GoWorkspaceDir).
 	NodeBoundaryRoot string
 	// ForstFileDir is the directory containing the Forst source file (for relative TS imports).

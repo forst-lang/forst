@@ -55,14 +55,14 @@ func IsReservedGoImportLocal(name string) bool {
 	return name == "_" || name == "."
 }
 
-// IsReservedNodeImportLocal reports import locals reserved for Node imports.
-func IsReservedNodeImportLocal(name string) bool {
-	return name == "_" || name == "." || name == "node"
+// IsReservedBridgeImportLocal reports import locals reserved for JS bridge imports.
+func IsReservedBridgeImportLocal(name string) bool {
+	return name == "_" || name == "." || name == "js"
 }
 
-// IsReservedImportLocal is an alias for IsReservedNodeImportLocal.
+// IsReservedImportLocal is an alias for IsReservedBridgeImportLocal.
 func IsReservedImportLocal(name string) bool {
-	return IsReservedNodeImportLocal(name)
+	return IsReservedBridgeImportLocal(name)
 }
 
 // Validate rejects invalid import locals for the given kind.
@@ -70,19 +70,19 @@ func Validate(name string, kind Kind) error {
 	return validateImportLocal(name, kind.isReserved)
 }
 
-// ValidateForstImportLocal rejects invalid Go import locals (node is allowed as alias).
+// ValidateForstImportLocal rejects invalid Go import locals (js is allowed as alias).
 func ValidateForstImportLocal(name string) error {
 	return Validate(name, KindGo)
 }
 
-// ValidateNodeImportLocal rejects invalid Node import locals (node is reserved).
-func ValidateNodeImportLocal(name string) error {
-	return Validate(name, KindNode)
+// ValidateBridgeImportLocal rejects invalid JS bridge import locals (js is reserved).
+func ValidateBridgeImportLocal(name string) error {
+	return Validate(name, KindBridge)
 }
 
-// ValidateLocalName is an alias for ValidateNodeImportLocal.
+// ValidateLocalName is an alias for ValidateBridgeImportLocal.
 func ValidateLocalName(name string) error {
-	return ValidateNodeImportLocal(name)
+	return ValidateBridgeImportLocal(name)
 }
 
 func validateImportLocal(name string, reserved func(string) bool) error {

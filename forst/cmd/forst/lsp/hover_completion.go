@@ -613,7 +613,7 @@ func leadingCommentDocBeforeShapeField(tokens []ast.Token, parentTypeName, field
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
-// nodeHoverFromQualifiedNodeIdentifier adds hover for payment.create when payment is a node import.
+// nodeHoverFromQualifiedNodeIdentifier adds hover for payment.create when payment is a JS import.
 func nodeHoverFromQualifiedNodeIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type != ast.TokenIdentifier {
 		return ""
@@ -658,28 +658,14 @@ func nodeImportAliasBindingAt(tokens []ast.Token, i int) bool {
 		return false
 	}
 
-	// import NAME "path" node — postfix node opt-in with alias
+	// import NAME "path" js — postfix js opt-in with alias
 	if i >= 1 && i+2 < len(tokens) &&
 		tokens[i+1].Type == ast.TokenStringLiteral &&
-		tokens[i+2].Type == ast.TokenIdentifier && tokens[i+2].Value == "node" {
+		tokens[i+2].Type == ast.TokenIdentifier && tokens[i+2].Value == "js" {
 		switch tokens[i-1].Type {
 		case ast.TokenImport, ast.TokenLParen:
 			return true
 		}
-	}
-
-	// Legacy prefix: import node NAME "path"
-	if i >= 2 &&
-		tokens[i-2].Type == ast.TokenImport &&
-		tokens[i-1].Type == ast.TokenIdentifier && tokens[i-1].Value == "node" {
-		return i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral
-	}
-
-	// Legacy prefix: grouped import ( node NAME "path"
-	if i >= 2 &&
-		tokens[i-1].Type == ast.TokenIdentifier && tokens[i-1].Value == "node" &&
-		tokens[i-2].Type == ast.TokenLParen {
-		return i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral
 	}
 
 	return false

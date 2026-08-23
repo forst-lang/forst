@@ -1514,7 +1514,7 @@ func TestNodeHoverFromImportAlias_matchesUsageHover(t *testing.T) {
 	}
 
 	const src = `package main
-import payment "./legacy/payment" node
+import payment "./legacy/payment" js
 func main() {
   payment.create(1.0, "USD")
 }
@@ -1582,7 +1582,7 @@ func TestNodeHoverFromImportPathString_absolutePath(t *testing.T) {
 	}
 
 	const src = `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 func main() {}
 `
 	tc, _ := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
@@ -1625,7 +1625,7 @@ func TestNodeHoverFromExportAlias_signatureOnly(t *testing.T) {
 	}
 
 	const src = `package main
-import "./legacy/payment" node
+import "./legacy/payment" js
 func main() {
   payment.create(1.0, "USD")
 }

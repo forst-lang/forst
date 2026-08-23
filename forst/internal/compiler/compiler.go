@@ -9,7 +9,7 @@ import (
 	"forst/internal/goload"
 	"forst/internal/gowork"
 	"forst/internal/logger"
-	"forst/nodert"
+	"forst/bridgert"
 	transformer_go "forst/internal/transformer/go"
 	"io"
 	"os"
@@ -103,7 +103,7 @@ func formatRunProgramError(err error, stderr string) error {
 	if strings.Contains(stderr, "go.mod") || strings.Contains(stderr, "module not found") {
 		hint = "Go module linking failed — add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 	} else if code == 1 {
-		hint = "node runtime or ensure check failed — verify tsx, @forst/node-runtime, and host shim args in ftconfig.json"
+		hint = "node runtime or ensure check failed — verify tsx, @forst/runtime, and host shim args in ftconfig.json"
 	}
 	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
@@ -201,15 +201,15 @@ const envInvokePort = "FORST_INVOKE_PORT"
 
 func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered := make([]string, 0, len(env)+1)
-	rootPrefix := nodert.EnvRoot + "="
+	rootPrefix := bridgert.EnvRoot + "="
 	for _, entry := range env {
 		if !strings.HasPrefix(entry, rootPrefix) {
 			filtered = append(filtered, entry)
 		}
 	}
 	filtered = append(filtered, rootPrefix+boundaryRoot)
-	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
-		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
+	if v := os.Getenv(bridgert.EnvNodeAttachOnly); v != "" {
+		filtered = appendRunEnvVar(filtered, bridgert.EnvNodeAttachOnly, v)
 	}
 	if v := os.Getenv(envInvokePort); v != "" {
 		filtered = appendRunEnvVar(filtered, envInvokePort, v)
@@ -471,7 +471,7 @@ func CreateTempOutputFilesLegacy(mainCode, nodeRuntimeCode, invokeServerCode str
 
 // CreateTempOutputFile creates a temporary directory and file for the output.
 // When running inside the Forst Go module, files are placed under .forst/run so
-// generated code may import forst/nodert during `go run`.
+// generated code may import forst/bridgert during `go run`.
 func CreateTempOutputFile(code string) (string, error) {
 	return CreateTempOutputFiles(code, "", "", nil, nil, "")
 }

@@ -13,7 +13,7 @@ import (
 func TestEmitNeedsNodeRuntime_falseByDefault(t *testing.T) {
 	t.Parallel()
 	if EmitNeedsNodeRuntime(typechecker.New(nil, false)) {
-		t.Fatal("expected false without node imports")
+		t.Fatal("expected false without JS imports")
 	}
 	if EmitNeedsNodeRuntime(nil) {
 		t.Fatal("expected false for nil checker")

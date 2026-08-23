@@ -482,7 +482,7 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleProvidersMergedPackage (-root merged package)")
 				return
 			}
-			if strings.HasPrefix(relPath, "rfc/node-interop/") && strings.HasSuffix(relPath, ".ft") {
+			if strings.HasPrefix(relPath, "rfc/bridge-interop/") && strings.HasSuffix(relPath, ".ft") {
 				t.Skip("covered by TestExampleNodeInteropPackagesCompileGolden (-root merged package)")
 				return
 			}

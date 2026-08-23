@@ -21,12 +21,12 @@ func TestImportLocalContext_checkReserved_go(t *testing.T) {
 	}
 }
 
-func TestImportLocalContext_checkReserved_node(t *testing.T) {
+func TestImportLocalContext_checkReserved_js(t *testing.T) {
 	ctx := importLocalContext{}
-	b := importlocal.Binding{Local: "node", ImportPath: "@types/node", ModuleID: "@types/node"}
-	err := ctx.checkReserved(b, importlocal.KindNode)
+	b := importlocal.Binding{Local: "js", ImportPath: "./legacy/payment.ts", ModuleID: "legacy/payment.ts"}
+	err := ctx.checkReserved(b, importlocal.KindBridge)
 	if err == nil {
-		t.Fatal("expected reserved local error for node")
+		t.Fatal("expected reserved local error for js")
 	}
 }
 
@@ -34,10 +34,10 @@ func TestImportLocalContext_checkCrossKindConflict(t *testing.T) {
 	ctx := importLocalContext{
 		goImports: []ast.ImportNode{{Path: "fmt", Alias: &ast.Ident{ID: "payment"}}},
 		nodeImports: []ast.ImportNode{
-			{Path: "./legacy/payment.ts", NodeOptIn: true},
+			{Path: "./legacy/payment.ts", BridgeOptIn: true},
 		},
 	}
-	err := ctx.checkCrossKindConflict("payment", importlocal.KindNode)
+	err := ctx.checkCrossKindConflict("payment", importlocal.KindBridge)
 	if err == nil {
 		t.Fatal("expected cross-kind conflict")
 	}
@@ -66,14 +66,14 @@ func TestImportLocals_goNodeLocalConflict_integration(t *testing.T) {
 
 	src := `package main
 import payment "fmt"
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func main() {}
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
-		ExpectError:      `node import local name "payment" conflicts with Go import`,
+		ExpectError:      `JS import local name "payment" conflicts with Go import`,
 	})
 }
 

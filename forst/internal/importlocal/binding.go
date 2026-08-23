@@ -60,7 +60,7 @@ func BindingFromAST(imp ast.ImportNode, opts BindingOpts) Binding {
 		if b.ModuleID == "" {
 			b.ModuleID = goPath
 		}
-	case KindNode:
+	case KindBridge:
 		if imp.Alias != nil {
 			b.Local = string(imp.Alias.ID)
 		} else if opts.ModuleID != "" {

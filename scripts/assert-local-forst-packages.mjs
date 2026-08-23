@@ -17,7 +17,7 @@ if (!projectDir) {
 const pkgPath = join(projectDir, "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
-const names = ["cli", "client", "errors", "node-runtime", "sidecar"];
+const names = ["cli", "client", "errors", "runtime", "sidecar"];
 const specs = new Map();
 
 for (const field of ["dependencies", "devDependencies", "overrides"]) {

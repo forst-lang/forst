@@ -70,10 +70,10 @@ func main() {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, nodert, invoke string, extra map[string]string, extraImports map[string]string, boundary string) (string, error) {
+		CreateOutput: func(main, bridgert, invoke string, extra map[string]string, extraImports map[string]string, boundary string) (string, error) {
 			mainCode = main
 			invokeCode = invoke
-			return compiler.CreateTempOutputFiles(main, nodert, invoke, extra, extraImports, boundary)
+			return compiler.CreateTempOutputFiles(main, bridgert, invoke, extra, extraImports, boundary)
 		},
 		RunProgram: func(string, string) error { return nil },
 	}

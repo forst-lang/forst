@@ -88,7 +88,7 @@ func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 Import existing JavaScript or TypeScript modules into Forst with `import "./path" node` during migration.
 
 ```golang
-import "./legacy/payment" node
+import "./legacy/payment" js
 
 func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 	ensure in.quantity is Max(available) or InsufficientStock({

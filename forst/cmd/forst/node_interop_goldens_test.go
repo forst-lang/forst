@@ -26,9 +26,9 @@ type nodeInteropGoldenCase struct {
 func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 	return []nodeInteropGoldenCase{
 		{
-			name:      "node-interop",
-			entryRel:  "rfc/node-interop/main.ft",
-			goldenRel: "rfc/node-interop/main.go",
+			name:      "bridge-interop",
+			entryRel:  "rfc/bridge-interop/main.ft",
+			goldenRel: "rfc/bridge-interop/main.go",
 			mainMarkers: []string{
 				"package main",
 				"forst_node_callsync_",
@@ -37,14 +37,14 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			runtimeMarkers: []string{
 				"package main",
 				"forstNodeManifestJSON",
-				"forst/nodert",
-				"nodert.CallSync",
+				"forst/bridgert",
+				"bridgert.CallSync",
 			},
 		},
 		{
 			name:               "sync",
-			entryRel:           "rfc/node-interop/sync/main.ft",
-			goldenRel:          "rfc/node-interop/sync/main.go",
+			entryRel:           "rfc/bridge-interop/sync/main.ft",
+			goldenRel:          "rfc/bridge-interop/sync/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -54,13 +54,13 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallSync",
+				"bridgert.CallSync",
 			},
 		},
 		{
 			name:               "promises",
-			entryRel:           "rfc/node-interop/promises/main.ft",
-			goldenRel:          "rfc/node-interop/promises/main.go",
+			entryRel:           "rfc/bridge-interop/promises/main.ft",
+			goldenRel:          "rfc/bridge-interop/promises/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -70,13 +70,13 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallAsync",
+				"bridgert.CallAsync",
 			},
 		},
 		{
 			name:               "generators",
-			entryRel:           "rfc/node-interop/generators/main.ft",
-			goldenRel:          "rfc/node-interop/generators/main.go",
+			entryRel:           "rfc/bridge-interop/generators/main.ft",
+			goldenRel:          "rfc/bridge-interop/generators/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -86,13 +86,13 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.OpenSeq",
+				"bridgert.OpenSeq",
 			},
 		},
 		{
 			name:               "async",
-			entryRel:           "rfc/node-interop/async/main.ft",
-			goldenRel:          "rfc/node-interop/async/main.go",
+			entryRel:           "rfc/bridge-interop/async/main.ft",
+			goldenRel:          "rfc/bridge-interop/async/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -102,14 +102,14 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallAsync",
-				"nodert.OpenSeq",
+				"bridgert.CallAsync",
+				"bridgert.OpenSeq",
 			},
 		},
 		{
 			name:               "host",
-			entryRel:           "rfc/node-interop/host/main.ft",
-			goldenRel:          "rfc/node-interop/host/main.go",
+			entryRel:           "rfc/bridge-interop/host/main.ft",
+			goldenRel:          "rfc/bridge-interop/host/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -118,13 +118,13 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallSync",
+				"bridgert.CallSync",
 			},
 		},
 		{
 			name:               "remix-serve",
-			entryRel:           "rfc/node-interop/remix-serve/main/main.ft",
-			goldenRel:          "rfc/node-interop/remix-serve/main.go",
+			entryRel:           "rfc/bridge-interop/remix-serve/main/main.ft",
+			goldenRel:          "rfc/bridge-interop/remix-serve/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -136,9 +136,9 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallSync",
-				"nodert.CallAsync",
-				"nodert.OpenSeq",
+				"bridgert.CallSync",
+				"bridgert.CallAsync",
+				"bridgert.OpenSeq",
 				"legacy/todos.ts",
 			},
 			invokeMarkers: []string{
@@ -150,8 +150,8 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 		},
 		{
 			name:               "modules",
-			entryRel:           "rfc/node-interop/modules/main.ft",
-			goldenRel:          "rfc/node-interop/modules/main.go",
+			entryRel:           "rfc/bridge-interop/modules/main.ft",
+			goldenRel:          "rfc/bridge-interop/modules/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -160,14 +160,14 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallSync",
+				"bridgert.CallSync",
 				"legacy/api/checkout.ts",
 			},
 		},
 		{
 			name:               "multi-package-dev",
-			entryRel:           "rfc/node-interop/multi-package-dev/main/main.ft",
-			goldenRel:          "rfc/node-interop/multi-package-dev/main.go",
+			entryRel:           "rfc/bridge-interop/multi-package-dev/main/main.ft",
+			goldenRel:          "rfc/bridge-interop/multi-package-dev/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
@@ -177,7 +177,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			runtimeMarkers: []string{
 				"forstNodeManifestJSON",
-				"nodert.CallSync",
+				"bridgert.CallSync",
 				"hostPing",
 			},
 			invokeMarkers: []string{
@@ -231,13 +231,13 @@ func TestNodeInteropPackageRoot_nestedMainUsesFtconfigBoundary(t *testing.T) {
 	}{
 		{
 			name:     "multi-package-dev",
-			entryRel: "rfc/node-interop/multi-package-dev/main/main.ft",
-			wantRel:  "rfc/node-interop/multi-package-dev",
+			entryRel: "rfc/bridge-interop/multi-package-dev/main/main.ft",
+			wantRel:  "rfc/bridge-interop/multi-package-dev",
 		},
 		{
 			name:     "remix-serve",
-			entryRel: "rfc/node-interop/remix-serve/main/main.ft",
-			wantRel:  "rfc/node-interop/remix-serve",
+			entryRel: "rfc/bridge-interop/remix-serve/main/main.ft",
+			wantRel:  "rfc/bridge-interop/remix-serve",
 		},
 	}
 	for _, tc := range cases {
@@ -294,8 +294,8 @@ func verifyNodeInteropPackageCompileGolden(t *testing.T, expected, actual, golde
 	if strings.Contains(actual, "boundaryRoot") {
 		t.Errorf("output must not embed boundaryRoot (golden %s)", goldenPath)
 	}
-	if strings.Contains(actual, "nodert.") && !strings.Contains(goldenPath, "runtime") {
-		t.Errorf("main golden must not reference nodert directly (%s)", goldenPath)
+	if strings.Contains(actual, "bridgert.") && !strings.Contains(goldenPath, "runtime") {
+		t.Errorf("main golden must not reference bridgert directly (%s)", goldenPath)
 	}
 	if len(expected) > 0 && len(actual) < len(expected)/2 {
 		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
@@ -346,7 +346,7 @@ func writeNodeInteropExtraPackageGoldens(mainGoldenPath string, extraPackages ma
 
 func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping node-interop goldens in -short mode")
+		t.Skip("skipping bridge-interop goldens in -short mode")
 	}
 	for _, tc := range nodeInteropGoldenCases() {
 		t.Run(tc.name, func(t *testing.T) {

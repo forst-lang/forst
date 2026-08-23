@@ -231,37 +231,11 @@ func TestParseImport_importStarAsFrom_rejected(t *testing.T) {
 	_ = p.parseImport(false)
 }
 
-func TestParseImport_importNodeWithAlias_setsNodeOptIn(t *testing.T) {
-	tokens := []ast.Token{
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
-		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 6},
-		{Type: ast.TokenStringLiteral, Value: `"./legacy/api/checkout"`, Line: 1, Column: 15},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 40},
-	}
-
-	logger := ast.SetupTestLogger(nil)
-	p := setupParser(tokens, logger)
-	importNode := p.parseImport(false)
-
-	if importNode.Path != "./legacy/api/checkout" {
-		t.Errorf("expected path ./legacy/api/checkout, got %q", importNode.Path)
-	}
-	if importNode.Alias == nil || importNode.Alias.ID != "checkout" {
-		t.Fatalf("expected alias checkout, got %+v", importNode.Alias)
-	}
-	if !importNode.NodeOptIn {
-		t.Error("expected NodeOptIn true")
-	}
-	if importNode.NodeOptInSource != "import_node_prefix" {
-		t.Errorf("expected NodeOptInSource import_node_prefix for legacy prefix, got %q", importNode.NodeOptInSource)
-	}
-}
-
-func TestParseImport_importNodePostfix_setsNodeOptIn(t *testing.T) {
+func TestParseImport_importJSPostfix_setsBridgeOptIn(t *testing.T) {
 	tokens := []ast.Token{
 		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 1},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 21},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 26},
+		{Type: ast.TokenIdentifier, Value: "js", Line: 1, Column: 21},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 24},
 	}
 
 	logger := ast.SetupTestLogger(nil)
@@ -272,22 +246,22 @@ func TestParseImport_importNodePostfix_setsNodeOptIn(t *testing.T) {
 		t.Errorf("expected path ./legacy/payment, got %q", importNode.Path)
 	}
 	if importNode.Alias != nil {
-		t.Errorf("expected no alias for postfix node import, got %v", importNode.Alias)
+		t.Errorf("expected no alias for postfix JS import, got %v", importNode.Alias)
 	}
-	if !importNode.NodeOptIn {
-		t.Error("expected NodeOptIn true")
+	if !importNode.BridgeOptIn {
+		t.Error("expected BridgeOptIn true")
 	}
-	if importNode.NodeOptInSource != "import_node" {
-		t.Errorf("expected NodeOptInSource import_node, got %q", importNode.NodeOptInSource)
+	if importNode.BridgeOptInSource != "import_js" {
+		t.Errorf("expected BridgeOptInSource import_js, got %q", importNode.BridgeOptInSource)
 	}
 }
 
-func TestParseImport_importNodePostfixWithAlias_setsNodeOptIn(t *testing.T) {
+func TestParseImport_importJSPostfixWithAlias_setsBridgeOptIn(t *testing.T) {
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 1},
 		{Type: ast.TokenStringLiteral, Value: `"./legacy/api/checkout"`, Line: 1, Column: 10},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 34},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 39},
+		{Type: ast.TokenIdentifier, Value: "js", Line: 1, Column: 34},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 37},
 	}
 
 	logger := ast.SetupTestLogger(nil)
@@ -300,15 +274,15 @@ func TestParseImport_importNodePostfixWithAlias_setsNodeOptIn(t *testing.T) {
 	if importNode.Alias == nil || importNode.Alias.ID != "checkout" {
 		t.Fatalf("expected alias checkout, got %+v", importNode.Alias)
 	}
-	if !importNode.NodeOptIn {
-		t.Error("expected NodeOptIn true")
+	if !importNode.BridgeOptIn {
+		t.Error("expected BridgeOptIn true")
 	}
-	if importNode.NodeOptInSource != "import_node" {
-		t.Errorf("expected NodeOptInSource import_node, got %q", importNode.NodeOptInSource)
+	if importNode.BridgeOptInSource != "import_js" {
+		t.Errorf("expected BridgeOptInSource import_js, got %q", importNode.BridgeOptInSource)
 	}
 }
 
-func TestParseImport_goAliasNode_notNodeOptIn(t *testing.T) {
+func TestParseImport_goAliasNode_notBridgeOptIn(t *testing.T) {
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
 		{Type: ast.TokenStringLiteral, Value: `"fmt"`, Line: 1, Column: 6},
@@ -325,22 +299,22 @@ func TestParseImport_goAliasNode_notNodeOptIn(t *testing.T) {
 	if importNode.Alias == nil || importNode.Alias.ID != "node" {
 		t.Fatalf("expected alias node, got %+v", importNode.Alias)
 	}
-	if importNode.NodeOptIn {
-		t.Error("expected NodeOptIn false for Go alias import node \"fmt\"")
+	if importNode.BridgeOptIn {
+		t.Error("expected BridgeOptIn false for Go alias import node \"fmt\"")
 	}
 }
 
-func TestParseImport_importNodePostfix_groupedImport(t *testing.T) {
+func TestParseImport_importJSPostfix_groupedImport(t *testing.T) {
 	tokens := []ast.Token{
 		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 1},
 		{Type: ast.TokenStringLiteral, Value: `"strconv"`, Line: 1, Column: 2},
 		{Type: ast.TokenStringLiteral, Value: `"./a.ts"`, Line: 1, Column: 11},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 20},
-		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 25},
-		{Type: ast.TokenStringLiteral, Value: `"./b.ts"`, Line: 1, Column: 34},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 43},
-		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 48},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 49},
+		{Type: ast.TokenIdentifier, Value: "js", Line: 1, Column: 20},
+		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 23},
+		{Type: ast.TokenStringLiteral, Value: `"./b.ts"`, Line: 1, Column: 32},
+		{Type: ast.TokenIdentifier, Value: "js", Line: 1, Column: 41},
+		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 44},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 45},
 	}
 
 	logger := ast.SetupTestLogger(nil)
@@ -350,100 +324,36 @@ func TestParseImport_importNodePostfix_groupedImport(t *testing.T) {
 	if len(importGroup.Imports) != 3 {
 		t.Fatalf("expected 3 imports, got %d", len(importGroup.Imports))
 	}
-	if importGroup.Imports[0].NodeOptIn {
-		t.Error("strconv import should not have NodeOptIn")
+	if importGroup.Imports[0].BridgeOptIn {
+		t.Error("strconv import should not have BridgeOptIn")
 	}
-	if !importGroup.Imports[1].NodeOptIn || importGroup.Imports[1].NodeOptInSource != "import_node" {
-		t.Errorf("second import: expected import_node opt-in, got optIn=%v source=%q",
-			importGroup.Imports[1].NodeOptIn, importGroup.Imports[1].NodeOptInSource)
+	if !importGroup.Imports[1].BridgeOptIn || importGroup.Imports[1].BridgeOptInSource != "import_js" {
+		t.Errorf("second import: expected import_js opt-in, got optIn=%v source=%q",
+			importGroup.Imports[1].BridgeOptIn, importGroup.Imports[1].BridgeOptInSource)
 	}
 	if importGroup.Imports[1].Alias != nil {
 		t.Errorf("second import: expected no alias, got %v", importGroup.Imports[1].Alias)
 	}
-	if !importGroup.Imports[2].NodeOptIn || importGroup.Imports[2].Alias == nil || importGroup.Imports[2].Alias.ID != "checkout" {
-		t.Errorf("third import: expected postfix node with alias checkout, got %+v", importGroup.Imports[2])
+	if !importGroup.Imports[2].BridgeOptIn || importGroup.Imports[2].Alias == nil || importGroup.Imports[2].Alias.ID != "checkout" {
+		t.Errorf("third import: expected postfix js with alias checkout, got %+v", importGroup.Imports[2])
 	}
 }
 
-func TestParseImport_importNodePrefixAndPostfix_rejected(t *testing.T) {
+func TestParseImport_importNodePostfix_rejected(t *testing.T) {
 	tokens := []ast.Token{
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
-		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 6},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 26},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 31},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 1},
+		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 21},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 26},
 	}
 
 	logger := ast.SetupTestLogger(nil)
 	p := setupParser(tokens, logger)
 	defer func() {
 		if r := recover(); r == nil {
-			t.Fatal("expected parse error for prefix and postfix node on same import")
+			t.Fatal("expected parse error for removed postfix node marker")
 		}
 	}()
 	_ = p.parseImport(false)
-}
-
-func TestParseImport_importNodeModifier_setsNodeOptIn(t *testing.T) {
-	tokens := []ast.Token{
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
-		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 6},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 26},
-	}
-
-	logger := ast.SetupTestLogger(nil)
-	p := setupParser(tokens, logger)
-	importNode := p.parseImport(false)
-
-	if importNode.Path != "./legacy/payment" {
-		t.Errorf("expected path ./legacy/payment, got %q", importNode.Path)
-	}
-	if importNode.Alias != nil {
-		t.Errorf("expected no alias for legacy import node modifier, got %v", importNode.Alias)
-	}
-	if !importNode.NodeOptIn {
-		t.Error("expected NodeOptIn true")
-	}
-	if importNode.NodeOptInSource != "import_node_prefix" {
-		t.Errorf("expected NodeOptInSource import_node_prefix for legacy prefix, got %q", importNode.NodeOptInSource)
-	}
-}
-
-func TestParseImport_importNodeModifier_groupedImport(t *testing.T) {
-	tokens := []ast.Token{
-		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 1},
-		{Type: ast.TokenStringLiteral, Value: `"strconv"`, Line: 1, Column: 2},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 11},
-		{Type: ast.TokenStringLiteral, Value: `"./a.ts"`, Line: 1, Column: 16},
-		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 25},
-		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 30},
-		{Type: ast.TokenStringLiteral, Value: `"./b.ts"`, Line: 1, Column: 39},
-		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 48},
-		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 49},
-	}
-
-	logger := ast.SetupTestLogger(nil)
-	p := setupParser(tokens, logger)
-	importGroup := p.parseImportGroup()
-
-	if len(importGroup.Imports) != 3 {
-		t.Fatalf("expected 3 imports, got %d", len(importGroup.Imports))
-	}
-	if importGroup.Imports[0].NodeOptIn {
-		t.Error("strconv import should not have NodeOptIn")
-	}
-	if !importGroup.Imports[1].NodeOptIn || importGroup.Imports[1].NodeOptInSource != "import_node_prefix" {
-		t.Errorf("second import: expected legacy import_node_prefix opt-in, got optIn=%v source=%q",
-			importGroup.Imports[1].NodeOptIn, importGroup.Imports[1].NodeOptInSource)
-	}
-	if importGroup.Imports[1].Alias != nil {
-		t.Errorf("second import: expected no alias, got %v", importGroup.Imports[1].Alias)
-	}
-	if !importGroup.Imports[2].NodeOptIn || importGroup.Imports[2].Alias == nil || importGroup.Imports[2].Alias.ID != "checkout" {
-		t.Errorf("third import: expected legacy import_node_prefix with alias checkout, got %+v", importGroup.Imports[2])
-	}
-	if importGroup.Imports[2].NodeOptInSource != "import_node_prefix" {
-		t.Errorf("third import: expected import_node_prefix, got %q", importGroup.Imports[2].NodeOptInSource)
-	}
 }
 
 func TestParseImport_commentDirective_doesNotApplyOptIn(t *testing.T) {
@@ -466,8 +376,8 @@ func TestParseImport_commentDirective_doesNotApplyOptIn(t *testing.T) {
 	}
 
 	firstImport := assertNodeType[ast.ImportNode](t, nodes[1], "ast.ImportNode")
-	if firstImport.NodeOptIn {
-		t.Error("expected forst:node directive to be ignored; use import \"./path\" node")
+	if firstImport.BridgeOptIn {
+		t.Error("expected forst:node directive to be ignored; use import \"./path\" js")
 	}
 }
 
@@ -487,7 +397,7 @@ func TestParseImport_commentDirective_fileScope_ignored(t *testing.T) {
 	}
 
 	firstImport := assertNodeType[ast.ImportNode](t, nodes[1], "ast.ImportNode")
-	if firstImport.NodeOptIn {
+	if firstImport.BridgeOptIn {
 		t.Error("expected forst:node file directive to be ignored; use import \"./path\" node")
 	}
 }

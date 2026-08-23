@@ -42,9 +42,9 @@ func performDevShutdown(s devShutdownState) {
 // RuntimeRunDeps injects compile/run for tests.
 type RuntimeRunDeps struct {
 	NewCompiler         func(compiler.Args, *logrus.Logger) *compiler.Compiler
-	CreateOutput        func(main, nodert, invoke string, extra map[string]string, extraImports map[string]string, boundary string) (string, error)
+	CreateOutput        func(main, bridgert, invoke string, extra map[string]string, extraImports map[string]string, boundary string) (string, error)
 	// CreateOutputForReload overrides sandbox write during reload profiling (tests); nil uses CreateDevReloadOutputFiles.
-	CreateOutputForReload func(main, nodert, invoke string, extra map[string]string, extraImports map[string]string, boundary string, sandbox *compiler.CompileSandboxTiming) (string, error)
+	CreateOutputForReload func(main, bridgert, invoke string, extra map[string]string, extraImports map[string]string, boundary string, sandbox *compiler.CompileSandboxTiming) (string, error)
 	BuildProgram        func(mainGoPath, binPath, boundaryRoot string) error
 	StartProgram        func(outputPath, boundaryRoot string) (*runningChild, error)
 	RunProgram          func(outputPath, boundaryRoot string) error
@@ -268,7 +268,7 @@ func fillRuntimeRunDeps(deps RuntimeRunDeps) RuntimeRunDeps {
 }
 
 func startHostOrchestrator(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config, deps RuntimeRunDeps) (*HostOrchestrator, error) {
-	if cfg == nil || !cfg.Node.HostMode {
+	if cfg == nil || !cfg.Bridge.HostMode {
 		return nil, nil
 	}
 	hostOrch := deps.NewHostOrchestrator(log, boundaryRoot, cfg)

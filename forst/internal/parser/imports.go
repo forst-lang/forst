@@ -9,14 +9,13 @@ import (
 func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 	var alias *ast.Ident
 	var sideEffectOnly bool
-	var nodeOptIn bool
-	var nodeOptInSource string
-	var legacyPrefixNode bool
+	var bridgeOptIn bool
+	var bridgeOptInSource string
 
 	switch p.current().Type {
 	case ast.TokenStar:
 		p.FailWithParseError(p.current(),
-			`import * as … from is removed; use import "./path" node or import alias "./path" node`)
+			`import * as … from is removed; use import "./path" js or import alias "./path" js`)
 	case ast.TokenDot:
 		// Go dot-import: import . "path" — symbols from path are in the file scope unqualified.
 		p.advance()
@@ -24,69 +23,48 @@ func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 	case ast.TokenIdentifier:
 		id := p.current().Value
 		p.advance()
-		if id == "node" && isLegacyPrefixNodeImport(p) {
-			legacyPrefixNode = true
-			if p.current().Type == ast.TokenIdentifier {
-				aliasID := p.current().Value
-				p.advance()
-				alias = &ast.Ident{ID: ast.Identifier(aliasID)}
-			}
-		} else {
-			alias = &ast.Ident{ID: ast.Identifier(id)}
-			if id == "_" {
-				sideEffectOnly = true
-			}
+		alias = &ast.Ident{ID: ast.Identifier(id)}
+		if id == "_" {
+			sideEffectOnly = true
 		}
 	}
 
 	pathToken := p.expect(ast.TokenStringLiteral)
 	path := unquoteImportPath(pathToken.Value)
 
-	if legacyPrefixNode {
-		if p.current().Type == ast.TokenIdentifier && p.current().Value == "node" && !inGroup {
-			p.FailWithParseError(p.current(),
-				`cannot use both prefix and postfix node import marker; use import "./path" node or import alias "./path" node`)
-		}
-		nodeOptIn = true
-		nodeOptInSource = "import_node_prefix"
-	} else if p.current().Type == ast.TokenIdentifier && p.current().Value == "node" {
-		if allowsPostfixNodeMarker(path, inGroup) {
-			p.advance()
-			nodeOptIn = true
-			nodeOptInSource = "import_node"
+	if p.current().Type == ast.TokenIdentifier {
+		switch p.current().Value {
+		case "js":
+			if allowsPostfixJSMarker(path, inGroup) {
+				p.advance()
+				bridgeOptIn = true
+				bridgeOptInSource = "import_js"
+			}
+		case "node":
+			if allowsPostfixJSMarker(path, inGroup) {
+				p.FailWithParseError(p.current(),
+					`postfix "node" import marker was removed; use import "./path" js or import alias "./path" js`)
+			}
 		}
 	}
 
 	return ast.ImportNode{
-		Path:            path,
-		Alias:           alias,
-		SideEffectOnly:  sideEffectOnly,
-		NodeOptIn:       nodeOptIn,
-		NodeOptInSource: nodeOptInSource,
+		Path:              path,
+		Alias:             alias,
+		SideEffectOnly:    sideEffectOnly,
+		BridgeOptIn:       bridgeOptIn,
+		BridgeOptInSource: bridgeOptInSource,
 	}
 }
 
-// isLegacyPrefixNodeImport reports whether `import node …` uses deprecated prefix syntax.
-// `import node "fmt"` is a Go alias; relative paths, explicit aliases, and scoped npm paths stay legacy.
-func isLegacyPrefixNodeImport(p *Parser) bool {
-	switch p.current().Type {
-	case ast.TokenIdentifier:
-		return true
-	case ast.TokenStringLiteral:
-		return isLegacyNodeImportPath(unquoteImportPath(p.current().Value))
-	default:
-		return false
-	}
-}
-
-func isLegacyNodeImportPath(path string) bool {
+func isScriptImportPath(path string) bool {
 	return strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../") || strings.HasPrefix(path, "@")
 }
 
-// allowsPostfixNodeMarker reports whether `node` after the import path is a postfix Node opt-in.
-// In grouped imports, a bare Go-style path (e.g. "strconv") may be followed by a legacy `node "./path"` line.
-func allowsPostfixNodeMarker(path string, inGroup bool) bool {
-	if isLegacyNodeImportPath(path) {
+// allowsPostfixJSMarker reports whether `js` after the import path is a postfix bridge opt-in.
+// In grouped imports, a bare Go-style path (e.g. "strconv") may be followed by a `js "./path"` line.
+func allowsPostfixJSMarker(path string, inGroup bool) bool {
+	if isScriptImportPath(path) {
 		return true
 	}
 	if inGroup && isSingleSegmentImportPath(path) {

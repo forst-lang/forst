@@ -75,8 +75,15 @@
                   "interop/node/call-forst",
                   "interop/node/invoke-security",
                   "interop/node/testing",
-                  "interop/node/effect",
-                  "interop/node/call-javascript"
+                  "interop/node/effect"
+                ]
+              },
+              {
+                "group": "Bridge",
+                "root": "interop/bridge",
+                "pages": [
+                  "interop/bridge",
+                  "interop/bridge/call-javascript"
                 ]
               }
             ]
@@ -174,8 +181,13 @@
       "permanent": true
     },
     {
+      "source": "/interop/node/call-javascript",
+      "destination": "/interop/bridge/call-javascript",
+      "permanent": true
+    },
+    {
       "source": "/interop/typescript-runtime",
-      "destination": "/interop/node/call-javascript",
+      "destination": "/interop/bridge/call-javascript",
       "permanent": true
     },
     {

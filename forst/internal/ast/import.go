@@ -14,13 +14,12 @@ type ImportNode struct {
 	// used only for its initialization side effects
 	SideEffectOnly bool
 
-	// NodeOptIn marks this import as opted in to Node/TypeScript interop.
-	NodeOptIn bool
-	// NodeOptInSource records how opt-in was declared:
-	// "import_node" (import "..." node or import alias "..." node),
-	// "import_node_prefix" (deprecated import node "..." prefix form),
+	// BridgeOptIn marks this import as opted in to JavaScript/TypeScript bridge interop.
+	BridgeOptIn bool
+	// BridgeOptInSource records how opt-in was declared:
+	// "import_js" (import "..." js or import alias "..." js),
 	// "implicit_policy" (ftconfig implicit import policy), or "" when not opted in.
-	NodeOptInSource string
+	BridgeOptInSource string
 }
 
 // Kind returns the node kind for imports

@@ -11,7 +11,7 @@ import (
 	"forst/internal/generators"
 	"forst/internal/goload"
 	"forst/internal/modulecheck"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 	"os"
@@ -105,7 +105,7 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 		return compileGoOutput{}, err
 	}
 
-	if err := checkRequireNoNode(c.Args, checker); err != nil {
+	if err := checkRequireNoBridge(c.Args, checker); err != nil {
 		return compileGoOutput{}, err
 	}
 	logNodeRuntimeRequirement(c.log, checker)
@@ -496,15 +496,15 @@ func (c *Compiler) nodeHostModeEnabled() bool {
 	if err != nil || cfg == nil {
 		return false
 	}
-	return cfg.Node.HostMode
+	return cfg.Bridge.HostMode
 }
 
-func checkRequireNoNode(args Args, checker *typechecker.TypeChecker) error {
-	if !args.RequireNoNode {
+func checkRequireNoBridge(args Args, checker *typechecker.TypeChecker) error {
+	if !args.RequireNoBridge {
 		return nil
 	}
 	if checker != nil && checker.NeedsNodeRuntime() {
-		return fmt.Errorf("program requires Node runtime (opted-in TypeScript imports); cannot build with -require-no-node")
+		return fmt.Errorf("program requires Node runtime (opted-in TypeScript imports); cannot build with -require-no-bridge")
 	}
 	return nil
 }
@@ -546,12 +546,12 @@ func (c *Compiler) copyJSBridgeArtifactsIfNeeded(outputPath string) error {
 	if err != nil || cfg == nil {
 		return nil
 	}
-	bridge, err := ftconfig.EffectiveJSBridge(cfg)
+	bridge, err := ftconfig.EffectiveBridge(cfg)
 	if err != nil || bridge.ModuleFormat != ftconfig.LegacyModuleCompiled {
 		return nil
 	}
 	destDir := filepath.Dir(outputPath)
-	return nodeinterop.CopyJSArtifacts(boundary, destDir, bridge.OutDir)
+	return bridgeinterop.CopyJSArtifacts(boundary, destDir, bridge.OutDir)
 }
 
 func (c *Compiler) loadInputNodesForCompile() ([]ast.Node, error) {

@@ -72,7 +72,7 @@ func (t *Transformer) transformNodeBridgeCall(e ast.FunctionCallNode, target typ
 	}, true, nil
 }
 
-// nodeBridgeCallValueType returns the success payload type for nodert.Call* generics.
+// nodeBridgeCallValueType returns the success payload type for bridgert.Call* generics.
 // Node qualified calls are typed as Result(T, Error) in Forst; Go CallSync/CallAsync return (T, error).
 func nodeBridgeCallValueType(ret ast.TypeNode) (ast.TypeNode, error) {
 	if ret.IsResultType() && len(ret.TypeParams) >= 1 {

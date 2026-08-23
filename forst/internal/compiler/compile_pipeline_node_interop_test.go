@@ -10,7 +10,7 @@ import (
 func TestCompileNodeInteropExample(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", ".."))
-	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "node-interop")
+	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "bridge-interop")
 	entry := filepath.Join(exampleRoot, "main.ft")
 
 	c := New(Args{
@@ -26,8 +26,8 @@ func TestCompileNodeInteropExample(t *testing.T) {
 	if !strings.Contains(main, "forst_node_callsync_") {
 		t.Fatalf("missing bridge wrapper in main:\n%s", main)
 	}
-	if runtime == "" || !strings.Contains(runtime, "nodert.CallSync") {
-		t.Fatalf("missing nodert.CallSync in runtime:\n%s", runtime)
+	if runtime == "" || !strings.Contains(runtime, "bridgert.CallSync") {
+		t.Fatalf("missing bridgert.CallSync in runtime:\n%s", runtime)
 	}
 	if !strings.Contains(runtime, "forstNodeManifestJSON") {
 		t.Fatalf("missing manifest in runtime:\n%s", runtime)

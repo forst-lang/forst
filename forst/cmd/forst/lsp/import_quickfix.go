@@ -24,13 +24,13 @@ func importReservedLocalQuickFixActions(uri, content string, diags []codeActionD
 		if kind == importlocal.KindGo {
 			title = "Add Go import alias"
 		} else {
-			title = "Add node import alias"
+			title = "Add JS import alias"
 		}
 		if alias := aliasFromImportFix(fix, kind); alias != "" {
 			if kind == importlocal.KindGo {
 				title = fmt.Sprintf("Add alias %q to Go import", alias)
 			} else {
-				title = fmt.Sprintf("Add alias %q to node import", alias)
+				title = fmt.Sprintf("Add alias %q to JS import", alias)
 			}
 		}
 		out = append(out, LSPCodeAction{
@@ -50,8 +50,8 @@ func quickFixKindForCode(code string) (importlocal.Kind, bool) {
 	switch code {
 	case "go-import-reserved-local":
 		return importlocal.KindGo, true
-	case "node-import-reserved-local":
-		return importlocal.KindNode, true
+	case "js-import-reserved-local":
+		return importlocal.KindBridge, true
 	default:
 		return 0, false
 	}
@@ -64,12 +64,12 @@ func extractImportFixLine(msg string, kind importlocal.Kind) string {
 			continue
 		}
 		switch kind {
-		case importlocal.KindNode:
-			if strings.HasSuffix(line, " node") {
+		case importlocal.KindBridge:
+			if strings.HasSuffix(line, " js") {
 				return line
 			}
 		case importlocal.KindGo:
-			if strings.HasSuffix(line, " node") {
+			if strings.HasSuffix(line, " js") {
 				continue
 			}
 			if strings.Contains(line, `"`) || strings.Contains(line, `'`) {
@@ -86,11 +86,11 @@ func aliasFromImportFix(fix string, kind importlocal.Kind) string {
 		return ""
 	}
 	inner := strings.TrimPrefix(fix, "import ")
-	if kind == importlocal.KindNode {
-		if !strings.HasSuffix(inner, " node") {
+	if kind == importlocal.KindBridge {
+		if !strings.HasSuffix(inner, " js") {
 			return ""
 		}
-		inner = strings.TrimSuffix(inner, " node")
+		inner = strings.TrimSuffix(inner, " js")
 	}
 	inner = strings.TrimSpace(inner)
 	if inner == "" {

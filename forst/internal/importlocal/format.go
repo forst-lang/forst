@@ -8,15 +8,15 @@ func FormatImportFix(importPath, alias string, kind Kind) string {
 	case KindGo:
 		return FormatGoImportFix(importPath, alias)
 	default:
-		return formatNodeImportFix(importPath, alias)
+		return formatBridgeImportFix(importPath, alias)
 	}
 }
 
-func formatNodeImportFix(importPath, alias string) string {
+func formatBridgeImportFix(importPath, alias string) string {
 	if alias != "" {
-		return fmt.Sprintf("import %s %q node", alias, importPath)
+		return fmt.Sprintf("import %s %q js", alias, importPath)
 	}
-	return fmt.Sprintf("import %q node", importPath)
+	return fmt.Sprintf("import %q js", importPath)
 }
 
 // FormatGoImportFix returns a Go import line using alias and path.
@@ -55,7 +55,7 @@ func FormatGoReservedLocalDiagnostic(local, importPath, moduleID string, taken m
 	return ReservedLocalDiagnostic(local, importPath, moduleID, TakenSet(taken), KindGo, err)
 }
 
-// FormatReservedLocalDiagnostic builds a user-facing Node import error with a suggested fix line.
-func FormatReservedLocalDiagnostic(local, importPath, moduleID string, taken map[string]struct{}, err error) string {
-	return ReservedLocalDiagnostic(local, importPath, moduleID, TakenSet(taken), KindNode, err)
+// FormatBridgeReservedLocalDiagnostic builds a user-facing JS bridge import error with a suggested fix line.
+func FormatBridgeReservedLocalDiagnostic(local, importPath, moduleID string, taken map[string]struct{}, err error) string {
+	return ReservedLocalDiagnostic(local, importPath, moduleID, TakenSet(taken), KindBridge, err)
 }
