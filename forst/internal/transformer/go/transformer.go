@@ -32,6 +32,9 @@ type Transformer struct {
 	// "x := pkg.F()" where F returns Result (Go (values..., error)). Scoped per transformFunction.
 	resultLocalSplit map[string]resultLocalSplit
 
+	// currentFnBody is the Forst function body being transformed (tuple slot use analysis).
+	currentFnBody []ast.Node
+
 	// emittedSealMethods records receiver+method pairs for nominal error union sealing (dedupe on re-emit).
 	emittedSealMethods map[string]struct{}
 

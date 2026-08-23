@@ -46,12 +46,54 @@ func main() {
 }
 `
 	out := compileForstPipelineExt(t, src, pipelineOpts{goWorkspaceDir: moduleRootFromWD(t)})
-	if !strings.Contains(out, "x0, x1 := strconv.Atoi") {
-		t.Fatalf("expected tuple split assignment, got:\n%s", out)
+	if !strings.Contains(out, "x0, _ := strconv.Atoi") {
+		t.Fatalf("expected tuple split with blank for unused slot, got:\n%s", out)
+	}
+	if strings.Contains(out, "x0, x1 := strconv.Atoi") {
+		t.Fatalf("did not expect unused x1 binding, got:\n%s", out)
 	}
 	if !strings.Contains(out, "x0") {
 		t.Fatalf("expected x.0 to lower through x0 local, got:\n%s", out)
 	}
+	assertGoBuildsInTempModule(t, out)
+}
+
+func TestTransformTupleAssignment_partialUse_goBuilds(t *testing.T) {
+	t.Parallel()
+	dir := moduleRootFromWD(t)
+	src := `package main
+import "strconv"
+import "strings"
+
+func demoAtoi(s: String) {
+  pair := strconv.Atoi(s)
+  n := pair.0
+  println(n)
+}
+
+func demoCut(s: String, sep: String) {
+  t := strings.Cut(s, sep)
+  before := t.0
+  after := t.1
+  found := t.2
+  println(before)
+  println(after)
+  println(found)
+}
+
+func main() {
+  demoAtoi("42")
+  demoCut("a,b", ",")
+}
+`
+	out := compileForstPipelineExt(t, src, pipelineOpts{goWorkspaceDir: dir})
+	if !strings.Contains(out, "pair0, _ := strconv.Atoi") {
+		t.Fatalf("expected blank for unused Atoi error slot, got:\n%s", out)
+	}
+	if !strings.Contains(out, "t0, t1, t2 := strings.Cut") {
+		t.Fatalf("expected all Cut slots named when all used, got:\n%s", out)
+	}
+	assertGoBuildsInTempModule(t, out)
 }
 
 func TestTransformTupleMultiValueReturn_emitsGoMultiReturn(t *testing.T) {

@@ -126,6 +126,10 @@ func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) 
 	t.resultLocalSplit = make(map[string]resultLocalSplit)
 	defer func() { t.resultLocalSplit = prevResultSplit }()
 
+	prevFnBody := t.currentFnBody
+	t.currentFnBody = n.Body
+	defer func() { t.currentFnBody = prevFnBody }()
+
 	prevMapIndexCache := t.mapIndexFuncLitCache
 	t.mapIndexFuncLitCache = make(map[string]*goast.FuncLit)
 	defer func() { t.mapIndexFuncLitCache = prevMapIndexCache }()

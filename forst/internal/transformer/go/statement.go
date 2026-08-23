@@ -515,9 +515,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						return nil, fmt.Errorf("assignment: expected Tuple from RHS")
 					}
 					k := len(ts[0].TypeParams)
+					used := collectTupleIndexUses(t.currentFnBody, string(vn.Ident.ID))
 					slotNames := make([]string, k)
 					for i := range k {
-						slotNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						if used[i] {
+							slotNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						}
 					}
 					rhsExpr, err := t.transformExpression(rhs)
 					if err != nil {
@@ -529,14 +532,15 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
 						successGoNames: slotNames,
 					}
-					op := token.ASSIGN
-					if s.IsShort {
-						op = token.DEFINE
+					lhs := make([]goast.Expr, k)
+					for i := range k {
+						if used[i] {
+							lhs[i] = goast.NewIdent(slotNames[i])
+						} else {
+							lhs[i] = goast.NewIdent("_")
+						}
 					}
-					lhs := make([]goast.Expr, len(slotNames))
-					for i, n := range slotNames {
-						lhs[i] = goast.NewIdent(n)
-					}
+					op := assignOpForMultiValueLHS(s.IsShort, lhs)
 					return &goast.AssignStmt{
 						Lhs: lhs,
 						Tok: op,
@@ -549,17 +553,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						return nil, fmt.Errorf("assignment: expected Result from RHS")
 					}
 					succ := ts[0].TypeParams[0]
+					varName := string(vn.Ident.ID)
 					var successNames []string
 					if succ.IsTupleType() {
 						k := len(succ.TypeParams)
+						used := collectTupleIndexUses(t.currentFnBody, varName)
 						successNames = make([]string, k)
 						for i := range k {
-							successNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+							if used[i] {
+								successNames[i] = fmt.Sprintf("%s%d", varName, i)
+							}
 						}
+					} else if collectVariableAnyUse(t.currentFnBody, varName) {
+						successNames = []string{varName}
 					} else {
-						successNames = []string{string(vn.Ident.ID)}
+						successNames = []string{""}
 					}
-					errName := string(vn.Ident.ID) + "Err"
+					errName := varName + "Err"
+					errUsed := collectResultErrSlotUsed(t.currentFnBody, varName)
 					rhsExpr, err := t.transformExpression(rhs)
 					if err != nil {
 						return nil, err
@@ -567,19 +578,25 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					if t.resultLocalSplit == nil {
 						t.resultLocalSplit = make(map[string]resultLocalSplit)
 					}
-					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
-						errGoName:      errName,
-						successGoNames: successNames,
+					split := resultLocalSplit{successGoNames: successNames}
+					if errUsed {
+						split.errGoName = errName
 					}
-					op := token.ASSIGN
-					if s.IsShort {
-						op = token.DEFINE
-					}
+					t.resultLocalSplit[varName] = split
 					lhs := make([]goast.Expr, 0, len(successNames)+1)
 					for _, n := range successNames {
-						lhs = append(lhs, goast.NewIdent(n))
+						if n != "" {
+							lhs = append(lhs, goast.NewIdent(n))
+						} else {
+							lhs = append(lhs, goast.NewIdent("_"))
+						}
 					}
-					lhs = append(lhs, goast.NewIdent(errName))
+					if errUsed {
+						lhs = append(lhs, goast.NewIdent(errName))
+					} else {
+						lhs = append(lhs, goast.NewIdent("_"))
+					}
+					op := assignOpForMultiValueLHS(s.IsShort, lhs)
 					return &goast.AssignStmt{
 						Lhs: lhs,
 						Tok: op,

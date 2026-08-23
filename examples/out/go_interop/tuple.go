@@ -4,7 +4,7 @@ import "strconv"
 import "strings"
 
 func demoAtoi(s string) {
-	pair0, pair1 := strconv.Atoi(s)
+	pair0, _ := strconv.Atoi(s)
 	n := pair0
 	println(n)
 }
