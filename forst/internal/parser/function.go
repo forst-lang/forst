@@ -339,6 +339,8 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	p.context.ScopeStack.CurrentScope().FunctionName = name.Value
 
+	typeParams := p.parseTypeParamList()
+
 	params := p.parseFunctionSignature() // Parse function parameters
 
 	returnType := p.parseReturnType()
@@ -348,6 +350,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	node := ast.FunctionNode{
 		Receiver:    receiver,
 		Ident:       ast.Ident{ID: ast.Identifier(name.Value), Span: ast.SpanFromToken(name)},
+		TypeParams:  typeParams,
 		ReturnTypes: returnType,
 		Params:      params,
 		Body:        body,
@@ -385,4 +388,29 @@ func (p *Parser) parseReceiver() *ast.SimpleParamNode {
 		Ident: ident,
 		Type:  recvType,
 	}
+}
+
+// parseTypeParamList parses an optional type parameter list [T] or [T any] after a function name.
+func (p *Parser) parseTypeParamList() []ast.TypeParamDecl {
+	if p.current().Type != ast.TokenLBracket {
+		return nil
+	}
+	p.advance()
+	var params []ast.TypeParamDecl
+	for {
+		nameTok := p.expect(ast.TokenIdentifier)
+		decl := ast.TypeParamDecl{Name: ast.Identifier(nameTok.Value)}
+		if p.current().Type == ast.TokenIdentifier {
+			c := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+			decl.Constraint = &c
+		}
+		params = append(params, decl)
+		if p.current().Type == ast.TokenComma {
+			p.advance()
+			continue
+		}
+		break
+	}
+	p.expect(ast.TokenRBracket)
+	return params
 }

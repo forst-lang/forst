@@ -1,0 +1,14 @@
+{
+  "description": "Go import integration corpus for task test:go-import-corpus",
+  "cases": [
+    {"file": "go_interop/cli.ft", "requireImport": "exec", "samePackageGo": "go_interop"},
+    {"file": "go_interop/tuple.ft", "requireImport": "strconv"},
+    {"file": "go_interop/http_handle.ft", "requireImport": "http"},
+    {"file": "go_interop/maps.ft", "samePackageGo": "go_interop"},
+    {"file": "generic_function.ft"},
+    {"file": "generic_first.ft"},
+    {"file": "generic_pick.ft"},
+    {"file": "slices.ft"},
+    {"file": "go_builtins.ft"}
+  ]
+}

@@ -131,6 +131,9 @@ func (tc *TypeChecker) goTypeForForstType(f ast.TypeNode) types.Type {
 	case ast.TypeShape:
 		return tc.goTypeFromForstShapeType(f)
 	default:
+		if gt := tc.goTypeForForstUserType(f.Ident); gt != nil {
+			return gt
+		}
 		return nil
 	}
 }
@@ -202,4 +205,63 @@ func (tc *TypeChecker) goTypeFromForstShapeType(f ast.TypeNode) types.Type {
 		vars = append(vars, types.NewField(0, nil, goName, gt, false))
 	}
 	return types.NewStruct(vars, nil)
+}
+
+// goTypeForForstUserType builds a go/types named type with methods for nominal Forst types
+// that declare receiver methods, enabling interface satisfaction checks at the FFI boundary.
+func (tc *TypeChecker) goTypeForForstUserType(ident ast.TypeIdent) types.Type {
+	if tc.TypeMethods == nil {
+		return nil
+	}
+	methods, ok := tc.TypeMethods[ident]
+	if !ok || len(methods) == 0 {
+		return nil
+	}
+	obj := types.NewTypeName(0, nil, string(ident), nil)
+	underlying := types.NewStruct(nil, nil)
+	named := types.NewNamed(obj, underlying, nil)
+	recv := types.NewVar(0, nil, "", named)
+	for methodName, msig := range methods {
+		goSig := tc.goSignatureFromForstFunctionSignature(msig, recv)
+		if goSig == nil {
+			continue
+		}
+		m := types.NewFunc(0, nil, methodName, goSig)
+		named.AddMethod(m)
+	}
+	return named
+}
+
+func (tc *TypeChecker) goSignatureFromForstFunctionSignature(msig FunctionSignature, recv *types.Var) *types.Signature {
+	params := make([]*types.Var, 0, len(msig.Parameters))
+	for i, p := range msig.Parameters {
+		pt := tc.goTypeForForstType(p.Type)
+		if pt == nil {
+			return nil
+		}
+		name := string(p.Ident.ID)
+		if name == "" {
+			name = "arg" + strconv.Itoa(i)
+		}
+		params = append(params, types.NewParam(0, nil, name, pt))
+	}
+	paramTuple := types.NewTuple(params...)
+	var resultVars []*types.Var
+	for _, rt := range msig.ReturnTypes {
+		if rt.Ident == ast.TypeVoid {
+			continue
+		}
+		gt := tc.goTypeForForstType(rt)
+		if gt == nil {
+			return nil
+		}
+		resultVars = append(resultVars, types.NewParam(0, nil, "", gt))
+	}
+	var resultTuple *types.Tuple
+	if len(resultVars) == 0 {
+		resultTuple = types.NewTuple()
+	} else {
+		resultTuple = types.NewTuple(resultVars...)
+	}
+	return types.NewSignatureType(recv, nil, nil, paramTuple, resultTuple, false)
 }

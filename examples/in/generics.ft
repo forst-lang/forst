@@ -1,6 +1,6 @@
 package main
 
-// Built-in parameterized types: Array = []T, Pointer = *T (and map[K]V in type positions). These use type parameters on predeclared type constructors; user-defined generics are not implemented yet - see ROADMAP.
+// Built-in parameterized types: Array = []T, Pointer = *T (and map[K]V in type positions). These use type parameters on predeclared type constructors. User-defined generic functions live in generic_function.ft and related examples.
 // Golden output: ../out/generics.go
 func main() {
 	// []Int: back-to-back slice short declarations, then copy / append / len / cap

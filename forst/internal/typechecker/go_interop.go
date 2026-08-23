@@ -341,7 +341,15 @@ func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName
 }
 
 func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return tc.checkGoFuncCall(pkg, pkgDisplay, funcName, e, argTypes, wantSingleValue)
+	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+		Pkg:             pkg,
+		QualDisplay:     pkgDisplay,
+		FuncName:        funcName,
+		Call:            e,
+		ArgTypes:        argTypes,
+		WantSingleValue: wantSingleValue,
+		RequireExported: true,
+	})
 }
 
 func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {

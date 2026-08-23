@@ -73,6 +73,7 @@ const (
 	TypeKindBuiltin     TypeKind = "TYPE_KIND_BUILTIN"
 	TypeKindUserDefined TypeKind = "TYPE_KIND_USER_DEFINED"
 	TypeKindHashBased   TypeKind = "TYPE_KIND_HASH_BASED"
+	TypeKindTypeParam   TypeKind = "TYPE_KIND_TYPE_PARAM"
 )
 
 // TypeNode represents a type in the Forst language
@@ -275,6 +276,11 @@ func (t *TypeNode) IsHashBased() bool {
 // IsUserDefined returns true if the type node is a user-defined named type
 func (t *TypeNode) IsUserDefined() bool {
 	return t.TypeKind == TypeKindUserDefined
+}
+
+// IsTypeParam returns true when the type node is a function type parameter (T in func f[T any]).
+func (t *TypeNode) IsTypeParam() bool {
+	return t.TypeKind == TypeKindTypeParam
 }
 
 // NewBuiltinType creates a new TypeNode for a built-in type

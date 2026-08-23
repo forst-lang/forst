@@ -260,15 +260,49 @@ func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) 
 	}
 
 	// Create the function declaration
+	typeParams, err := t.transformTypeParams(n.TypeParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform type parameters: %w", err)
+	}
 	return &goast.FuncDecl{
 		Recv: recv,
 		Name: goast.NewIdent(n.Ident.String()),
 		Type: &goast.FuncType{
-			Params:  params,
-			Results: results,
+			TypeParams: typeParams,
+			Params:     params,
+			Results:    results,
 		},
 		Body: &goast.BlockStmt{
 			List: stmts,
 		},
 	}, nil
+}
+
+func (t *Transformer) transformTypeParams(params []ast.TypeParamDecl) (*goast.FieldList, error) {
+	if len(params) == 0 {
+		return nil, nil
+	}
+	list := make([]*goast.Field, 0, len(params))
+	for _, tp := range params {
+		var constraint goast.Expr
+		if tp.Constraint != nil {
+			switch tp.Constraint.Ident {
+			case ast.TypeIdent("any"), ast.TypeIdent("comparable"):
+				constraint = goast.NewIdent(string(tp.Constraint.Ident))
+			default:
+				c, err := t.transformType(*tp.Constraint)
+				if err != nil {
+					return nil, err
+				}
+				constraint = c
+			}
+		} else {
+			constraint = goast.NewIdent("any")
+		}
+		list = append(list, &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(string(tp.Name))},
+			Type:  constraint,
+		})
+	}
+	return &goast.FieldList{List: list}, nil
 }

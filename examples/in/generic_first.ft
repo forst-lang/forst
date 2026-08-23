@@ -1,0 +1,12 @@
+package main
+
+// Generic function with Array(T) parameter. Type argument is inferred from the slice literal.
+// Golden output: ../out/generic_first.go
+func first[T any](xs Array(T)): T {
+	return xs[0]
+}
+
+func main() {
+	n := first([1, 2, 3])
+	println(string(n))
+}

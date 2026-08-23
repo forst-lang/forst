@@ -1,0 +1,12 @@
+package main
+
+// User-defined generic function with a single type parameter.
+// Golden output: ../out/generic_function.go
+func identity[T any](x T): T {
+	return x
+}
+
+func main() {
+	n := identity(42)
+	println(string(n))
+}

@@ -56,6 +56,9 @@ func finishTypecheck(tb testing.TB, tc *TypeChecker, opts testutil.TypecheckOpts
 	if opts.SkipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.SkipUnlessGoImport) {
 		tb.Skipf("%s not loaded (go/packages or workspace)", opts.SkipUnlessGoImport)
 	}
+	if opts.RequireGoImport != "" && !tc.GoImportPackageLoaded(opts.RequireGoImport) {
+		tb.Fatalf("%s not loaded (go/packages or workspace); set GoWorkspaceDir or fix module root", opts.RequireGoImport)
+	}
 	if opts.SkipUnlessDotImport && !tc.HasDotImportPackages() {
 		tb.Skip("dot-import packages not loaded (go/packages or workspace)")
 	}

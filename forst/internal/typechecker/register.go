@@ -187,8 +187,9 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 	// Ensure return types have correct TypeKind
 	processedReturnTypes := make([]ast.TypeNode, len(fn.ReturnTypes))
 	for i, returnType := range fn.ReturnTypes {
-		// For user-defined types, ensure they're marked as user-defined
-		if returnType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(returnType.Ident) {
+		if tc.IsTypeParamType(returnType) {
+			processedReturnTypes[i] = returnType
+		} else if returnType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(returnType.Ident) {
 			processedReturnTypes[i] = ensureUserDefinedType(returnType)
 		} else {
 			processedReturnTypes[i] = returnType
@@ -197,6 +198,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 
 	tc.Functions[fn.Ident.ID] = FunctionSignature{
 		Ident:       fn.Ident,
+		TypeParams:  append([]ast.TypeParamDecl(nil), fn.TypeParams...),
 		Parameters:  params,
 		ReturnTypes: processedReturnTypes,
 	}

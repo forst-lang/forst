@@ -344,6 +344,12 @@ tasks:
       - go test ./internal/typechecker/... -run ErrorsCompat -count=1
       - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop/errors-compat && GOWORK=off go mod tidy && GOWORK=off go test ./... -count=1'
 
+  test:go-import-corpus:
+    desc: Typecheck manifest of Go import integration examples (requires go/packages)
+    dir: forst
+    cmds:
+      - go test ./internal/typechecker/... -run TestGoImportCorpus -count=1
+
   example:generics:
     desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)
     dir: forst

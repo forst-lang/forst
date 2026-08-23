@@ -10,6 +10,7 @@ import (
 // FunctionSignature represents a function's type information
 type FunctionSignature struct {
 	Ident       ast.Ident
+	TypeParams  []ast.TypeParamDecl
 	Parameters  []ParameterSignature
 	ReturnTypes []ast.TypeNode
 	ErrorSet    FunctionErrorSet

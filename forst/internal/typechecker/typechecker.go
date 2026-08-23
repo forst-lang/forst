@@ -226,6 +226,7 @@ func (tc *TypeChecker) preloadGoImportPackages() error {
 			"dir":      tc.goPackagesLoadDir(),
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
+	tc.RecordUnloadedGoImportPaths(loaded, err)
 	tc.InitGoPackagesFromBatch(loaded)
 	return tc.validateGoImportLocalsAfterLoad(loaded)
 }

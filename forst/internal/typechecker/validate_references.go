@@ -155,6 +155,9 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		if !ok {
 			return fmt.Errorf("%s: unknown type %q", ctx, t.Ident)
 		}
+		if tn, ok := def.(ast.TypeNode); ok && (tn.TypeKind == ast.TypeKindUserDefined || tn.TypeKind == ast.TypeKindTypeParam) {
+			return nil
+		}
 		if _, ok := def.(ast.TypeDefNode); !ok {
 			return fmt.Errorf("%s: %q is not a type name", ctx, t.Ident)
 		}

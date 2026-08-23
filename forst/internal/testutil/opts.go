@@ -13,6 +13,7 @@ type TypecheckOpts struct {
 	SamePackageGoImport string // sets tc.SetSamePackageGoImportPath
 	ModuleProviders     bool   // run modulecheck.CheckModuleProviders before CheckTypes
 	SkipUnlessGoImport  string // tb.Skip if import local name not loaded
+	RequireGoImport     string // tb.Fatal if import local name not loaded (CI gate)
 	SkipUnlessDotImport bool
 	ExpectError         string // non-empty: require CheckTypes error containing substring
 	Logger              *logrus.Logger

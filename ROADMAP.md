@@ -149,7 +149,8 @@ The language surface is organized around **structural types**, **explicit annota
 | `go/packages` load error reporting | 🔬 experimental | Failed package loads surface as `go-import` diagnostics instead of silently skipping FFI checks. |
 | Match Go idioms where it matters (`error`, naming) | 🔬 experimental | Iterative polish; conventions still evolving. |
 | Expose Forst functions to non-Forst callers (HTTP, RPC, subprocess) from **generated Go** | 🔬 experimental | Compose servers in Go; Forst-native handler patterns not in place yet. |
-| Generic Go API consumption (`slices.Contains`, `maps.Clone`, …) | 📋 planned | Requires type-argument syntax or inference and signature instantiation before call checking. |
+| Generic Go API consumption (`slices.Contains`, `maps.Clone`, …) | 🔬 experimental | Type inference and `types.Instantiate` at call sites; multi-parameter generics (e.g. `S ~[]E, E comparable`). |
+| User-defined generic functions (`func f[T any](...)`) | 🔬 experimental | Type parameter lists on functions; call-site type inference; emit Go 1.18+ generic funcs. See `examples/in/generic_function.ft`. |
 
 ---
 

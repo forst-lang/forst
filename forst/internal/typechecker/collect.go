@@ -242,6 +242,12 @@ func (tc *TypeChecker) collectFunctionNode(scopeNode ast.Node, n ast.FunctionNod
 		}
 	}
 
+	for _, tp := range n.TypeParams {
+		tpType := ast.TypeNode{Ident: ast.TypeIdent(tp.Name), TypeKind: ast.TypeKindTypeParam}
+		tc.Defs[ast.TypeIdent(tp.Name)] = tpType
+		tc.storeSymbol(tp.Name, []ast.TypeNode{tpType}, SymbolVariable)
+	}
+
 	for _, bodyNode := range n.Body {
 		if err := tc.collectExplicitTypes(bodyNode); err != nil {
 			return err
