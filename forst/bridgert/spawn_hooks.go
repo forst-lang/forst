@@ -1,7 +1,6 @@
 package bridgert
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -76,7 +75,7 @@ func spawnHooks(in SpawnHookInput) (SpawnHooks, error) {
 			prefix = append(prefix, "--preload="+reg)
 		}
 	default:
-		return SpawnHooks{}, fmt.Errorf("node runtime: unsupported javascript.host %q", in.Bridge.Host)
+		return SpawnHooks{}, bridgeRuntimeErr("unsupported javascript.host %q", in.Bridge.Host)
 	}
 
 	env := sanitizeNodeOptionsForHost(in.ParentEnv, in.Bridge.Host)
@@ -182,10 +181,10 @@ func resolveHostInterpreter(boundaryRoot string, host ftconfig.BridgeHost, confi
 		base := strings.ToLower(filepath.Base(strings.TrimSpace(configured)))
 		base = strings.TrimSuffix(base, ".exe")
 		if inferred == host && (base == name || isBareExecutableName(configured)) {
-			return ResolveNodeBinary(boundaryRoot, configured)
+			return ResolveBridgeBinary(boundaryRoot, configured)
 		}
 	}
-	return ResolveNodeBinary(boundaryRoot, name)
+	return ResolveBridgeBinary(boundaryRoot, name)
 }
 
 func sanitizeNodeOptionsForHost(env []string, host ftconfig.BridgeHost) []string {

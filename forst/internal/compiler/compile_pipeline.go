@@ -523,13 +523,13 @@ func logBridgeRuntimeRequirement(log interface {
 // FormatBridgeRuntimeLogLine returns the post-typecheck node runtime summary for CLI output.
 func FormatBridgeRuntimeLogLine(checker *typechecker.TypeChecker) string {
 	if checker == nil || !checker.NeedsBridgeRuntime() {
-		return "node runtime: not required"
+		return "bridge runtime: not required"
 	}
 	modules, exports, moduleIDs := checker.BridgeRuntimeSummary()
 	if len(moduleIDs) == 0 {
-		return fmt.Sprintf("node runtime: required (%d modules, %d exports)", modules, exports)
+		return fmt.Sprintf("bridge runtime: required (%d modules, %d exports)", modules, exports)
 	}
-	return fmt.Sprintf("node runtime: required (%d modules, %d exports) — %s",
+	return fmt.Sprintf("bridge runtime: required (%d modules, %d exports) — %s",
 		modules, exports, strings.Join(moduleIDs, ", "))
 }
 

@@ -19,7 +19,7 @@ func TestBootstrap_nodeDeath_failFastAndRespawn(t *testing.T) {
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
 	}
-	t.Setenv(envNodeBootstrap, bootstrap)
+	t.Setenv(envBridgeBootstrap, bootstrap)
 
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")
@@ -53,7 +53,7 @@ export function add(a: number, b: number): { sum: number } {
 
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
-	t.Setenv(EnvNodeAttachOnly, "")
+	t.Setenv(EnvBridgeAttachOnly, "")
 	if err := configureFromManifest(string(manifestJSON)); err != nil {
 		t.Fatal(err)
 	}

@@ -103,7 +103,7 @@ func formatRunProgramError(err error, stderr string) error {
 	if strings.Contains(stderr, "go.mod") || strings.Contains(stderr, "module not found") {
 		hint = "Go module linking failed — add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 	} else if code == 1 {
-		hint = "node runtime or ensure check failed — verify tsx, @forst/runtime, and host shim args in ftconfig.json"
+		hint = "bridge runtime or ensure check failed — verify tsx, @forst/runtime, and host shim args in ftconfig.json"
 	}
 	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
@@ -208,8 +208,8 @@ func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 		}
 	}
 	filtered = append(filtered, rootPrefix+boundaryRoot)
-	if v := os.Getenv(bridgert.EnvNodeAttachOnly); v != "" {
-		filtered = appendRunEnvVar(filtered, bridgert.EnvNodeAttachOnly, v)
+	if v := os.Getenv(bridgert.EnvBridgeAttachOnly); v != "" {
+		filtered = appendRunEnvVar(filtered, bridgert.EnvBridgeAttachOnly, v)
 	}
 	if v := os.Getenv(envInvokePort); v != "" {
 		filtered = appendRunEnvVar(filtered, envInvokePort, v)
