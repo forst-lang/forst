@@ -20,7 +20,7 @@ const input: $VerifyPasswordRequest = {
 const { valid } = await $auth.VerifyPassword(input);
 ```
 
-To call functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/bridge/call-javascript).
+To call functions at runtime, see [Call Forst over HTTP](/interop/invoke/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/bridge).
 
 ## Compiler-owned `$` names
 
@@ -74,13 +74,13 @@ The generated `package.json` declares an optional peer on `@forst/cli` so real-s
 
 For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
 
-Working reference: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve) (`vite.config.ts`, `task example:bridge-interop-remix-serve:standalone-e2e` in CI).
+Working reference: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve) (`vite.config.ts`).
 
 ## Runtime targets
 
 Default output is for **Node.js 20.19+** on the server (SSR loaders, API routes, background jobs). The transport uses `fetch`, `process.env`, and Node timing APIs.
 
-Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles are **not** supported by the generated client today. Run `forst generate` in a Node boundary and call Forst from a supported backend. See [Call Forst from Node § Runtime support](/interop/node/call-forst#runtime-support).
+Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles are **not** supported by the generated client today. Run `forst generate` in a Node boundary and call Forst from a supported backend. See [Call Forst over HTTP § Runtime support](/interop/invoke/call-forst#runtime-support).
 
 ## Monorepos and multiple Forst projects
 
@@ -198,13 +198,7 @@ Lifecycle scripts (`postinstall`, optional `predev` / `prebuild`) live on
 
 ## End-to-end example
 
-The **tictactoe** example regenerates the client after you change `.ft` files:
-
-```bash
-task example:tictactoe:generate
-```
-
-See [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/examples/in/tictactoe) and [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration).
+See the tictactoe example [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/examples/in/tictactoe) and [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration).
 
 ## Caveats
 
@@ -218,7 +212,7 @@ Functions that need wired **`Providers(f)`** are excluded from TypeScript emit. 
 
 ### Nominal error tags
 
-TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat those payloads as evolving. Invoke transport failures (`InvokeRejected`, …) already use stable tags. See [Errors and Result § Caveats](/language/errors-and-result#caveats) and [Call Forst from Node](/interop/node/call-forst#failures).
+TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat those payloads as evolving. Invoke transport failures (`InvokeRejected`, …) already use stable tags. See [Errors and Result § Caveats](/language/errors-and-result#caveats) and [Call Forst over HTTP](/interop/invoke/call-forst#failures).
 
 ## Related
 
@@ -226,13 +220,13 @@ TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat t
   <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
     `@forst/cli`, `postinstall`, and first generate.
   </Card>
-  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
     Invoke generated functions over HTTP.
   </Card>
-  <Card title="Testing" icon="flask" href="/interop/node/testing">
+  <Card title="Testing" icon="flask" href="/interop/invoke/testing">
     Stub calls with `withForstTestScope`.
   </Card>
-  <Card title="Effect mode" icon="bolt" href="/interop/node/effect">
+  <Card title="Effect mode" icon="bolt" href="/interop/invoke/effect">
     `generate.effect` and `ForstClientLive`.
   </Card>
   <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">

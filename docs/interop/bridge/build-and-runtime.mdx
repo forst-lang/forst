@@ -1,0 +1,229 @@
+---
+title: "Build, deploy, and runtime modes"
+description: "Compile Forst applications with JS imports, choose runtime hosts, and configure bridge security."
+---
+
+When your Forst application uses a JS import, production builds bundle JavaScript modules and run them alongside the Go binary.
+
+```bash
+npx forst build -root ./my-service -o .forst/build -- ./cmd/api/main.ft
+```
+
+At runtime, the binary connects to a bridge process over a local socket to execute JavaScript calls.
+
+## Build for production
+
+Use `forst build` to compile Go output for deployment. Use `forst run` to compile and execute in one step.
+
+Enable embedded invoke in `ftconfig.json` before building for production.
+
+```json
+{
+  "server": { "embedded": true }
+}
+```
+
+```bash
+npx forst build -root ./my-service -o .forst/build -- ./cmd/api/main.ft
+```
+
+Run the binary listed in `manifest.json`.
+
+```bash
+FORST_ROOT=/app /app/.forst/build/bin/main
+```
+
+Production builds bundle imported `.ts` files into `.forst/js/` as standalone JavaScript files. You do not need `tsx` at runtime when using compiled mode.
+
+## Where bundled modules live
+
+During `forst build`, esbuild bundles each imported module into `.forst/js/` under your project root. For example, `legacy/payment.ts` becomes `.forst/js/legacy/payment.js`.
+
+The Go binary and `manifest.json` do not copy `.forst/js/` beside the executable. Treat `.forst/js/` as a separate deploy artifact.
+
+The bridge resolves compiled `.js` files in this order.
+
+1. `FORST_BRIDGE_MODULES_DIR` environment variable
+2. `bridge.legacyModules.dir` in `ftconfig.json`
+3. Default path `{FORST_ROOT}/.forst/js`
+
+When bundled files live on a shared volume or sidecar container, set `FORST_BRIDGE_MODULES_DIR`.
+
+```bash
+FORST_ROOT=/app \
+FORST_BRIDGE_MODULES_DIR=/mnt/forst-modules \
+/app/.forst/build/bin/main
+```
+
+## Choose how JavaScript runs
+
+Set `bridge.host` in `ftconfig.json` to `node`, `bun`, or `deno`.
+
+| Host | Module format | Requirements |
+| --- | --- | --- |
+| `node` | `compiled` (default) | Node + `@forst/runtime` + bundled JS directory |
+| `node` | `typescript` | Node + `tsx` + `@forst/runtime` |
+| `bun` | `compiled` or `typescript` | Bun + `@forst/runtime` |
+| `deno` | `compiled` or `typescript` | Deno + `@forst/runtime` (`FORST_DENO_HOST_ENABLED=1`) |
+
+```json
+{
+  "bridge": {
+    "host": "node",
+    "legacyModules": {
+      "format": "compiled",
+      "dir": ".forst/js"
+    }
+  }
+}
+```
+
+## Run in bootstrap mode
+
+Bootstrap mode is the default. Forst starts a dedicated JavaScript child process that runs `@forst/runtime/dist/bootstrap.js`.
+
+Use bootstrap mode unless your JavaScript calls need to share memory with an existing web framework process.
+
+```text
+node node_modules/@forst/runtime/dist/bootstrap.js
+```
+
+The process communicates over a local socket at `.forst/node-bootstrap.sock`.
+
+## Run in host mode
+
+Use host mode when JavaScript calls must share memory with a running application. Examples include Prisma clients, global singletons, or routes inside Remix or Vite.
+
+Host mode runs RPC calls directly inside your application process.
+
+```json
+{
+  "bridge": {
+    "host": "node",
+    "hostMode": true,
+    "binary": "node_modules/.bin/remix-serve",
+    "args": ["./build/server/index.js", "--port", "3000"],
+    "hostSocket": ".forst/node.sock"
+  }
+}
+```
+
+### Preload register script
+
+When `hostMode` is true, Go injects a preload script into your application process.
+
+| Host | Injected flag |
+| --- | --- |
+| Node | `--import @forst/runtime/dist/host/register.mjs` |
+| Bun | `--preload @forst/runtime/dist/host/register.mjs` |
+| Deno | `--preload=@forst/runtime/dist/host/register.mjs` |
+
+### Signal readiness in custom entries
+
+If your application needs time to initialize before accepting calls, import `signalForstAppReady`.
+
+```typescript
+import { signalForstAppReady } from "@forst/runtime/host";
+
+await initializeDatabase();
+await signalForstAppReady();
+```
+
+## Environment variables for socket RPC
+
+Forst sets these variables automatically when spawning or attaching to the bridge.
+
+| Variable | Set by | Purpose |
+| --- | --- | --- |
+| `FORST_BRIDGE_HOST` | Go | Enables in-process host RPC in host mode |
+| `FORST_BRIDGE_HOST_LEADER` | Go | Identifies the main process spawned by Go |
+| `FORST_BRIDGE_SOCKET` | Go | Path to the Unix socket for RPC calls |
+| `FORST_BRIDGE_HOST_READY` | Go | Path to the readiness file polled by Go |
+| `FORST_BRIDGE_ATTACH_ONLY` | `forst dev` | Tells reloaded Go processes to attach to the existing host |
+
+## Keep host running during development
+
+During `forst dev`, Forst keeps the bridge host process running while rebuilding Go code. This avoids restarting Vite or Remix every time you edit a `.ft` file.
+
+The `forst dev` parent process starts the host. Each reloaded Go child attaches to `FORST_BRIDGE_SOCKET` using `FORST_BRIDGE_ATTACH_ONLY=1`.
+
+## Restrict allowed calls with manifests
+
+Forst records every module and export your program can call during compilation. This allowlist is stored in the generated Go binary using the `forst-node-manifest-v1` format.
+
+At runtime, `@forst/runtime` checks every RPC request against the embedded manifest. Unregistered modules or exports are rejected immediately.
+
+Only these RPC methods are allowed.
+
+- `forst.node/initialize`
+- `forst.node/call`
+- `forst.node/callAsync`
+- `forst.node/genOpen`
+- `forst.node/genNext`
+- `forst.node/genNextBatch`
+- `forst.node/genClose`
+- `forst.node/shutdown`
+
+Requests containing relative path traversal like `..` or paths outside the project root are rejected.
+
+## How Forst maps TypeScript types
+
+Forst reads TypeScript exports during compilation to verify signatures and generate Go wrapper code.
+
+| TypeScript type | Forst type |
+| --- | --- |
+| `string` | `String` |
+| `number` | `Float` |
+| `boolean` | `Bool` |
+| `void` | `Void` |
+| `bytes` | `Bytes` (`[]byte` in Go) |
+| `array` | `[]T` |
+| `object` | Shape assertion type |
+| `union` | `A \| B` when members map, otherwise `Object` |
+| `unknown` | `Object` |
+
+When a union contains unmappable types, Forst widens the type to `Object` and emits a compiler warning.
+
+## Troubleshoot common errors
+
+| Symptom | Cause | Solution |
+| --- | --- | --- |
+| `cannot import TypeScript module without import "./path" js` | Missing `js` suffix | Add `js` suffix to import |
+| `JS import local name is a Forst keyword` | Reserved keyword name | Add local alias like `import typePkg "./type" js` |
+| `node runtime: bootstrap not found` | `@forst/runtime` missing | Run `npm install @forst/runtime` |
+| `host ready timeout` | App failed to signal ready | Call `signalForstAppReady()` or check server logs |
+| `executable file not found` | `node` missing on `PATH` | Install Node version 20 or newer |
+
+To see debug logs for spawn and RPC events, set `FORST_LOG_LEVEL=debug`.
+
+```bash
+FORST_LOG_LEVEL=debug npx forst run -root ./my-service ./main.ft
+```
+
+## Migrate from implicit import policy
+
+Older projects may have `"importPolicy": "implicit"` in `ftconfig.json`. Under implicit policy, any relative import can load `.ts` files without the `js` marker.
+
+To migrate to explicit policy:
+
+1. Set `"importPolicy": "explicit"` in `ftconfig.json`.
+2. Add `js` to every TypeScript import.
+3. Rebuild and verify which binaries require JavaScript.
+
+## Caveats
+
+- **`forst/bridgert` dependency**: Generated Go code imports `forst/bridgert`. Your `go.mod` must resolve the `forst` module.
+- **Whole program requirement**: If any package in your import tree uses a JS import, the deployed binary requires a JavaScript runtime.
+- **Blocked calls**: Unknown exports and message types are rejected by the bridge manifest.
+- **Type limits**: Unmapped TypeScript unions widen to `Object`.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Bridge security" icon="shield-check" href="/interop/bridge/security">
+    Dual allowlists, path jailing, and local socket isolation.
+  </Card>
+  <Card title="Import and call JavaScript" icon="code" href="/interop/bridge/import-and-calls">
+    Import syntax, async promises, and generators.
+  </Card>
+</CardGroup>

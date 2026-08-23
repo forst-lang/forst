@@ -57,7 +57,7 @@ export FORST_GOMOD_ROOT=<repo>/forst   # when binary is not adjacent to the Go m
 "$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main/main.ft
 ```
 
-Expected stdout and curl checks match [Run](#run) below. Troubleshooting: [Call JavaScript from Forst](/interop/bridge/call-javascript) (tsx, host ready timeout).
+Expected stdout and curl checks match [Run](#run) below. Troubleshooting: [Build, deploy, and runtime modes](/interop/bridge/build-and-runtime#troubleshoot-common-errors) (tsx, host ready timeout).
 
 ## Compile
 
@@ -140,4 +140,4 @@ curl -s http://127.0.0.1:6322/ | head
 - [embedded-invoke](../../embedded-invoke/) — invoke-only
 - [host](../host/) — custom server entry
 - [sync](../sync/), [promises](../promises/), [generators](../generators/) — isolated nodert phases
-- [Call Forst from Node](/interop/node/call-forst) — client docs
+- [Call Forst over HTTP](/interop/invoke/call-forst) — client docs

@@ -78,9 +78,9 @@ Optional scripts for local workflows:
 }
 ```
 
-Import shape, subpaths, and layout: [Generate a TypeScript client](/interop/node/generate-types). Calling functions at runtime: [Call Forst from Node](/interop/node/call-forst).
+Import shape, subpaths, and layout: [Generate a TypeScript client](/interop/invoke/generate-types). Calling functions at runtime: [Call Forst over HTTP](/interop/invoke/call-forst).
 
-**Monorepos:** put `postinstall` on the workspace package that owns `ftconfig.json`, not the repo root unless that root is the boundary. See [Generate a TypeScript client § Monorepos](/interop/node/generate-types#monorepos-and-multiple-forst-projects).
+**Monorepos:** put `postinstall` on the workspace package that owns `ftconfig.json`, not the repo root unless that root is the boundary. See [Generate a TypeScript client § Monorepos](/interop/invoke/generate-types#monorepos-and-multiple-forst-projects).
 
 ## Native binary
 
@@ -185,7 +185,7 @@ You should see version output and subcommand help. If the npm wrapper fails to d
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Write and run your first validated handler.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     Import from `@forst/gen` after install and generate.
   </Card>
 </CardGroup>

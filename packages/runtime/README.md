@@ -4,7 +4,7 @@ Node runtime for **Forst → TypeScript** interop. Compiled Go binaries call you
 
 **Status:** experimental. Pin this package and verify with the [examples](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop) before production use.
 
-[Full guide → Call JavaScript from Forst](https://docs.forst.dev/interop/bridge/call-javascript)
+[Full guide → Call JavaScript from Forst](https://docs.forst.dev/interop/bridge)
 
 ## Install
 
@@ -160,7 +160,7 @@ npx forst run -root . ./main.ft
 
 **Host:** Go starts your app (`bridge.binary` + `bridge.args`). RPC listens on a local socket inside that process so module cache and globals stay shared. Import from `@forst/runtime/host` and call `signalForstAppReady()` when your app is ready.
 
-See [runtime modes](https://docs.forst.dev/interop/bridge/call-javascript#runtime-modes-bootstrap-vs-host) in the docs.
+See [runtime modes](https://docs.forst.dev/interop/bridge/build-and-runtime#choose-how-javascript-runs) in the docs.
 
 ## CLI
 
@@ -195,7 +195,7 @@ The compiler calls this during type checking. You rarely run it yourself.
 | `FORST_BRIDGE_HOST_LEADER` | When `"1"`, marks the Go-spawned leader process. Required together with `register.mjs` in `process.execArgv`; workers skip binding. |
 | `FORST_BRIDGE_APP_READY_MODULE` | Optional path to a module loaded before app readiness when `bridge.hostAppReadyModule` is configured. |
 
-See [Call JavaScript from Forst — host mode environment variables](https://docs.forst.dev/interop/bridge/call-javascript#host-mode-environment-variables) for spawn layout, readiness phases, and troubleshooting.
+See [Environment variables for socket RPC](https://docs.forst.dev/interop/bridge/build-and-runtime#environment-variables-for-socket-rpc) for spawn layout, readiness phases, and troubleshooting.
 
 ## Development
 

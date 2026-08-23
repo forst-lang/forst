@@ -38,7 +38,7 @@ Completion covers keywords, locals, same-package symbols, and members on Go-type
 
 **Go interop in the editor:** qualified imports (`fmt.Println`) and same-package `.go` functions show `go/types` signatures; godoc is included when loads succeed. **Go to definition** jumps into resolved `.go` sources for import paths, package qualifiers (`exec.Command`), same-package exports (`AddInts`), and receiver methods (`cmd.Run`). Cross-package Forst imports (e.g. Providers `auth` → `api`) use module-level typechecking so diagnostics match compile-time arity—not generated Go stubs in the source tree. See [Go interop](/interop/go).
 
-**Node interop in the editor:** JS import path strings, module aliases, and qualified calls (`payment.create`) support **go to definition** into the resolved TypeScript or JavaScript module. Export names jump to the indexed symbol when the compiler has indexed the module. See [Node interop](/interop/node).
+**Node interop in the editor:** JS import path strings, module aliases, and qualified calls (`payment.create`) support **go to definition** into the resolved TypeScript or JavaScript module. Export names jump to the indexed symbol when the compiler has indexed the module. See [JavaScript interop](/interop/invoke).
 
 ## Settings
 

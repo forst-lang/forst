@@ -73,7 +73,7 @@ By default, `forst generate` expects the file stem or parent folder name to matc
 | `legacy_login.ft` with `package auth` when neither stem nor folder matches | Multiple package names in one directory |
 | Skipping stem checks for the whole boundary | The same package name in sibling directories |
 
-Normal colocation does not need the flag. Put files under a folder named for the package (for example `auth/login.ft` with `package auth`). See [Call Forst from Node § Colocate Forst with TypeScript](/interop/node/call-forst#colocate-forst-with-typescript).
+Normal colocation does not need the flag. Put files under a folder named for the package (for example `auth/login.ft` with `package auth`). See [Call Forst over HTTP § Colocate Forst with TypeScript](/interop/invoke/call-forst#colocate-forst-with-typescript).
 
 `--list` (with optional `--json`) prints a machine-readable manifest of packages and exported functions without writing client output. Use it for IDE plugins, codegen pipelines, or CI introspection.
 
@@ -115,7 +115,7 @@ Set these under `"generate"` in `ftconfig.json`:
 | `link` | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Whether to write the `node_modules` link. `auto` links when `outDir` is inside `.forst` |
 | `emit` | `"js"` | `"js"` | Always emit built JS. `"ts"` is rejected |
 | `testingSubpath` | `string` | `"$testing"` | Subpath key for the test scope (`@forst/gen/$testing`). Must start with `$` so it cannot collide with Forst package names |
-| `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
+| `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/invoke/effect) |
 | `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
 | `go.entry` | `string` | `""` | Entry `.ft` for Go source emission (requires `go.out`) |
 | `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
@@ -328,7 +328,7 @@ Set **`FORST_BINARY`** to skip download in CI.
   <Card title="Installation" icon="download" href="/installation">
     npm, binary, Docker, and the generated client setup.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     `@forst/gen` imports and layout.
   </Card>
   <Card title="Dev server" icon="server" href="/workflow/dev-server">

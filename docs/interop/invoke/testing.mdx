@@ -5,16 +5,13 @@ description: "Replace Forst calls in tests, or start a real invoke server."
 
 import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-Code that calls Forst should be testable without a running Forst server.
-The generated test helpers let you replace a call for the duration of one test.
-Your application keeps using the same import as production.
+Code that calls Forst should be testable without a running Forst server. The generated test helpers let you replace a call for the duration of one test. Your application keeps using the same import as production.
 
 <NodeClientSetupNote />
 
 ## Replace one function
 
-This is the usual choice for a unit test. Supply the result you need, then run
-the code that depends on it.
+This is the usual choice for a unit test. Supply the result you need, then run the code that depends on it.
 
 ```typescript
 import { withForstTestScope } from "@forst/gen/$testing";
@@ -39,11 +36,9 @@ await withForstTestScope(
 );
 ```
 
-`$auth.VerifyPassword` still comes from `@forst/gen/auth`. The replacement only
-applies inside the callback passed to `withForstTestScope`.
+`$auth.VerifyPassword` still comes from `@forst/gen/auth`. The replacement only applies inside the callback passed to `withForstTestScope`.
 
-The generated handler type matches the real function. TypeScript reports an
-error if your replacement accepts the wrong input or returns the wrong shape.
+The generated handler type matches the real function. TypeScript reports an error if your replacement accepts the wrong input or returns the wrong shape.
 
 ## What the scope guarantees
 
@@ -53,8 +48,7 @@ The scope contains each replacement and cleans it up for you.
 - Restoration also happens when the callback throws.
 - Nested scopes use the closest replacement.
 - Concurrent tests keep their replacements separate.
-- A call with no replacement fails with `InvokeRejected` and names the package
-  and function.
+- A call with no replacement fails with `InvokeRejected` and names the package and function.
 
 You do not need an `afterEach` cleanup hook.
 
@@ -70,8 +64,7 @@ Start with the smallest replacement that describes your test.
 
 ### Replace several package functions
 
-Place related replacements under the same package name. Any function you call
-inside the scope must have a replacement.
+Place related replacements under the same package name. Any function you call inside the scope must have a replacement.
 
 ```typescript
 import { withForstTestScope } from "@forst/gen/$testing";
@@ -103,8 +96,7 @@ await withForstTestScope(
 
 ### Replace the connection
 
-Use a connection replacement when the request itself matters. It is also useful
-for failures that happen before Forst returns a business result.
+Use a connection replacement when the request itself matters. It is also useful for failures that happen before Forst returns a business result.
 
 ```typescript
 import { InvokeTimedOut } from "@forst/errors";
@@ -134,13 +126,11 @@ await withForstTestScope(
 );
 ```
 
-The example makes every call time out. Your application sees the same
-`InvokeTimedOut` tag that it would see in production.
+The example makes every call time out. Your application sees the same `InvokeTimedOut` tag that it would see in production.
 
 ## Test a namespaced client
 
-If your application uses `createForstClient`, create a test client with the
-same package and function shape.
+If your application uses `createForstClient`, create a test client with the same package and function shape.
 
 ```typescript
 import { createTestForstClient } from "@forst/gen/$testing";
@@ -159,14 +149,11 @@ await forst.auth.VerifyPassword({
 
 ## Effect mode
 
-An Effect Layer supplies replacement services to the code under test. You can
-replace one service, a set of package functions, or the connection. See
-[Effect mode](/interop/node/effect#testing).
+An Effect Layer supplies replacement services to the code under test. You can replace one service, a set of package functions, or the connection. See [Effect mode](/interop/invoke/effect#testing).
 
 ## Call a real Forst server
 
-Mocks replace the server. When a test should exercise compiled Forst code over
-HTTP, start or attach to an invoke server from the same testing module.
+Mocks replace the server. When a test should exercise compiled Forst code over HTTP, start or attach to an invoke server from the same testing module.
 
 Install the optional peer once:
 
@@ -185,29 +172,22 @@ expect(await $main.Echo({ message: "hi" })).toEqual({
 });
 ```
 
-`startForstTestServer` lazy-loads `@forst/cli/invoke`, starts or attaches to the
-invoke server, and points the default client at it. Package handles keep working.
+`startForstTestServer` lazy-loads `@forst/cli/invoke`, starts or attaches to the invoke server, and points the default client at it. Package handles keep working.
 
-If a server is already running (CI, Docker, or a `globalSetup`), set
-`FORST_BASE_URL` or `FORST_SKIP_SPAWN=1`. The same call attaches instead of
-spawning. `@forst/runtime` is the other direction (Forst calling Node) and
-is not used here.
+If a server is already running (CI, Docker, or a `globalSetup`), set `FORST_BASE_URL` or `FORST_SKIP_SPAWN=1`. The same call attaches instead of spawning. `@forst/runtime` is the other direction (Forst calling JS) and is not used here.
 
-In Effect mode use `ForstTestServerLayer` or `makeForstTestServer` instead. See
-[Effect mode](/interop/node/effect#testing).
+In Effect mode use `ForstTestServerLayer` or `makeForstTestServer` instead. See [Effect mode](/interop/invoke/effect#testing).
 
 ## Related
 
-Continue with the page that matches your next task.
-
 <CardGroup cols={2}>
-  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
     Production calls, failures, and options.
   </Card>
-  <Card title="Effect mode" icon="bolt" href="/interop/node/effect">
+  <Card title="Effect mode" icon="bolt" href="/interop/invoke/effect">
     `Layer.mock` and `ForstTestLayer`.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     `@forst/gen` imports and layout.
   </Card>
   <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">

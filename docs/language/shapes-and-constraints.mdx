@@ -118,7 +118,7 @@ By default, shape struct fields lower to **unexported** Go identifiers with **no
 
 The typechecker does not fully validate every built-in constraint beyond presence wiring. **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards).
 
-Generated TypeScript types reflect structure only. Client-side validation is your job unless you call the Forst server. See [Generate client types § Caveats](/interop/node/generate-types#caveats).
+Generated TypeScript types reflect structure only. Client-side validation is your job unless you call the Forst server. See [Generate client types § Caveats](/interop/invoke/generate-types#caveats).
 
 <Info>
   Constraint and emission behavior is still expanding. See the [roadmap](/resources/roadmap).
@@ -128,16 +128,12 @@ Generated TypeScript types reflect structure only. Client-side validation is you
 
 The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import.
 
-## Try it
+## Examples
 
-From the Forst repository:
+See the shape and constraint examples on GitHub
 
-```bash
-task example:basic
-task example:ensure
-```
-
-Examples live under [`examples/in/`](https://github.com/forst-lang/forst/tree/main/examples/in/).
+* [`examples/in/basic.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/basic.ft)
+* [`examples/in/ensure.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/ensure.ft)
 
 ## Related
 

@@ -1,17 +1,15 @@
 ---
-title: "Call Forst from Node"
-description: "Call Forst functions from Node applications."
+title: "Call Forst over HTTP"
+description: "Call Forst functions from JavaScript and TypeScript applications over HTTP."
 ---
 
 import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-Forst generates either Promise-based calls or Effect values. Both modes use the
-same package subpaths and `$`-prefixed handles.
+Forst generates either Promise-based calls or Effect values. Both modes use the same package subpaths and `$`-prefixed handles.
 
 <NodeClientSetupNote />
 
-Promise mode is the default. To generate Effect values, install `effect` and
-enable Effect mode in `ftconfig.json`:
+Promise mode is the default. To generate Effect values, install `effect` and enable Effect mode in `ftconfig.json`:
 
 <Columns cols={2}>
   <Card title="Promise mode">
@@ -71,16 +69,13 @@ const valid = await Effect.runPromise(
 
 </CodeGroup>
 
-Import the package handle from `@forst/gen/<package>` (for example `$auth` from
-`@forst/gen/auth`) and call through it in both modes. See
-[Generate a TypeScript client](/interop/node/generate-types) and
-[Effect mode](/interop/node/effect).
+Import the package handle from `@forst/gen/<package>` (for example `$auth` from `@forst/gen/auth`) and call through it in both modes. See [Generate a TypeScript client](/interop/invoke/generate-types) and [Effect mode](/interop/invoke/effect).
 
 ## Quick start
 
 <Steps>
   <Step title="Write a public Forst function">
-    Only **exported** functions (capitalized names) are callable from Node.
+    Only **exported** functions (capitalized names) are callable from JavaScript.
 
     ```ft
     package auth
@@ -105,8 +100,7 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
   <Step title="Install and generate">
     Follow [Installation § Generated TypeScript client](/installation#generated-typescript-client).
 
-    Promise mode is enabled by default. For Effect return types, set
-    `"generate": { "effect": true }` in `ftconfig.json` before generating.
+    Promise mode is enabled by default. For Effect return types, set `"generate": { "effect": true }` in `ftconfig.json` before generating.
   </Step>
   <Step title="Run a server">
     **Development** — hot reload while you edit `.ft` files:
@@ -173,12 +167,11 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
   </Step>
 </Steps>
 
-Repository example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke). Run `task example:embedded-invoke:run` from the monorepo root.
+Repository example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke).
 
 ## Configure the client
 
-Promise mode creates a configured client object. Effect mode creates a layer
-that provides the generated package services:
+Promise mode creates a configured client object. Effect mode creates a layer that provides the generated package services:
 
 <CodeGroup>
 
@@ -257,14 +250,9 @@ const ForstLive = ForstClientLayer({
 
 </CodeGroup>
 
-`Content-Type: application/json` is always set. The invoke authentication
-headers are reserved and cannot be replaced by your defaults or per-call
-headers. See [Invoke security](/interop/node/invoke-security#reserved-request-headers).
+`Content-Type: application/json` is always set. The invoke authentication headers are reserved and cannot be replaced by your defaults or per-call headers. See [Invoke security](/interop/invoke/security#reserved-request-headers).
 
-Connect-mode workers need the invoke HMAC secret from `FORST_INVOKE_TOKEN`
-(base64url). The `forst dev` process sets this when it starts. Sidecar spawn
-mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See
-[Invoke security](/interop/node/invoke-security#authentication-flow).
+Connect-mode workers need the invoke HMAC secret from `FORST_INVOKE_TOKEN` (base64url). The `forst dev` process sets this when it starts. Sidecar spawn mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See [Invoke security](/interop/invoke/security#authentication-flow).
 
 ## How the client picks a server
 
@@ -277,14 +265,11 @@ mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See
 
 **Production never spawns a server.** Set `FORST_BASE_URL` (or `FORST_INVOKE_URL` / `FORST_DEV_URL`) explicitly. Local spawn of `forst dev` is opt-in for development only.
 
-`allowSpawn: true` and `connectionMode: "dev"` are reserved for a future release. Today the client always connects over HTTP even when those flags are set.
-
 The **`forst dev`** HTTP contract (`/invoke`, `/version`, …) is documented in [Dev server](/workflow/dev-server). Saving a `.ft` file regenerates the client so the editor stays in step. See [Dev server § Generated client](/workflow/dev-server#generated-client).
 
 ## Failures
 
-Every invoke failure has a stable `_tag`. Promise mode throws the tagged value.
-Effect mode exposes the same tags through its typed error channel:
+Every invoke failure has a stable `_tag`. Promise mode throws the tagged value. Effect mode exposes the same tags through its typed error channel:
 
 <CodeGroup>
 
@@ -366,14 +351,9 @@ const program = $main.PlayMove(req).pipe(
 
 Unmapped server failures (generic Go errors, panics) surface as `ForstUnknownFailure`.
 
-These tags match the Effect `Data.TaggedError` shape. Promise mode can also
-wrap calls with Effect and use `Effect.catchTag`. See
-[Effect mode](/interop/node/effect).
-
 ### `.safe()`
 
-Promise mode offers `.safe()`. Effect mode can move the typed failure into an
-`Either` value:
+Promise mode offers `.safe()`. Effect mode can move the typed failure into an `Either` value:
 
 <CodeGroup>
 
@@ -438,8 +418,7 @@ const program = $auth.VerifyPassword(input).pipe(
 | `timeoutMs` | Fail with `InvokeTimedOut` after this many milliseconds |
 | `retries` | Retry on transient failures (`InvokeTimedOut`, `InvokeUnreachable`, …) with exponential backoff and jitter |
 
-In Effect mode, fiber interruption cancels the HTTP request. Use
-`Effect.timeout` and `Effect.retry` for timeouts and retry schedules.
+In Effect mode, fiber interruption cancels the HTTP request. Use `Effect.timeout` and `Effect.retry` for timeouts and retry schedules.
 
 ## Runtime support
 
@@ -447,69 +426,15 @@ The generated client targets **Node.js 20.19+** server-side use (SSR, API routes
 
 | Environment | Support |
 | --- | --- |
-| Node SSR (Remix, Vite SSR, Express) | Supported. See [Generate a TypeScript client § Bundlers](/interop/node/generate-types#bundlers-vite-remix-webpack). |
+| Node SSR (Remix, Vite SSR, Express) | Supported. See [Generate a TypeScript client § Bundlers](/interop/invoke/generate-types#bundlers-vite-remix-webpack). |
 | Cloudflare Workers / Vercel Edge / Deno | Not supported today. Transport reads `process.env` and defaults assume Node. |
 | Browser bundles | Not supported. Invoke from your backend instead. |
 
 For edge deployments, keep Forst behind a Node or Go invoke server and call it from the edge with `fetch` and your own thin wrapper if needed.
 
-## Known limitations
-
-| Topic | Status |
-| --- | --- |
-| Batch invoke | One HTTP request per generated function. Collapse parallel calls in application code or add your own batch layer. |
-| Binary / multipart payloads | JSON only on the wire. Large or file uploads need a separate upload path. |
-| Stream reconnect | NDJSON streams do not resume after disconnect. Retry the whole stream from the caller. |
-| Generated client semver | Ephemeral `@forst/gen` stays at `version: "0.0.0"`. Regenerate after compiler upgrades and check `GET /version` `contractVersion`. |
-
-## Multi-package projects
-
-Put each Forst package in its own directory under one `go.mod`:
-
-```text
-myapp/
-  ftconfig.json
-  go.mod
-  main/
-    main.ft          # package main
-  auth/
-    auth.ft          # package auth — invoke exports
-  types/
-    types.ft         # package types — shared shapes
-```
-
-| Command | Multi-package behavior |
-| --- | --- |
-| `forst run -root .` | Compiles entry package plus cross-package invoke companions |
-| `forst dev -root .` | Discovers runnable exports in **all** packages under `-root` |
-| `forst generate .` | Emits **one module per Forst package** (`@forst/gen/auth`, …) |
-| `forst test -root .` | Same module graph as run/dev |
-
-### Colocate Forst with TypeScript
-
-When Forst lives beside TypeScript, use a folder per package. The folder name can match the package so filenames stay flexible:
-
-```text
-features/authentication/
-  auth/
-    login.ft         # package auth
-    bcrypt.ft        # package auth
-  routes.ts
-```
-
-Here `login.ft` works because the parent folder is `auth`. You do not need `--allow-stem-package-mismatch` for this pattern.
-
-File stems should match package names when the folder name does not (`auth.ft` → `package auth`). `forst generate` errors on mismatch unless you pass [`--allow-stem-package-mismatch`](/workflow/cli#forst-generate). That flag does **not** relax the one-folder-per-package rule.
-
-Each Forst package name must live in **one directory** for the Go target. Split helpers by adding files under the package directory (for example `auth/auth.ft` and `auth/bcrypt.ft`), not in sibling folders with the same `package` name.
-
-Repository example: [`examples/in/rfc/bridge-interop/multi-package-dev`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/multi-package-dev).
-
 ## Built-in HTTP server
 
-Your compiled Go binary starts a local invoke server. On Unix it defaults to a
-Unix domain socket at `.forst/invoke.sock`. On Windows, or with
-`FORST_INVOKE_TRANSPORT=tcp`, it uses loopback TCP (default port `6321`).
+Your compiled Go binary starts a local invoke server. On Unix it defaults to a Unix domain socket at `.forst/invoke.sock`. On Windows, or with `FORST_INVOKE_TRANSPORT=tcp`, it uses loopback TCP (default port `6321`).
 
 Enable with `server.embedded` in `ftconfig.json`:
 
@@ -523,17 +448,13 @@ Enable with `server.embedded` in `ftconfig.json`:
 }
 ```
 
-Then `forst build -o <dir>` links a native invoke binary (requires `server.embedded`). It writes `.forst/invoke.ready`
-and a separate local token file. HMAC auth is on by default. Use the Forst
-client, sidecar, or CLI helpers for `POST /invoke`, because authenticated RPC
-needs a fresh challenge and HMAC proof. For a manual smoke test over TCP:
+Then `forst build -o <dir>` links a native invoke binary (requires `server.embedded`). It writes `.forst/invoke.ready` and a separate local token file. HMAC auth is on by default. Use the Forst client, sidecar, or CLI helpers for `POST /invoke`, because authenticated RPC needs a fresh challenge and HMAC proof. For a manual smoke test over TCP:
 
 ```bash
 FORST_INVOKE_TRANSPORT=tcp curl -s http://127.0.0.1:6321/health
 ```
 
-See [Invoke security](/interop/node/invoke-security) for the local transport,
-token storage, reserved headers, and the test-only auth escape hatch.
+See [Invoke security](/interop/invoke/security) for the local transport, token storage, reserved headers, and the test-only auth escape hatch.
 
 ### Environment variables
 
@@ -548,8 +469,7 @@ token storage, reserved headers, and the test-only auth escape hatch.
 | `FORST_ROOT` | Project root for `.forst/invoke.ready` |
 | `FORST_SKIP_SPAWN` | Force HTTP connect (never spawn `forst dev`) |
 
-When the built-in server starts, Forst writes `.forst/invoke.ready` with
-`socketPath` (Unix default) or `url` (TCP) for tooling auto-discovery.
+When the built-in server starts, Forst writes `.forst/invoke.ready` with `socketPath` (Unix default) or `url` (TCP) for tooling auto-discovery.
 
 ## Host mode (Remix and similar)
 
@@ -563,9 +483,9 @@ Incremental migration often runs three channels in one deployment:
 
 Enable both `server.embedded` and `bridge.hostMode` in `ftconfig.json`. Remix loaders call generated client functions over `:6321`; Forst `main` calls legacy JS over the nodert socket.
 
-Full combined demo: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve) (`task example:bridge-interop-remix-serve:e2e`).
+Full combined demo: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve).
 
-Bridgert setup is covered in [Call JavaScript from Forst](/interop/bridge/call-javascript#host-mode-shared-memory).
+Bridgert setup is covered in [Run in host mode](/interop/bridge/build-and-runtime#run-in-host-mode).
 
 ## Export rules
 
@@ -627,13 +547,13 @@ Wire **`with`** blocks in Go **`main`** before the server starts. See [Providers
   <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
     `@forst/cli`, `postinstall`, and first generate.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     Subpaths, types, and `@forst/gen` layout.
   </Card>
-  <Card title="Testing" icon="flask" href="/interop/node/testing">
+  <Card title="Testing" icon="flask" href="/interop/invoke/testing">
     Stub calls with `withForstTestScope`.
   </Card>
-  <Card title="Effect mode" icon="bolt" href="/interop/node/effect">
+  <Card title="Effect mode" icon="bolt" href="/interop/invoke/effect">
     Tagged errors and `generate.effect`.
   </Card>
   <Card title="Dev server" icon="server" href="/workflow/dev-server">

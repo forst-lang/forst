@@ -13,7 +13,7 @@ Fixture for **host mode**: Go spawns an app shim (`node app/server.mjs`) and con
 
 ## Host environment variables
 
-Go sets `FORST_BRIDGE_HOST`, `FORST_BRIDGE_HOST_LEADER`, `FORST_BRIDGE_SOCKET`, and `FORST_BRIDGE_HOST_READY` on the direct shim child. See [Call JavaScript from Forst — host mode environment variables](https://docs.forst.dev/interop/bridge/call-javascript#host-mode-environment-variables) for semantics, readiness phases, and worker vs leader behavior.
+Go sets `FORST_BRIDGE_HOST`, `FORST_BRIDGE_HOST_LEADER`, `FORST_BRIDGE_SOCKET`, and `FORST_BRIDGE_HOST_READY` on the direct shim child. See [Environment variables for socket RPC](https://docs.forst.dev/interop/bridge/build-and-runtime#environment-variables-for-socket-rpc) for semantics, readiness phases, and worker vs leader behavior.
 
 ## Compile
 
@@ -33,4 +33,4 @@ Integration tests in `forst/bridgert/host_integration_test.go` cover E2E host mo
 
 - [remix-serve](../remix-serve/) — third-party shim with `hostAppReadyModule`
 - [sync](../sync/) — bootstrap mode (dedicated Node child, stdio RPC)
-- [Call JavaScript from Forst](/interop/bridge/call-javascript) — host vs bootstrap comparison
+- [Build, deploy, and runtime modes](/interop/bridge/build-and-runtime) — host vs bootstrap comparison

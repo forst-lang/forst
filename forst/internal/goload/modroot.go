@@ -196,7 +196,7 @@ func MissingGoModuleSetupHint(boundaryRoot string) string {
 		return ""
 	}
 	return "create .forst-gomod/go.mod at " + filepath.Clean(boundaryRoot) +
-		" with require for Go imports and replace forst => ... (see docs/interop/node/call-forst.mdx)"
+		" with require for Go imports and replace forst => ... (see docs/interop/invoke/call-forst.mdx)"
 }
 
 // GoImportTypesNotLoadedMsg formats the go-import diagnostic for unloaded Go package types.

@@ -21,7 +21,7 @@ import { $main } from "@forst/gen/main";
 await $main.Echo({ message: "hello" });
 ```
 
-**`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. Full call and failure docs: [Call Forst from Node](/interop/node/call-forst).
+**`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. Full call and failure docs: [Call Forst over HTTP](/interop/invoke/call-forst).
 
 ## Generated client
 
@@ -45,7 +45,7 @@ See [CLI reference § Generate configuration](/workflow/cli#generate-configurati
 | `GET` | `/types` | Type information for tooling |
 | `GET` | `/version` | Compiler version and **`contractVersion`** |
 
-The invoke envelope uses JSON request/response bodies. The same contract applies to the built-in HTTP server in a compiled binary. See [Call Forst from Node](/interop/node/call-forst).
+The invoke envelope uses JSON request/response bodies. The same contract applies to the built-in HTTP server in a compiled binary. See [Call Forst over HTTP](/interop/invoke/call-forst).
 
 Clients should check **`contractVersion`** on `/version` when upgrading the compiler.
 
@@ -89,7 +89,7 @@ Compile errors during reload are printed to **stderr**. The watch loop keeps run
 | --- | --- |
 | New greenfield service | Compile to Go, deploy directly |
 | Local iteration from Node or scripts | **`forst dev`** plus `@forst/gen` |
-| Production Node → Forst | Built-in HTTP server + **`FORST_BASE_URL`** — see [Call Forst from Node](/interop/node/call-forst) |
+| Production Node → Forst | Built-in HTTP server + **`FORST_BASE_URL`** — see [Call Forst over HTTP](/interop/invoke/call-forst) |
 | Full stack type sync | **`forst generate`** in `postinstall` / CI |
 
 ## Caveats
@@ -98,7 +98,7 @@ Compile errors during reload are printed to **stderr**. The watch loop keeps run
 
 ### Same port convention
 
-Point **`FORST_BASE_URL`** at the server you actually run. Executor profile and embedded profile often use different defaults (`6320` vs `6321`). See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats).
+Point **`FORST_BASE_URL`** at the server you actually run. Executor profile and embedded profile often use different defaults (`6320` vs `6321`). See [Call Forst over HTTP § Caveats](/interop/invoke/call-forst#caveats).
 
 ### Providers in Go host
 
@@ -106,13 +106,13 @@ Invoke carries request payloads only. Wire **`with`** blocks in Go before exposi
 
 ## Examples
 
-- Repository invoke example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke) (`task example:embedded-invoke:run`)
+- Repository invoke example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke)
 - Client integration: [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration)
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
     Generated client, failures, and built-in HTTP server.
   </Card>
   <Card title="CLI reference" icon="terminal" href="/workflow/cli">

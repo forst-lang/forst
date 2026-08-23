@@ -1,10 +1,12 @@
 ---
-title: "JavaScript bridge"
-description: "Call legacy TypeScript and JavaScript from compiled Forst via the script bridge runtime."
+title: "Overview"
+description: "Call legacy TypeScript and JavaScript from compiled Forst binaries."
 ---
 
-Forst can call functions from existing TypeScript and JavaScript modules at runtime.
-Use the **`js`** import suffix, configure the **`bridge`** section in `ftconfig.json`, and install **`@forst/runtime`** in your project boundary.
+Forst can call functions from existing TypeScript and JavaScript modules while your app runs.
+We call this bridge internally. The Go program starts a JavaScript bridge process and talks to it over a local socket. The bridge process runs `@forst/runtime` to load your modules and run function calls.
+
+Use the `js` import suffix, enable bridge in `ftconfig.json`, and install `@forst/runtime` in your project.
 
 ```ft
 import "./legacy/payment" js
@@ -18,13 +20,17 @@ func main() {
 
 ## Start here
 
-| Topic | Page |
+| Goal | Guide |
 | --- | --- |
-| First JS import and runtime setup | [Call JavaScript from Forst](/interop/bridge/call-javascript) |
-| Call Forst from Node (opposite direction) | [Call Forst from Node](/interop/node/call-forst) |
-| Shared types only | [Generate client types](/interop/node/generate-types) |
+| Import modules and call functions | [Import and call JavaScript](/interop/bridge/import-and-calls) |
+| Build binaries and configure runtime hosts | [Build, deploy, and runtime modes](/interop/bridge/build-and-runtime) |
+| Security model and threat analysis | [Bridge security](/interop/bridge/security) |
+| Call Forst over HTTP (opposite direction) | [Call Forst over HTTP](/interop/invoke/call-forst) |
+| Share types only | [Generate client types](/interop/invoke/generate-types) |
 
-## Configuration overview
+## Configuration summary
+
+Enable the bridge in `ftconfig.json`.
 
 ```json
 {
@@ -36,23 +42,20 @@ func main() {
     "legacyModules": {
       "format": "compiled",
       "precompile": { "outDir": ".forst/js" }
-    },
-    "bootstrap": "node_modules/@forst/runtime/dist/bootstrap.js"
+    }
   }
 }
 ```
 
-- **`bridge.host`**: `node`, `bun`, or `deno` (host-specific support varies by release).
-- **`bridge.legacyModules.format`**: `compiled` (default) or `typescript`.
-- **Environment**: `FORST_BRIDGE_*` variables override host, socket path, bootstrap, and logging at deploy time.
+Set `bridge.host` to `node`, `bun`, or `deno`. Use environment variables to override host settings at deploy time.
 
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Node interop hub" icon="/icons/typescript.svg" href="/interop/node">
+  <Card title="JavaScript interop hub" icon="/icons/typescript.svg" href="/interop/invoke">
     Typed client generation and calling Forst from Node.
   </Card>
   <Card title="Bridge interop examples" icon="code" href="https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop">
-    Runnable fixtures for sync, async, generators, and host mode.
+    Runnable code examples for sync, async, generators, and host mode.
   </Card>
 </CardGroup>

@@ -35,7 +35,7 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Labeled `break` / `continue` and `goto` | Labeled loop control and `goto label` with Go spec jump rules. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | `const` / `iota` | Top-level `const` (single and grouped) with Go `iota` semantics. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | `select` | Not a Forst keyword yet; blocked on channel support. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Slice subslice expressions | `xs[low:high]`, `xs[low:]`, `xs[:high]` on Forst `[]T` values. Example: `examples/in/slices.ft` (`task example:slices`). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Slice subslice expressions | `xs[low:high]`, `xs[low:]`, `xs[:high]` on Forst `[]T` values. Example: [`examples/in/slices.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/slices.ft). |
 
 ## Go interoperability
 
@@ -46,8 +46,8 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Providers (`use` / `with`)](/language/providers) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common stdlib paths work. Forst `func` literals assign to concrete Go `func` parameters. Forst sibling imports resolve from `.ft` in the same module. Failed loads surface as `go-import` diagnostics. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Named Go types in Forst signatures | Imported Go named types (e.g. `os.File`, `exec.Cmd`) map to qualified Forst type names and emit as Go selectors. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Go composite types (maps, channels, arrays, funcs) | `map[K]V`, `[N]T`, `chan T`, and `func` types map at the boundary. Exported-field anonymous structs map to Forst shapes. Generic Go APIs and Go type-alias identity still open. Example: `examples/in/go_interop/maps.ft`, `http_handle.ft`. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Variadic spread into Go calls](/interop/go#variadic-spread-into-go-calls) | `argv[1:]...` at Go call sites. Example: `examples/in/go_interop/cli.ft` (`task example:go-interop`). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Go composite types (maps, channels, arrays, funcs) | `map[K]V`, `[N]T`, `chan T`, and `func` types map at the boundary. Exported-field anonymous structs map to Forst shapes. Generic Go APIs and Go type-alias identity still open. Example: [`examples/in/go_interop/maps.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/maps.ft), [`http_handle.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/http_handle.ft). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Variadic spread into Go calls](/interop/go#variadic-spread-into-go-calls) | `argv[1:]...` at Go call sites. Example: [`examples/in/go_interop/cli.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/cli.ft). |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Fields and methods on Go values](/interop/go#fields-and-methods-on-go-values) | Dotted chains on Go-typed bindings (e.g. `cmd.ProcessState.ExitCode()`). |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. Same-package unexported Go funcs and fields resolve when `.go` sources are co-located. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Generic Go API consumption | `slices.Contains`, `maps.Clone`, and similar generic stdlib APIs need type-argument syntax or inference before call checking. |
@@ -57,13 +57,13 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` → `@forst/gen`](/interop/node/generate-types) | Linked client package under `.forst/client`; subpath imports per Forst package; shared `ftconfig` discovery with `forst dev`. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/node/generate-types) | TS emit and invoke wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` → `@forst/gen`](/interop/invoke/generate-types) | Linked client package under `.forst/client`; subpath imports per Forst package; shared `ftconfig` discovery with `forst dev`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/invoke/generate-types) | TS emit and invoke wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst dev` HTTP API](/workflow/dev-server) | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration; regenerate client on `.ft` save. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Tagged invoke failures](/interop/node/call-forst) | Stable JSON `POST /invoke` plus `_tag` failures, `.safe()`, and per-call options. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Built-in HTTP server + `@forst/gen`](/interop/node/call-forst) | In-process `/invoke` in compiled Go binaries; generated subpath exports. Pin in production. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Tagged invoke failures](/interop/invoke/call-forst) | Stable JSON `POST /invoke` plus `_tag` failures, `.safe()`, and per-call options. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Built-in HTTP server + `@forst/gen`](/interop/invoke/call-forst) | In-process `/invoke` in compiled Go binaries; generated subpath exports. Pin in production. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`@forst/sidecar` and `@forst/cli`](/installation) | npm packages; watch reload, `watchGenerate`, and version checks. Pin in production. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Testing and Effect mode](/interop/node/testing) | `withForstTestScope`, optional `generate.effect` / `ForstClientLive`. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Testing and Effect mode](/interop/invoke/testing) | `withForstTestScope`, optional `generate.effect` / `ForstClientLive`. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Protobuf sidecar wire | gRPC / Connect as a future high-throughput alternative to JSON. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Native ES modules / Node addon | Forst → Go → addon → ESM path; design exploration only. |
 

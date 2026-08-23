@@ -5,14 +5,9 @@ description: "Use Effect to call Forst with typed errors, managed services, retr
 
 import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-[Effect](https://effect.website) is a TypeScript library for programs with typed
-errors, managed dependencies, retries, cancellation, and safe resource use. It
-makes these needs visible in your types and gives you tools to combine them.
+[Effect](https://effect.website) is a TypeScript library for programs with typed errors, managed dependencies, retries, cancellation, and safe resource use. It makes these needs visible in your types and gives you tools to combine them.
 
-Forst already gives you typed backend functions and generated clients. Effect
-mode carries those types into Node. Each generated call has typed Forst failures
-and declares the service it needs. This makes calls easier to provide, retry,
-cancel, and replace in tests.
+Forst already gives you typed backend functions and generated clients. Effect mode carries those types into Node. Each generated call has typed Forst failures and declares the service it needs. This makes calls easier to provide, retry, cancel, and replace in tests.
 
 <NodeClientSetupNote />
 
@@ -115,7 +110,7 @@ const program = $auth.VerifyPassword(input).pipe(
 
 </CodeGroup>
 
-See [Call Forst from Node](/interop/node/call-forst#failures) for the full failure guide.
+See [Call Forst over HTTP](/interop/invoke/call-forst#failures) for the full failure guide.
 
 ## Wiring
 
@@ -150,7 +145,7 @@ Set **`FORST_BASE_URL`** in production. The client never spawns a server when `N
 
 ## Testing
 
-Same three levels as [Testing](/interop/node/testing), expressed as layers.
+Same three levels as [Testing](/interop/invoke/testing), expressed as layers.
 
 **One method** with `Layer.mock`:
 
@@ -191,7 +186,7 @@ await Effect.runPromise(
 
 Handlers may return a value, a `Promise`, or an `Effect`.
 
-**Wire level** with a fake transport, when you need to assert payloads or simulate a specific failure. Provide a mock `ForstTransport` under the real package services. See [Testing](/interop/node/testing) for the Promise mode equivalents.
+**Wire level** with a fake transport, when you need to assert payloads or simulate a specific failure. Provide a mock `ForstTransport` under the real package services. See [Testing](/interop/invoke/testing) for the Promise mode equivalents.
 
 **Real invoke server** with the test trio that mirrors `ForstClientLive` / `ForstClientLayer` / `makeForstClientRuntime`. Install optional `@forst/cli`, then:
 
@@ -205,7 +200,7 @@ await Effect.runPromise(
 );
 ```
 
-For Vitest or Jest hooks, use `makeForstTestServer()` and call `dispose()` in `afterAll`. See [Testing](/interop/node/testing#call-a-real-forst-server).
+For Vitest or Jest hooks, use `makeForstTestServer()` and call `dispose()` in `afterAll`. See [Testing](/interop/invoke/testing#call-a-real-forst-server).
 
 ## Requirements
 
@@ -218,16 +213,16 @@ If the resolved `effect` version is missing or too old, generate fails and names
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
     Promise mode calls, tagged errors, and `.safe()`.
   </Card>
-  <Card title="Testing" icon="flask" href="/interop/node/testing">
+  <Card title="Testing" icon="flask" href="/interop/invoke/testing">
     `withForstTestScope` for Promise mode.
   </Card>
   <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
     `@forst/cli`, `postinstall`, and first generate.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     Subpaths and `@forst/gen` imports.
   </Card>
 
