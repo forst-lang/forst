@@ -33,7 +33,7 @@ In a host-mode deployment (e.g. `remix-serve`), three channels coexist:
 | `:6321` | TS loader → Forst (`POST /invoke`) |
 | `.forst/node.sock` | Forst → legacy TS (nodert) |
 
-Enable both `server.embedded` and `node.hostMode` in `ftconfig.json`. Call **`ForstInvokeWaitForShutdown()`** in `main` so the invoke server stays up while the Node host runs.
+Enable both `server.embedded` and `bridge.hostMode` in `ftconfig.json`. Call **`ForstInvokeWaitForShutdown()`** in `main` so the invoke server stays up while the Node host runs.
 
 ## Generated client
 

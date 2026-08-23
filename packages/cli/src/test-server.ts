@@ -391,7 +391,7 @@ function connectHandle(baseUrl: string): ForstInvokeServerHandle {
 
 /**
  * Starts a Forst HTTP invoke server, or attaches to one that is already running.
- * Orthogonal to `@forst/node-runtime` (Forst→Node RPC).
+ * Orthogonal to `@forst/runtime` (Forst→Node RPC).
  */
 export async function startForstInvokeServer(
   options: StartForstInvokeServerOptions = {},

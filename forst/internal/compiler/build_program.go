@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
+	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
 	"forst/internal/programbuild"
 )
@@ -27,7 +29,7 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 		goarch = runtime.GOARCH
 	}
 
-	sandboxMain, boundaryRoot, extraPkgs, err := c.compileProgramSandbox()
+	sandboxMain, boundaryRoot, bridgeRuntime, extraPkgs, err := c.compileProgramSandbox()
 	if err != nil {
 		return err
 	}
@@ -50,6 +52,25 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 		return err
 	}
 
+	needsBridge := bridgeRuntime != ""
+	compiledModulesDir := ""
+	legacyModuleFormat := ""
+	if needsBridge {
+		cfg, cfgErr := c.loadFtconfig()
+		if cfgErr == nil && cfg != nil {
+			if bridge, bridgeErr := ftconfig.EffectiveBridge(cfg); bridgeErr == nil {
+				legacyModuleFormat = string(bridge.ModuleFormat)
+				if bridge.ModuleFormat == ftconfig.LegacyModuleCompiled {
+					if dir := strings.TrimSpace(cfg.Bridge.LegacyModules.Dir); dir != "" {
+						compiledModulesDir = filepath.ToSlash(filepath.Clean(dir))
+					} else {
+						compiledModulesDir = bridge.OutDir
+					}
+				}
+			}
+		}
+	}
+
 	entryRel, err := relativeToBoundary(boundaryRoot, c.Args.FilePath)
 	if err != nil {
 		entryRel = c.Args.FilePath
@@ -65,9 +86,12 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 		GOOS:              goos,
 		GOARCH:            goarch,
 		EmbeddedInvoke:    true,
-		HostMode:          c.nodeHostModeEnabled(),
+		HostMode:            c.bridgeHostModeEnabled(),
 		SkipNodeHostDefault: false,
-		Packages:          manifestPackages(c, extraPkgs),
+		NeedsBridgeRuntime:  needsBridge,
+		CompiledModulesDir:  compiledModulesDir,
+		LegacyModuleFormat:  legacyModuleFormat,
+		Packages:            manifestPackages(c, extraPkgs),
 		Binary:            filepath.ToSlash(binRel),
 		BuiltAt:           time.Now().UTC().Format(time.RFC3339),
 	}
@@ -78,17 +102,17 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 	return nil
 }
 
-func (c *Compiler) compileProgramSandbox() (sandboxMain, boundaryRoot string, extraPkgs map[string]string, err error) {
-	mainCode, nodeRuntime, invokeServer, extraPkgs, extraImports, err := c.CompileWithNodeRuntime()
+func (c *Compiler) compileProgramSandbox() (sandboxMain, boundaryRoot, bridgeRuntime string, extraPkgs map[string]string, err error) {
+	mainCode, bridgeRuntime, invokeServer, extraPkgs, extraImports, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		return "", "", nil, err
+		return "", "", "", nil, err
 	}
 	boundaryRoot = RunBoundaryRoot(c.Args)
-	sandboxMain, err = CreateTempOutputFiles(mainCode, nodeRuntime, invokeServer, extraPkgs, extraImports, boundaryRoot)
+	sandboxMain, err = CreateTempOutputFiles(mainCode, bridgeRuntime, invokeServer, extraPkgs, extraImports, boundaryRoot)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("prepare build sandbox: %w", err)
+		return "", "", "", nil, fmt.Errorf("prepare build sandbox: %w", err)
 	}
-	return sandboxMain, boundaryRoot, extraPkgs, nil
+	return sandboxMain, boundaryRoot, bridgeRuntime, extraPkgs, nil
 }
 
 func manifestPackages(c *Compiler, extra map[string]string) []string {

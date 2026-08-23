@@ -1,0 +1,96 @@
+package bridgert
+
+import (
+	"bytes"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+)
+
+func TestNewHostSupervisor_attachOnlyNeverSpawns(t *testing.T) {
+	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
+	dir := t.TempDir()
+	readyPath := filepath.Join(dir, ".forst", "node.sock.ready")
+
+	ConfigureSupervisor(SupervisorConfig{
+		HostMode:   true,
+		AttachOnly: true,
+		ShimArgs:   []string{"./missing-shim.js"},
+		HostReadyPath: readyPath,
+		HostSocketPath: filepath.Join(dir, ".forst", "node.sock"),
+		ProcessOptions: ProcessOptions{
+			BoundaryRoot: dir,
+			Bridge:       testBridgeNodeTypeScript(),
+			NodePath:     "node",
+			WorkDir:      dir,
+		},
+		Manifest: Manifest{
+			Version:      ManifestVersion,
+			BoundaryRoot: dir,
+		},
+	})
+
+	_, err := GetClient()
+	if err == nil {
+		t.Fatal("expected attach-only error when host is not running")
+	}
+	if !strings.Contains(err.Error(), "attach-only") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetClient_supervisorFailurePrintsStderr(t *testing.T) {
+	resetSupervisorForTest()
+	t.Setenv(envNodeBootstrap, "")
+	t.Setenv(envNodeBinary, "")
+
+	ConfigureSupervisor(SupervisorConfig{
+		HostMode: true,
+		ShimArgs: []string{"./missing-shim.js"},
+		ProcessOptions: ProcessOptions{
+			BoundaryRoot: t.TempDir(),
+			Bridge:       testBridgeNodeTypeScript(),
+			NodePath:     "node",
+		},
+	})
+
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var captured bytes.Buffer
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(&captured, r)
+	}()
+
+	_, clientErr := GetClient()
+	_, _ = GetClient()
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+	wg.Wait()
+
+	if clientErr == nil {
+		t.Fatal("expected GetClient error")
+	}
+	out := captured.String()
+	if !strings.Contains(out, "forst bridge runtime:") {
+		t.Fatalf("stderr missing bridgert prefix, got %q", out)
+	}
+	if !strings.Contains(out, clientErr.Error()) {
+		t.Fatalf("stderr should contain supervisor error %q, got %q", clientErr, out)
+	}
+	if strings.Count(out, "forst bridge runtime:") != 1 {
+		t.Fatalf("expected single stderr line, got %q", out)
+	}
+}

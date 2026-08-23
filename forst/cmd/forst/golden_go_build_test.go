@@ -13,7 +13,7 @@ import (
 type companionGoBuildOpts struct {
 	Label            string
 	MainCode         string
-	NodeRuntimeCode  string
+	BridgeRuntimeCode  string
 	InvokeServerCode string
 	ExtraPackages    map[string]string
 	BoundaryRoot     string
@@ -30,7 +30,7 @@ type companionGoldenFilesGoBuildOpts struct {
 
 func verifyCompanionPackageGoBuild(t *testing.T, opts companionGoBuildOpts) {
 	t.Helper()
-	if err := compiler.BuildGoProgram(opts.MainCode, opts.NodeRuntimeCode, opts.InvokeServerCode, opts.ExtraPackages, opts.BoundaryRoot); err != nil {
+	if err := compiler.BuildGoProgram(opts.MainCode, opts.BridgeRuntimeCode, opts.InvokeServerCode, opts.ExtraPackages, opts.BoundaryRoot); err != nil {
 		t.Fatalf("go build %s failed:\n%v", opts.Label, err)
 	}
 }
@@ -41,13 +41,13 @@ func verifyCompanionGoldenFilesGoBuild(t *testing.T, opts companionGoldenFilesGo
 	if err != nil {
 		t.Fatalf("read main golden %s: %v", opts.MainGoldenPath, err)
 	}
-	var nodeRuntimeCode, invokeServerCode string
+	var bridgeRuntimeCode, invokeServerCode string
 	if opts.RuntimeGoldenPath != "" {
 		runtimeCode, err := os.ReadFile(opts.RuntimeGoldenPath)
 		if err != nil {
 			t.Fatalf("read runtime golden %s: %v", opts.RuntimeGoldenPath, err)
 		}
-		nodeRuntimeCode = string(runtimeCode)
+		bridgeRuntimeCode = string(runtimeCode)
 	}
 	if opts.InvokeGoldenPath != "" {
 		invokeCode, err := os.ReadFile(opts.InvokeGoldenPath)
@@ -63,7 +63,7 @@ func verifyCompanionGoldenFilesGoBuild(t *testing.T, opts companionGoldenFilesGo
 	verifyCompanionPackageGoBuild(t, companionGoBuildOpts{
 		Label:            opts.Label,
 		MainCode:         string(mainCode),
-		NodeRuntimeCode:  nodeRuntimeCode,
+		BridgeRuntimeCode:  bridgeRuntimeCode,
 		InvokeServerCode: invokeServerCode,
 		ExtraPackages:    extraPackages,
 		BoundaryRoot:     opts.BoundaryRoot,
@@ -102,24 +102,24 @@ func TestBuildGoProgram_nodeSeqInnerPointerMismatch(t *testing.T) {
 
 import (
 	"encoding/json"
-	"forst/nodert"
+	"forst/bridgert"
 )
 
-type forstNodeSeq_float64 struct {
-	inner nodert.Seq[float64]
+type forstBridgeSeq_float64 struct {
+	inner bridgert.Seq[float64]
 }
 
-func forst_node_open_seq_legacy_generators_ts_syncNumbers() (*forstNodeSeq_float64, error) {
-	var seq, err = nodert.OpenSeqArgs[float64]("legacy/generators.ts", "syncNumbers", nodert.ExportKindGenerator, json.RawMessage("[3]"))
+func forst_bridge_open_seq_legacy_generators_ts_syncNumbers() (*forstBridgeSeq_float64, error) {
+	var seq, err = bridgert.OpenSeqArgs[float64]("legacy/generators.ts", "syncNumbers", bridgert.ExportKindGenerator, json.RawMessage("[3]"))
 	if err != nil {
 		return nil, err
 	}
-	return &forstNodeSeq_float64{inner: seq}, nil
+	return &forstBridgeSeq_float64{inner: seq}, nil
 }
 `
 	err := compiler.BuildGoProgram(mainCode, runtimeCode, "", nil, "")
 	if err == nil {
-		t.Fatal("expected go build to fail when inner stores *nodert.Seq as value")
+		t.Fatal("expected go build to fail when inner stores *bridgert.Seq as value")
 	}
 	if !strings.Contains(err.Error(), "cannot use seq") {
 		t.Fatalf("unexpected build error:\n%v", err)

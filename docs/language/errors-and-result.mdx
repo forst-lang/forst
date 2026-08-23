@@ -152,7 +152,7 @@ return type.
 
 Generated TypeScript clients can expose error payloads as tagged shapes. This
 part of the client API is still evolving. Generate the client with
-`forst generate` and see [Generate client types](/interop/node/generate-types)
+`forst generate` and see [Generate client types](/interop/invoke/generate-types)
 for the current output.
 
 ## How this compares with Go
@@ -185,20 +185,18 @@ inference. Split the values and check the error when you need a `Result`.
 
 Error creation through `ensure`, type merging after `or`, and TypeScript `_tag`
 output are still maturing. Treat generated payloads as evolving. See
-[Generate client types](/interop/node/generate-types#caveats).
+[Generate client types](/interop/invoke/generate-types#caveats).
 
 For limits around `ensure x is Ok()`, see
 [Ensure and narrowing](/language/ensure-and-narrowing#caveats).
 
-## Run the examples
+## Examples
 
-Run these commands from the Forst repository.
+See the error handling examples on GitHub
 
-```bash
-task example:nominal-error
-task example:result-ensure
-task example:union-error-types
-```
+* [`examples/in/nominal_error.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/nominal_error.ft)
+* [`examples/in/result_ensure.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/result_ensure.ft)
+* [`examples/in/union_error_types.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/union_error_types.ft)
 
 ## Related
 

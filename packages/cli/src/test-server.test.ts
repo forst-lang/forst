@@ -71,7 +71,7 @@ describe("detectMode", () => {
     expect(mode).toBe("embedded");
   });
 
-  test("auto → embedded when node.hostMode", () => {
+  test("auto → embedded when bridge.hostMode", () => {
     const mode = __test__.detectMode("/r", "auto", {
       existsSync: () => true,
       readFileSync: () => JSON.stringify({ node: { hostMode: true } }),

@@ -1,7 +1,7 @@
 /**
  * Invoke-server lifecycle for Node→Forst HTTP (`POST /invoke`).
  *
- * Orthogonal to `@forst/node-runtime`, which is Forst→Node RPC.
+ * Orthogonal to `@forst/runtime`, which is Forst→Node RPC.
  *
  * @module
  */

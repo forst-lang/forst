@@ -22,7 +22,7 @@ func (t *Transformer) transformNodeQualifiedCall(e ast.FunctionCallNode) (goast.
 	if len(parts) != 2 {
 		return nil, false, nil
 	}
-	target, ok := t.TypeChecker.NodeCallTarget(parts[0], parts[1])
+	target, ok := t.TypeChecker.BridgeCallTarget(parts[0], parts[1])
 	if !ok {
 		return nil, false, nil
 	}
@@ -33,26 +33,26 @@ func (t *Transformer) transformNodeQualifiedCall(e ast.FunctionCallNode) (goast.
 	}
 
 	switch target.Kind {
-	case typechecker.NodeExportKindFunction:
+	case typechecker.BridgeExportKindFunction:
 		return t.transformNodeSyncCall(e, target, retTypes[0])
-	case typechecker.NodeExportKindAsyncFunction:
+	case typechecker.BridgeExportKindAsyncFunction:
 		return t.transformNodeAsyncCall(e, target, retTypes[0])
-	case typechecker.NodeExportKindGenerator, typechecker.NodeExportKindAsyncGenerator:
-		return t.transformNodeGenOpen(e, target, retTypes[0], target.Kind == typechecker.NodeExportKindAsyncGenerator)
+	case typechecker.BridgeExportKindGenerator, typechecker.BridgeExportKindAsyncGenerator:
+		return t.transformNodeGenOpen(e, target, retTypes[0], target.Kind == typechecker.BridgeExportKindAsyncGenerator)
 	default:
 		return nil, true, fmt.Errorf("codegen: node export %s kind %q is not yet lowered to Go", target.ExportName, target.Kind)
 	}
 }
 
-func (t *Transformer) transformNodeSyncCall(e ast.FunctionCallNode, target typechecker.NodeCallTarget, ret ast.TypeNode) (goast.Expr, bool, error) {
+func (t *Transformer) transformNodeSyncCall(e ast.FunctionCallNode, target typechecker.BridgeCallTarget, ret ast.TypeNode) (goast.Expr, bool, error) {
 	return t.transformNodeBridgeCall(e, target, ret, "CallSync")
 }
 
-func (t *Transformer) transformNodeAsyncCall(e ast.FunctionCallNode, target typechecker.NodeCallTarget, ret ast.TypeNode) (goast.Expr, bool, error) {
+func (t *Transformer) transformNodeAsyncCall(e ast.FunctionCallNode, target typechecker.BridgeCallTarget, ret ast.TypeNode) (goast.Expr, bool, error) {
 	return t.transformNodeBridgeCall(e, target, ret, "CallAsync")
 }
 
-func (t *Transformer) transformNodeBridgeCall(e ast.FunctionCallNode, target typechecker.NodeCallTarget, ret ast.TypeNode, bridgeFn string) (goast.Expr, bool, error) {
+func (t *Transformer) transformNodeBridgeCall(e ast.FunctionCallNode, target typechecker.BridgeCallTarget, ret ast.TypeNode, bridgeFn string) (goast.Expr, bool, error) {
 	valueType, err := nodeBridgeCallValueType(ret)
 	if err != nil {
 		return nil, true, err
@@ -72,7 +72,7 @@ func (t *Transformer) transformNodeBridgeCall(e ast.FunctionCallNode, target typ
 	}, true, nil
 }
 
-// nodeBridgeCallValueType returns the success payload type for nodert.Call* generics.
+// nodeBridgeCallValueType returns the success payload type for bridgert.Call* generics.
 // Node qualified calls are typed as Result(T, Error) in Forst; Go CallSync/CallAsync return (T, error).
 func nodeBridgeCallValueType(ret ast.TypeNode) (ast.TypeNode, error) {
 	if ret.IsResultType() && len(ret.TypeParams) >= 1 {
@@ -88,7 +88,7 @@ func (t *Transformer) nodeBridgeResultGoType(ret ast.TypeNode) (goast.Expr, erro
 	return t.transformType(ret)
 }
 
-func (t *Transformer) transformNodeGenOpen(e ast.FunctionCallNode, target typechecker.NodeCallTarget, ret ast.TypeNode, async bool) (goast.Expr, bool, error) {
+func (t *Transformer) transformNodeGenOpen(e ast.FunctionCallNode, target typechecker.BridgeCallTarget, ret ast.TypeNode, async bool) (goast.Expr, bool, error) {
 	seqType, err := nodeBridgeCallValueType(ret)
 	if err != nil {
 		return nil, true, err

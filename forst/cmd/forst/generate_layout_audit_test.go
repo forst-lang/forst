@@ -15,8 +15,8 @@ import (
 var generateBoundaries = []string{
 	"examples/in/tictactoe",
 	"examples/in/generate-effect",
-	"examples/in/rfc/node-interop/remix-serve",
-	"examples/in/rfc/node-interop/multi-package-dev",
+	"examples/in/rfc/bridge-interop/remix-serve",
+	"examples/in/rfc/bridge-interop/multi-package-dev",
 	"examples/in/rfc/sidecar",
 }
 

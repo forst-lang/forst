@@ -11,7 +11,7 @@ import (
 
 	"forst/internal/compiler"
 	"forst/internal/ftconfig"
-	"forst/nodert"
+	"forst/bridgert"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
@@ -224,7 +224,7 @@ func (c *runningChild) stopForReload(log *logrus.Logger, boundaryRoot string) {
 	_ = c.stop()
 	_ = ClearGoChildPID(boundaryRoot)
 	if log != nil {
-		if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+		if os.Getenv(bridgert.EnvNodeAttachOnly) == "1" {
 			log.Debug("Stopped previous build for reload (attach-only host preserved)")
 		} else {
 			log.Debug("Stopped previous build for reload")
@@ -261,5 +261,5 @@ func hostModeEnabled(boundaryRoot string) bool {
 	if err != nil {
 		return false
 	}
-	return cfg.Node.HostMode
+	return cfg.Bridge.HostMode
 }

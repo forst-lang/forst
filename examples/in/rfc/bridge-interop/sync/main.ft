@@ -1,0 +1,10 @@
+package main
+
+import "./legacy/payment" js
+
+func main() {
+	result := payment.create(100.0, "USD")
+	ensure result is Ok()
+	println(result.id)
+	println(result.amount)
+}

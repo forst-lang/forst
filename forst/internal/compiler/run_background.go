@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"forst/internal/gowork"
-	"forst/nodert"
+	"forst/bridgert"
 )
 
 const defaultGoProgramStopGrace = 5 * time.Second
@@ -68,7 +68,7 @@ const reloadStopGrace = 1 * time.Second
 
 // ReloadStopGrace returns the SIGTERM grace for dev reload child stop.
 func ReloadStopGrace() time.Duration {
-	if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+	if os.Getenv(bridgert.EnvNodeAttachOnly) == "1" {
 		return reloadStopGrace
 	}
 	return defaultGoProgramStopGrace
@@ -165,10 +165,10 @@ func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
 }
 
 func attachGoInvokeAuthHandoff(cmd *exec.Cmd, env []string) []string {
-	if cmd == nil || !nodert.SupportsInvokeAuthFDHandoff() {
+	if cmd == nil || !bridgert.SupportsInvokeAuthFDHandoff() {
 		return env
 	}
-	handoff, ok := nodert.PrepareActiveGoInvokeAuthHandoff()
+	handoff, ok := bridgert.PrepareActiveGoInvokeAuthHandoff()
 	if !ok {
 		return env
 	}

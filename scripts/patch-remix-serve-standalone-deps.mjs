@@ -5,7 +5,7 @@
  * members and their devDependencies and can hang bun install).
  *
  * Usage: node patch-remix-serve-standalone-deps.mjs <projectDir> <packDir>
- * packDir must contain forst-<name>-*.tgz for cli, client, errors, node-runtime, sidecar.
+ * packDir must contain forst-<name>-*.tgz for cli, client, errors, runtime, sidecar.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -17,7 +17,7 @@ if (!projectDir || !packDir) {
   process.exit(1);
 }
 
-const forstNames = ["cli", "client", "errors", "node-runtime", "sidecar"];
+const forstNames = ["cli", "client", "errors", "runtime", "sidecar"];
 const tarballs = readdirSync(packDir).filter((f) => f.endsWith(".tgz"));
 
 function tarballFor(name) {

@@ -3,18 +3,19 @@ package parser
 import (
 	"forst/internal/ast"
 	"strconv"
+	"strings"
 )
 
-func (p *Parser) parseImport() ast.ImportNode {
+func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 	var alias *ast.Ident
 	var sideEffectOnly bool
-	var nodeOptIn bool
-	var nodeOptInSource string
+	var bridgeOptIn bool
+	var bridgeOptInSource string
 
 	switch p.current().Type {
 	case ast.TokenStar:
 		p.FailWithParseError(p.current(),
-			`import * as … from is removed; use import node "./path" or import node alias "./path"`)
+			`import * as … from is removed; use import "./path" js or import alias "./path" js`)
 	case ast.TokenDot:
 		// Go dot-import: import . "path" — symbols from path are in the file scope unqualified.
 		p.advance()
@@ -22,32 +23,58 @@ func (p *Parser) parseImport() ast.ImportNode {
 	case ast.TokenIdentifier:
 		id := p.current().Value
 		p.advance()
-		if id == "node" {
-			nodeOptIn = true
-			nodeOptInSource = "import_node"
-			if p.current().Type == ast.TokenIdentifier {
-				aliasID := p.current().Value
-				p.advance()
-				alias = &ast.Ident{ID: ast.Identifier(aliasID)}
-			}
-		} else {
-			alias = &ast.Ident{ID: ast.Identifier(id)}
-			if id == "_" {
-				sideEffectOnly = true
-			}
+		alias = &ast.Ident{ID: ast.Identifier(id)}
+		if id == "_" {
+			sideEffectOnly = true
 		}
 	}
 
 	pathToken := p.expect(ast.TokenStringLiteral)
 	path := unquoteImportPath(pathToken.Value)
 
-	return ast.ImportNode{
-		Path:            path,
-		Alias:           alias,
-		SideEffectOnly:  sideEffectOnly,
-		NodeOptIn:       nodeOptIn,
-		NodeOptInSource: nodeOptInSource,
+	if p.current().Type == ast.TokenIdentifier {
+		switch p.current().Value {
+		case "js":
+			if allowsPostfixJSMarker(path, inGroup) {
+				p.advance()
+				bridgeOptIn = true
+				bridgeOptInSource = "import_js"
+			}
+		case "node":
+			if allowsPostfixJSMarker(path, inGroup) {
+				p.FailWithParseError(p.current(),
+					`postfix "node" import marker was removed; use import "./path" js or import alias "./path" js`)
+			}
+		}
 	}
+
+	return ast.ImportNode{
+		Path:              path,
+		Alias:             alias,
+		SideEffectOnly:    sideEffectOnly,
+		BridgeOptIn:       bridgeOptIn,
+		BridgeOptInSource: bridgeOptInSource,
+	}
+}
+
+func isScriptImportPath(path string) bool {
+	return strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../") || strings.HasPrefix(path, "@")
+}
+
+// allowsPostfixJSMarker reports whether `js` after the import path is a postfix bridge opt-in.
+// In grouped imports, a bare Go-style path (e.g. "strconv") may be followed by a `js "./path"` line.
+func allowsPostfixJSMarker(path string, inGroup bool) bool {
+	if isScriptImportPath(path) {
+		return true
+	}
+	if inGroup && isSingleSegmentImportPath(path) {
+		return false
+	}
+	return true
+}
+
+func isSingleSegmentImportPath(path string) bool {
+	return path != "" && !strings.Contains(path, "/")
 }
 
 func (p *Parser) parseImportGroup() ast.ImportGroupNode {
@@ -55,7 +82,7 @@ func (p *Parser) parseImportGroup() ast.ImportGroupNode {
 	imports := []ast.ImportNode{}
 
 	for p.current().Type != ast.TokenRParen {
-		imp := p.parseImport()
+		imp := p.parseImport(true)
 		imports = append(imports, imp)
 	}
 
@@ -73,7 +100,7 @@ func (p *Parser) parseImports() []ast.Node {
 		p.logParsedNodeWithMessage(importGroup, "Parsed import group")
 		nodes = append(nodes, importGroup)
 	} else {
-		importNode := p.parseImport()
+		importNode := p.parseImport(false)
 		p.logParsedNodeWithMessage(importNode, "Parsed import")
 		nodes = append(nodes, importNode)
 	}

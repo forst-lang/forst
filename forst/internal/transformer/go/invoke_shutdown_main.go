@@ -13,13 +13,13 @@ func (t *Transformer) AppendInvokeShutdownIfNeeded() {
 	appendMainShutdownCall(t, "ForstInvokeWaitForShutdown")
 }
 
-// AppendNodeHostShutdownIfNeeded adds ForstNodeWaitForShutdown() to func main for host-mode
-// nodert binaries without an invoke server companion.
+// AppendNodeHostShutdownIfNeeded adds ForstBridgeWaitForShutdown() to func main for host-mode
+// bridgert binaries without an invoke server companion.
 func (t *Transformer) AppendNodeHostShutdownIfNeeded() {
-	if t == nil || !t.EmbedNodeHostMode || !t.isMainPackage() || !EmitNeedsNodeRuntime(t.TypeChecker) {
+	if t == nil || !t.EmbedBridgeHostMode || !t.isMainPackage() || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return
 	}
-	appendMainShutdownCall(t, "ForstNodeWaitForShutdown")
+	appendMainShutdownCall(t, "ForstBridgeWaitForShutdown")
 }
 
 func appendMainShutdownCall(t *Transformer, fnName string) {

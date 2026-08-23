@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ func writeNodeInteropLSPFixture(t *testing.T) (ftPath, tsPath, src string) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module node_def_test\n\ngo 1.26\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"node":{"enabled":true,"importPolicy":"explicit"}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"bridge":{"enabled":true,"importPolicy":"explicit"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	legacyDir := filepath.Join(dir, "legacy")
@@ -34,7 +34,7 @@ func writeNodeInteropLSPFixture(t *testing.T) (ftPath, tsPath, src string) {
 	}
 	src = `package main
 
-import node payment "./legacy/payment"
+import payment "./legacy/payment" js
 
 func main() {
   payment.create(1.0, "USD")
@@ -49,7 +49,7 @@ func main() {
 
 func skipUnlessNodeIndexer(t *testing.T, boundaryRoot string) {
 	t.Helper()
-	if _, err := nodeinterop.RunIndexer(boundaryRoot, []string{"legacy/payment.ts"}); err != nil {
+	if _, err := bridgeinterop.RunIndexer(boundaryRoot, []string{"legacy/payment.ts"}); err != nil {
 		t.Skipf("node indexer unavailable: %v", err)
 	}
 }
@@ -71,7 +71,7 @@ func TestFindDefinition_nodeImportPathString(t *testing.T) {
 	pos := lspPositionOfStringLiteral(src, `"./legacy/payment"`)
 	loc := s.findDefinitionForPosition(uri, pos)
 	if loc == nil {
-		t.Fatal("expected definition for node import path string")
+		t.Fatal("expected definition for JS import path string")
 	}
 	if loc.URI != wantTSURI {
 		t.Fatalf("definition URI: got %q want %q", loc.URI, wantTSURI)
@@ -97,13 +97,13 @@ func TestFindDefinition_nodeImportAlias(t *testing.T) {
 	pos := lspPositionOfIdentifier(src, "payment")
 	// first "payment" is in import clause
 	lines := strings.Split(src, "\n")
-	if !strings.Contains(lines[pos.Line], "import node") {
+	if !strings.Contains(lines[pos.Line], `" js`) {
 		t.Fatalf("expected import-clause payment at %+v", pos)
 	}
 
 	loc := s.findDefinitionForPosition(uri, pos)
 	if loc == nil {
-		t.Fatal("expected definition for node import alias")
+		t.Fatal("expected definition for JS import alias")
 	}
 	if loc.URI != wantTSURI {
 		t.Fatalf("definition URI: got %q want %q", loc.URI, wantTSURI)
@@ -152,7 +152,7 @@ func lspPositionOfStringLiteral(content, literal string) LSPPosition {
 
 func TestLspLocationPtrFromAbsPath_withDefinitionSpan(t *testing.T) {
 	t.Parallel()
-	loc := lspLocationPtrFromAbsPath("/tmp/payment.ts", nodeinterop.IndexSourceLocation{
+	loc := lspLocationPtrFromAbsPath("/tmp/payment.ts", bridgeinterop.IndexSourceLocation{
 		Line: 1, Column: 17, EndLine: 1, EndColumn: 23,
 	})
 	if loc == nil {

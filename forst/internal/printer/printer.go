@@ -189,11 +189,11 @@ func (p *printer) printTopLevel(node ast.Node) (string, error) {
 }
 
 func (p *printer) printImport(i ast.ImportNode) string {
-	if i.NodeOptIn && i.NodeOptInSource == "import_node" {
+	if i.BridgeOptIn && i.BridgeOptInSource == "import_js" {
 		if i.Alias != nil {
-			return fmt.Sprintf(`import node %s "%s"`, i.Alias.ID, i.Path)
+			return fmt.Sprintf(`import %s "%s" js`, i.Alias.ID, i.Path)
 		}
-		return fmt.Sprintf(`import node "%s"`, i.Path)
+		return fmt.Sprintf(`import "%s" js`, i.Path)
 	}
 	if i.SideEffectOnly {
 		return fmt.Sprintf(`import _ "%s"`, i.Path)
@@ -210,11 +210,11 @@ func (p *printer) printImportGroup(g ast.ImportGroupNode) string {
 	p.push()
 	for _, im := range g.Imports {
 		b.WriteString(p.prefix())
-		if im.NodeOptIn && im.NodeOptInSource == "import_node" {
+		if im.BridgeOptIn && im.BridgeOptInSource == "import_js" {
 			if im.Alias != nil {
-				fmt.Fprintf(&b, `node %s "%s"`, im.Alias.ID, im.Path)
+				fmt.Fprintf(&b, `%s "%s" js`, im.Alias.ID, im.Path)
 			} else {
-				fmt.Fprintf(&b, `node "%s"`, im.Path)
+				fmt.Fprintf(&b, `"%s" js`, im.Path)
 			}
 		} else if im.SideEffectOnly {
 			b.WriteString(`_ "` + im.Path + `"`)

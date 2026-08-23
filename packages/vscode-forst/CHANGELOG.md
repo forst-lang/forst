@@ -5,11 +5,11 @@
 
 ### ⚠ BREAKING CHANGES
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
 
 ### Features
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
 
 ## [0.3.4](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.3...vscode-forst-v0.3.4) (2026-07-06)
 

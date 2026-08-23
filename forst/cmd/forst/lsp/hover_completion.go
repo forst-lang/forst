@@ -613,7 +613,7 @@ func leadingCommentDocBeforeShapeField(tokens []ast.Token, parentTypeName, field
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
-// nodeHoverFromQualifiedNodeIdentifier adds hover for payment.create when payment is a node import.
+// nodeHoverFromQualifiedNodeIdentifier adds hover for payment.create when payment is a JS import.
 func nodeHoverFromQualifiedNodeIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type != ast.TokenIdentifier {
 		return ""
@@ -642,7 +642,7 @@ func nodeHoverFromQualifiedNodeIdentifier(tc *typechecker.TypeChecker, tokens []
 			return md
 		}
 	}
-	// import node NAME "…" or import node "…" or import NAME "…"
+	// import NAME "…" node or legacy import node NAME "…"
 	if nodeImportAliasBindingAt(tokens, i) {
 		if md, ok := tc.NodeModuleHoverMarkdown(moduleLocal); ok && md != "" {
 			return md
@@ -652,24 +652,22 @@ func nodeHoverFromQualifiedNodeIdentifier(tc *typechecker.TypeChecker, tokens []
 }
 
 // nodeImportAliasBindingAt reports whether the identifier at i is a node/TS import local name
-// in an import clause (e.g. import node payment "…" or import node checkout "…").
+// in an import clause (e.g. import payment "./legacy/payment" node).
 func nodeImportAliasBindingAt(tokens []ast.Token, i int) bool {
 	if i < 0 || i >= len(tokens) || tokens[i].Type != ast.TokenIdentifier {
 		return false
 	}
-	// import node NAME "path" — explicit alias after node keyword
-	if i >= 2 &&
-		tokens[i-2].Type == ast.TokenImport &&
-		tokens[i-1].Type == ast.TokenIdentifier && tokens[i-1].Value == "node" {
-		return i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral
-	}
-	// import NAME "path" (including grouped imports; Go alias — not node unless preceded by node)
-	if i >= 1 && i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral {
+
+	// import NAME "path" js — postfix js opt-in with alias
+	if i >= 1 && i+2 < len(tokens) &&
+		tokens[i+1].Type == ast.TokenStringLiteral &&
+		tokens[i+2].Type == ast.TokenIdentifier && tokens[i+2].Value == "js" {
 		switch tokens[i-1].Type {
-		case ast.TokenImport, ast.TokenLParen, ast.TokenComma:
+		case ast.TokenImport, ast.TokenLParen:
 			return true
 		}
 	}
+
 	return false
 }
 

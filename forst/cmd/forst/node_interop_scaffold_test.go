@@ -14,15 +14,15 @@ func TestNodeInterop_fixtureDirectoryExists(t *testing.T) {
 	t.Parallel()
 	dir := nodeInteropFixtureDir(t)
 	if _, err := os.Stat(dir); err != nil {
-		t.Skipf("node-interop fixture not yet created: %v", err)
+		t.Skipf("bridge-interop fixture not yet created: %v", err)
 	}
 }
 
-func TestNodeInterop_nodeInteropExampleRejectsRequireNoNode(t *testing.T) {
+func TestNodeInterop_nodeInteropExampleRejectsRequireNoBridge(t *testing.T) {
 	t.Parallel()
 	dir := nodeInteropFixtureDir(t)
 	if _, err := os.Stat(dir); err != nil {
-		t.Skipf("node-interop fixture not yet created: %v", err)
+		t.Skipf("bridge-interop fixture not yet created: %v", err)
 	}
 	entry := filepath.Join(dir, "main.ft")
 
@@ -31,18 +31,18 @@ func TestNodeInterop_nodeInteropExampleRejectsRequireNoNode(t *testing.T) {
 		FilePath:      entry,
 		PackageRoot:   dir,
 		LogLevel:      "error",
-		RequireNoNode: true,
+		RequireNoBridge: true,
 	}, nil)
 	_, err := c.CompileFile()
 	if err == nil {
-		t.Fatal("expected node-interop compile to fail with -require-no-node")
+		t.Fatal("expected bridge-interop compile to fail with -require-no-bridge")
 	}
-	if !strings.Contains(err.Error(), "require-no-node") {
+	if !strings.Contains(err.Error(), "require-no-bridge") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
-func TestNodeInterop_basicExampleCompilesWithRequireNoNode(t *testing.T) {
+func TestNodeInterop_basicExampleCompilesWithRequireNoBridge(t *testing.T) {
 	t.Parallel()
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", ".."))
@@ -51,7 +51,7 @@ func TestNodeInterop_basicExampleCompilesWithRequireNoNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read basic.ft: %v", err)
 	}
-	// Compile from an isolated temp copy so examples/in module merge (e.g. node-interop) does not affect basic.ft.
+	// Compile from an isolated temp copy so examples/in module merge (e.g. bridge-interop) does not affect basic.ft.
 	tmp := filepath.Join(t.TempDir(), "basic.ft")
 	if err := os.WriteFile(tmp, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -61,11 +61,11 @@ func TestNodeInterop_basicExampleCompilesWithRequireNoNode(t *testing.T) {
 		Command:       "build",
 		FilePath:      tmp,
 		LogLevel:      "error",
-		RequireNoNode: true,
+		RequireNoBridge: true,
 	}, nil)
 	code, err := c.CompileFile()
 	if err != nil {
-		t.Fatalf("CompileFile(basic.ft) with -require-no-node: %v", err)
+		t.Fatalf("CompileFile(basic.ft) with -require-no-bridge: %v", err)
 	}
 	if code == nil || !strings.Contains(*code, "func greet() string") {
 		t.Fatal("expected basic example to compile unchanged")
@@ -76,5 +76,5 @@ func nodeInteropFixtureDir(t *testing.T) string {
 	t.Helper()
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", ".."))
-	return filepath.Join(projectRoot, "examples", "in", "rfc", "node-interop")
+	return filepath.Join(projectRoot, "examples", "in", "rfc", "bridge-interop")
 }

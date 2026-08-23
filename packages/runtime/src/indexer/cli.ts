@@ -1,0 +1,143 @@
+#!/usr/bin/env node
+
+import { Effect } from "effect";
+import { ForstRuntimeLayer } from "../effect/layer.js";
+import { runProcessMain } from "../effect/run_process_main.js";
+import * as CliErrors from "./errors.js";
+import { emitForstIndexV1Json } from "./emit-forst-index-v1.js";
+
+/** Parsed `forst-runtime-index` CLI arguments. */
+export interface CliOptions {
+  /** Project boundary root directory. */
+  root: string;
+  /** Index output format (only `forst-index-v1` is supported). */
+  format: string;
+  /** Project-relative TypeScript files to index. */
+  files: string[];
+}
+
+/** Parses indexer CLI argv into {@link CliOptions}. */
+export function parseCliArgs(argv: string[]): CliOptions {
+  let root = ".";
+  let format = "forst-index-v1";
+  let files: string[] = [];
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--root") {
+      const value = argv[++i];
+      if (!value) {
+        throw CliErrors.cliMissingRootValue();
+      }
+      root = value;
+      continue;
+    }
+    if (arg === "--format") {
+      const value = argv[++i];
+      if (!value) {
+        throw CliErrors.cliMissingFormatValue();
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--files") {
+      const value = argv[++i];
+      if (!value) {
+        throw CliErrors.cliMissingFilesValue();
+      }
+      files = value
+        .split(",")
+        .map((file) => file.trim())
+        .filter((file) => file.length > 0);
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      printHelp();
+      process.exit(0);
+    }
+    throw CliErrors.cliUnknownArgument(arg);
+  }
+
+  if (files.length === 0) {
+    throw CliErrors.cliFilesRequired();
+  }
+
+  return { root, format, files };
+}
+
+function printHelp(): void {
+  process.stdout.write(`Usage: forst-runtime-index --root DIR --format forst-index-v1 --files file1.ts,file2.ts
+
+Options:
+  --root DIR          Project boundary root (default: .)
+  --format FORMAT     Index format (only forst-index-v1 supported)
+  --files LIST        Comma-separated project-relative TS file paths
+  -h, --help          Show this help
+`);
+}
+
+/** Effect program that runs the indexer CLI and returns an exit code. */
+export const runCliEffect: (
+  argv: string[]
+) => Effect.Effect<0 | 1, never, never> = Effect.fn("Indexer.runCli")(
+  function* (argv: string[]) {
+  try {
+    const options = parseCliArgs(argv);
+
+    if (options.format !== "forst-index-v1") {
+      throw CliErrors.cliUnsupportedFormat(options.format);
+    }
+
+    yield* Effect.annotateCurrentSpan("root", options.root);
+    yield* Effect.annotateCurrentSpan("file_count", options.files.length);
+
+    const json = yield* Effect.sync(() =>
+      emitForstIndexV1Json({
+        root: options.root,
+        files: options.files,
+      })
+    );
+    process.stdout.write(`${json}\n`);
+    return 0;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    yield* Effect.annotateCurrentSpan("message", message);
+    yield* Effect.logError("cli_error").pipe(
+      Effect.annotateLogs({ event: "cli_error", message })
+    );
+    process.stderr.write(`forst-runtime-index: ${message}\n`);
+    return 1;
+  }
+});
+
+/** Runs the indexer CLI synchronously and returns the exit code. */
+export function runCli(argv: string[]): number {
+  return Effect.runSync(
+    runCliEffect(argv).pipe(Effect.provide(ForstRuntimeLayer))
+  );
+}
+
+/** Async wrapper for programmatic callers. */
+export async function runIndexerCli(argv: string[]): Promise<number> {
+  return Effect.runPromise(
+    runCliEffect(argv).pipe(Effect.provide(ForstRuntimeLayer))
+  );
+}
+
+const isDirectExecution =
+  typeof process.argv[1] === "string" &&
+  (process.argv[1].endsWith("/indexer/cli.js") ||
+    process.argv[1].endsWith("/indexer/cli.ts"));
+
+if (isDirectExecution) {
+  void runProcessMain(
+    runCliEffect(process.argv.slice(2)).pipe(
+      Effect.flatMap((code) =>
+        Effect.sync(() => {
+          process.exit(code);
+        })
+      ),
+      Effect.provide(ForstRuntimeLayer)
+    )
+  );
+}

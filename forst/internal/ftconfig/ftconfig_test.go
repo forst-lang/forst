@@ -20,32 +20,36 @@ func TestDefault_saneDefaults(t *testing.T) {
 	if len(c.Files.Include) == 0 || c.Dev.LogLevel != "info" {
 		t.Fatalf("Files/Dev defaults unexpected: %+v %+v", c.Files, c.Dev)
 	}
-	if c.Node.Enabled || c.Node.RuntimeEnabled {
-		t.Fatalf("Node defaults should be disabled: %+v", c.Node)
+	if c.Bridge.Enabled || c.Bridge.RuntimeEnabled {
+		t.Fatalf("Bridge defaults should be disabled: %+v", c.Bridge)
 	}
-	if c.Node.ImportPolicy != "explicit" {
-		t.Fatalf("Node.ImportPolicy: %q", c.Node.ImportPolicy)
+	if c.Bridge.ImportPolicy != "explicit" {
+		t.Fatalf("Bridge.ImportPolicy: %q", c.Bridge.ImportPolicy)
 	}
-	if c.Node.Binary != "node" {
-		t.Fatalf("Node.Binary: %q", c.Node.Binary)
+	if c.Bridge.Binary != "node" {
+		t.Fatalf("Bridge.Binary: %q", c.Bridge.Binary)
 	}
-	if c.Node.Bootstrap != "node_modules/@forst/node-runtime/dist/bootstrap.js" {
-		t.Fatalf("Node.Bootstrap: %q", c.Node.Bootstrap)
+	if c.Bridge.Bootstrap != "node_modules/@forst/runtime/dist/bootstrap.js" {
+		t.Fatalf("Bridge.Bootstrap: %q", c.Bridge.Bootstrap)
 	}
-	if c.Node.Loader != "tsx" {
-		t.Fatalf("Node.Loader: %q", c.Node.Loader)
+	bridge, err := EffectiveBridge(c)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if c.Node.RPC.MaxMessageBytes != 16<<20 {
-		t.Fatalf("Node.RPC.MaxMessageBytes: %d", c.Node.RPC.MaxMessageBytes)
+	if bridge.ModuleFormat != LegacyModuleCompiled {
+		t.Fatalf("default module format: %q", bridge.ModuleFormat)
 	}
-	if c.Node.RPC.CallTimeoutSeconds != 120 {
-		t.Fatalf("Node.RPC.CallTimeoutSeconds: %d", c.Node.RPC.CallTimeoutSeconds)
+	if c.Bridge.RPC.MaxMessageBytes != 16<<20 {
+		t.Fatalf("Bridge.RPC.MaxMessageBytes: %d", c.Bridge.RPC.MaxMessageBytes)
 	}
-	if c.Node.HostSocket != ".forst/node.sock" {
-		t.Fatalf("Node.HostSocket: %q", c.Node.HostSocket)
+	if c.Bridge.RPC.CallTimeoutSeconds != 120 {
+		t.Fatalf("Bridge.RPC.CallTimeoutSeconds: %d", c.Bridge.RPC.CallTimeoutSeconds)
 	}
-	if c.Node.HostReadyTimeoutSeconds != 120 {
-		t.Fatalf("Node.HostReadyTimeoutSeconds: %d", c.Node.HostReadyTimeoutSeconds)
+	if c.Bridge.HostSocket != ".forst/bridge.sock" {
+		t.Fatalf("Bridge.HostSocket: %q", c.Bridge.HostSocket)
+	}
+	if c.Bridge.HostReadyTimeoutSeconds != 120 {
+		t.Fatalf("Bridge.HostReadyTimeoutSeconds: %d", c.Bridge.HostReadyTimeoutSeconds)
 	}
 }
 
@@ -53,12 +57,12 @@ func TestLoad_nodeStanza_parsesAndMergesWithDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, configFileName)
 	json := `{
-  "node": {
+  "bridge": {
     "enabled": true,
     "importPolicy": "implicit",
     "runtimeEnabled": true,
     "binary": "/usr/local/bin/node",
-    "bootstrap": "node_modules/@forst/node-runtime/dist/bootstrap.js",
+    "bootstrap": "node_modules/@forst/runtime/dist/bootstrap.js",
     "loader": "tsx",
     "rpc": {
       "maxMessageBytes": 1048576,
@@ -73,20 +77,20 @@ func TestLoad_nodeStanza_parsesAndMergesWithDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Node.Enabled || !cfg.Node.RuntimeEnabled {
-		t.Fatalf("node overrides: %+v", cfg.Node)
+	if !cfg.Bridge.Enabled || !cfg.Bridge.RuntimeEnabled {
+		t.Fatalf("node overrides: %+v", cfg.Bridge)
 	}
-	if cfg.Node.ImportPolicy != "implicit" {
-		t.Fatalf("importPolicy: %q", cfg.Node.ImportPolicy)
+	if cfg.Bridge.ImportPolicy != "implicit" {
+		t.Fatalf("importPolicy: %q", cfg.Bridge.ImportPolicy)
 	}
-	if cfg.Node.Binary != "/usr/local/bin/node" {
-		t.Fatalf("binary: %q", cfg.Node.Binary)
+	if cfg.Bridge.Binary != "/usr/local/bin/node" {
+		t.Fatalf("binary: %q", cfg.Bridge.Binary)
 	}
-	if cfg.Node.RPC.MaxMessageBytes != 1048576 {
-		t.Fatalf("rpc.maxMessageBytes: %d", cfg.Node.RPC.MaxMessageBytes)
+	if cfg.Bridge.RPC.MaxMessageBytes != 1048576 {
+		t.Fatalf("rpc.maxMessageBytes: %d", cfg.Bridge.RPC.MaxMessageBytes)
 	}
-	if cfg.Node.RPC.CallTimeoutSeconds != 30 {
-		t.Fatalf("rpc.callTimeoutSeconds: %d", cfg.Node.RPC.CallTimeoutSeconds)
+	if cfg.Bridge.RPC.CallTimeoutSeconds != 30 {
+		t.Fatalf("rpc.callTimeoutSeconds: %d", cfg.Bridge.RPC.CallTimeoutSeconds)
 	}
 	if cfg.Compiler.Target != "go" {
 		t.Fatalf("expected default compiler target, got %q", cfg.Compiler.Target)
@@ -96,7 +100,7 @@ func TestLoad_nodeStanza_parsesAndMergesWithDefaults(t *testing.T) {
 func TestLoad_nodeRPCZeroValues_normalizedToDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, configFileName)
-	json := `{"node": {"rpc": {"maxMessageBytes": 0, "callTimeoutSeconds": 0}}}`
+	json := `{"bridge": {"rpc": {"maxMessageBytes": 0, "callTimeoutSeconds": 0}}}`
 	if err := os.WriteFile(path, []byte(json), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -104,11 +108,11 @@ func TestLoad_nodeRPCZeroValues_normalizedToDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Node.RPC.MaxMessageBytes != 16<<20 {
-		t.Fatalf("maxMessageBytes: %d", cfg.Node.RPC.MaxMessageBytes)
+	if cfg.Bridge.RPC.MaxMessageBytes != 16<<20 {
+		t.Fatalf("maxMessageBytes: %d", cfg.Bridge.RPC.MaxMessageBytes)
 	}
-	if cfg.Node.RPC.CallTimeoutSeconds != 120 {
-		t.Fatalf("callTimeoutSeconds: %d", cfg.Node.RPC.CallTimeoutSeconds)
+	if cfg.Bridge.RPC.CallTimeoutSeconds != 120 {
+		t.Fatalf("callTimeoutSeconds: %d", cfg.Bridge.RPC.CallTimeoutSeconds)
 	}
 }
 
@@ -501,7 +505,7 @@ func TestImportPolicyFromDir_readsNestedConfig(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg := `{"node":{"importPolicy":"implicit"}}`
+	cfg := `{"bridge":{"importPolicy":"implicit"}}`
 	if err := os.WriteFile(filepath.Join(root, configFileName), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -580,7 +584,7 @@ func TestLoad_hostModeRequiresArgs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, configFileName)
 	json := `{
-  "node": {
+  "bridge": {
     "hostMode": true,
     "args": []
   }
@@ -592,23 +596,23 @@ func TestLoad_hostModeRequiresArgs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
-	if !strings.Contains(err.Error(), "hostMode requires non-empty node.args") {
+	if !strings.Contains(err.Error(), "hostMode requires non-empty bridge.args") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestNodeConfig_EffectiveHostAutoRegister(t *testing.T) {
+func TestBridgeConfig_EffectiveHostAutoRegister(t *testing.T) {
 	falseVal := false
 	cfg := Default()
-	if cfg.Node.EffectiveHostAutoRegister() {
+	if cfg.Bridge.EffectiveHostAutoRegister() {
 		t.Fatal("expected false when hostMode unset and hostAutoRegister unset")
 	}
-	cfg.Node.HostMode = true
-	if !cfg.Node.EffectiveHostAutoRegister() {
+	cfg.Bridge.HostMode = true
+	if !cfg.Bridge.EffectiveHostAutoRegister() {
 		t.Fatal("expected true by default when hostMode enabled")
 	}
-	cfg.Node.HostAutoRegister = &falseVal
-	if cfg.Node.EffectiveHostAutoRegister() {
+	cfg.Bridge.HostAutoRegister = &falseVal
+	if cfg.Bridge.EffectiveHostAutoRegister() {
 		t.Fatal("expected false when hostAutoRegister explicitly false")
 	}
 }

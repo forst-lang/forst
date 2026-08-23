@@ -7,8 +7,8 @@ REPO="${REPO:-$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel 2>/dev/null
 REPO="$(cd "$REPO" && pwd)"
 
 FORST_BINARY="${FORST_BINARY:-$REPO/bin/forst}"
-FT_ROOT="$REPO/examples/in/rfc/node-interop/multi-package-dev"
-HOST_READY="$FT_ROOT/.forst/node.sock.ready"
+FT_ROOT="$REPO/examples/in/rfc/bridge-interop/multi-package-dev"
+HOST_READY="$FT_ROOT/.forst/bridge.sock.ready"
 RELOAD_MARKER="$FT_ROOT/.forst/reloading"
 
 FORST_PID=""
@@ -62,8 +62,8 @@ if [[ ! -x "$FORST_BINARY" ]]; then
   echo "forst binary missing: $FORST_BINARY" >&2
   exit 1
 fi
-if [[ ! -f "$REPO/packages/node-runtime/dist/host.js" ]]; then
-  echo "node-runtime not built: $REPO/packages/node-runtime/dist/host.js" >&2
+if [[ ! -f "$REPO/packages/runtime/dist/host.js" ]]; then
+  echo "runtime not built: $REPO/packages/runtime/dist/host.js" >&2
   exit 1
 fi
 
@@ -83,7 +83,7 @@ export FORST_INVOKE_TRANSPORT=tcp
 FORST_PID=$!
 
 bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6321/health invoke 60
-bash "$SCRIPT_DIR/wait-for-file.sh" "$HOST_READY" node.sock.ready 60
+bash "$SCRIPT_DIR/wait-for-file.sh" "$HOST_READY" bridge.sock.ready 60
 
 read_host_pid() {
   python3 - <<'PY' "$HOST_READY"

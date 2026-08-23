@@ -136,7 +136,7 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 
 ## `@forst/cli/invoke`
 
-Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/node-runtime`](../node-runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
+Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/runtime`](../runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
 
 Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/$testing` instead; those helpers call this subpath.
 
@@ -150,11 +150,11 @@ await using server = await startForstInvokeServer({ root: process.cwd() });
 Behaviour in short:
 
 - **Attach before spawn** when `baseUrl`, `FORST_SKIP_SPAWN`, `.forst/invoke.ready`, or `FORST_BASE_URL` / `FORST_INVOKE_URL` / `FORST_DEV_URL` is set. Attach handles never kill the process.
-- **`mode: "auto"`** (default) reads `ftconfig.json` and picks `embedded` when `server.embedded` or `node.hostMode` is true, otherwise `dev`.
+- **`mode: "auto"`** (default) reads `ftconfig.json` and picks `embedded` when `server.embedded` or `bridge.hostMode` is true, otherwise `dev`.
 - Readiness is `GET /health`, not log scraping.
 - `stop()` sends `SIGTERM`, then `SIGKILL` after 5s.
 
-For **host mode** (`node.hostMode` in `ftconfig.json`), call `prepareInvokeConnect()` at process startup so connect-mode env and the `FORST_INVOKE_AUTH_RECV_FD` listener are ready. Use `getInvokeAuthHandoff()` with a generated client's `resolveAuth` when auth arrives over the host pipe instead of `FORST_INVOKE_TOKEN`.
+For **host mode** (`bridge.hostMode` in `ftconfig.json`), call `prepareInvokeConnect()` at process startup so connect-mode env and the `FORST_INVOKE_AUTH_RECV_FD` listener are ready. Use `getInvokeAuthHandoff()` with a generated client's `resolveAuth` when auth arrives over the host pipe instead of `FORST_INVOKE_TOKEN`.
 
 Opt-in real spawn test (needs a local `forst` binary and Go for embedded compile):
 

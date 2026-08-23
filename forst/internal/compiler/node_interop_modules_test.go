@@ -22,8 +22,8 @@ func TestNodeInteropModules_typechecksNestedCheckoutEntry(t *testing.T) {
 		t.Fatalf("parse merge: %v", err)
 	}
 	for _, n := range merged {
-		if imp, ok := n.(ast.ImportNode); ok && imp.NodeOptInSource != "" && !imp.NodeOptIn {
-			t.Fatalf("node import missing NodeOptIn: %+v", imp)
+		if imp, ok := n.(ast.ImportNode); ok && imp.BridgeOptInSource != "" && !imp.BridgeOptIn {
+			t.Fatalf("JS import missing BridgeOptIn: %+v", imp)
 		}
 	}
 
@@ -34,17 +34,17 @@ func TestNodeInteropModules_typechecksNestedCheckoutEntry(t *testing.T) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	main, runtime, _, _, _, err := c.CompileWithNodeRuntime()
+	main, runtime, _, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime: %v", err)
+		t.Fatalf("CompileWithBridgeRuntime: %v", err)
 	}
-	if main == "" || !containsAll(main, "forst_node_callsync_") {
+	if main == "" || !containsAll(main, "forst_bridge_callsync_") {
 		t.Fatalf("generated main missing bridge wrapper:\n%s", main)
 	}
 	if runtime == "" || !containsAll(runtime,
-		"nodert.CallSync",
-		"forstNodeManifestJSON",
-		"legacy/api/checkout.ts",
+		"bridgert.CallSync",
+		"forstBridgeManifestJSON",
+		"legacy/api/checkout.js",
 		"createOrder",
 	) {
 		t.Fatalf("generated runtime missing nested module wiring:\n%s", runtime)
@@ -54,5 +54,5 @@ func TestNodeInteropModules_typechecksNestedCheckoutEntry(t *testing.T) {
 func nodeInteropModulesDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "node-interop", "modules"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "bridge-interop", "modules"))
 }

@@ -287,6 +287,15 @@ func bestEffortLineColumnFromErrorMessage(content, errMsg string) (line1, col1 i
 			return ln, 1
 		}
 	}
+	// import local name "type" is a Forst keyword ... (Go and node)
+	if strings.Contains(errMsg, " import local name") && strings.Contains(errMsg, "cannot be used without an alias") {
+		if ln := findLineContaining(content, " node"); ln > 0 {
+			return ln, 1
+		}
+		if ln := findLineContaining(content, "import "); ln > 0 {
+			return ln, 1
+		}
+	}
 	// undeclared variable 'foo' — first line mentioning the identifier
 	if m := regexp.MustCompile(`variable '([^']+)'`).FindStringSubmatch(errMsg); len(m) > 1 {
 		return lineAndColumnOfFirstOccurrence(content, m[1])

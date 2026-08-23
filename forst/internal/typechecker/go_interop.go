@@ -171,21 +171,17 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 		if tp == nil {
 			continue
 		}
-		if imp.Alias != nil && string(imp.Alias.ID) == "." {
-			if !tc.hasDotImportPath(tp.Path()) {
-				tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+		var local string
+		b := goBindingFromLoaded(imp, loaded)
+		if b.Skip {
+			if imp.Alias != nil && string(imp.Alias.ID) == "." {
+				if !tc.hasDotImportPath(tp.Path()) {
+					tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+				}
 			}
 			continue
 		}
-		var local string
-		if imp.Alias != nil {
-			local = string(imp.Alias.ID)
-		} else {
-			local = tp.Name()
-			if local == "" {
-				_, local = fallbackImportLocal(imp)
-			}
-		}
+		local = b.Local
 		if local == "" || local == "." {
 			continue
 		}
@@ -269,15 +265,6 @@ func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallN
 		return nil, true, err
 	}
 	return ret, true, nil
-}
-
-func (tc *TypeChecker) registerImportLocalsFromAST() {
-	for _, imp := range tc.imports {
-		path, local := fallbackImportLocal(imp)
-		if local != "" && local != "." {
-			tc.importPathByLocal[local] = path
-		}
-	}
 }
 
 func (tc *TypeChecker) goPackageForImportLocal(local string) *types.Package {
@@ -672,3 +659,4 @@ func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName str
 	}
 	return sig
 }
+

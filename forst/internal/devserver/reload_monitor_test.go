@@ -42,7 +42,7 @@ func TestHostModeEnabled(t *testing.T) {
 	if hostModeEnabled(dir) {
 		t.Fatal("expected false without ftconfig")
 	}
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"node":{"hostMode":true,"args":["x"]}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"bridge":{"hostMode":true,"args":["x"]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if !hostModeEnabled(dir) {

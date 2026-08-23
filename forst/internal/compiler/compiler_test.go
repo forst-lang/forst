@@ -594,7 +594,7 @@ func TestGoModuleRootForRun_companionFiles(t *testing.T) {
 func TestRunGoProgram_companionImportsCompile(t *testing.T) {
 	forstCompilerModuleFromTest(t)
 	err := BuildGoProgram(
-		"package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n",
+		"package main\n\nimport _ \"forst/bridgert\"\n\nfunc main() {}\n",
 		"package main\n",
 		"",
 		nil,

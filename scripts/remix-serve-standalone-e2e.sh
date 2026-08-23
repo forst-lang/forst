@@ -16,8 +16,8 @@ REPO="$(cd "$REPO" && pwd)"
 
 FORST_BINARY="${FORST_BINARY:-$REPO/bin/forst}"
 FORST_GOMOD_ROOT="${FORST_GOMOD_ROOT:-$REPO/forst}"
-EXAMPLE_SRC="$REPO/examples/in/rfc/node-interop/remix-serve"
-REGISTER_MJS="$REPO/packages/node-runtime/dist/host/register.mjs"
+EXAMPLE_SRC="$REPO/examples/in/rfc/bridge-interop/remix-serve"
+REGISTER_MJS="$REPO/packages/runtime/dist/host/register.mjs"
 LOG_FILE="${LOG_FILE:-$REPO/.cursor-remix-serve-standalone-e2e.log}"
 
 DEV_MODE=false
@@ -166,14 +166,14 @@ trap 'cleanup 130' INT
 trap 'cleanup 143' TERM
 
 echo "=== build monorepo artifacts ==="
-(cd "$REPO" && task build:node-runtime build:client build:sidecar build:errors build)
+(cd "$REPO" && task build:runtime build:client build:sidecar build:errors build)
 
 if [[ ! -x "$FORST_BINARY" ]]; then
   echo "missing compiler binary: $FORST_BINARY (run: task build)" >&2
   exit 1
 fi
 if [[ ! -f "$REGISTER_MJS" ]]; then
-  echo "missing node-runtime host register: $REGISTER_MJS (run: task build:node-runtime)" >&2
+  echo "missing runtime host register: $REGISTER_MJS (run: task build:runtime)" >&2
   exit 1
 fi
 
@@ -192,7 +192,7 @@ rsync -a \
 PACK_DIR="$TMP/.forst-packs"
 mkdir -p "$PACK_DIR"
 echo "=== pack local @forst/* into $PACK_DIR ==="
-for name in cli client errors node-runtime sidecar; do
+for name in cli client errors runtime sidecar; do
   (cd "$REPO/packages/$name" && bun pm pack --destination "$PACK_DIR")
 done
 

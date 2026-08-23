@@ -56,3 +56,7 @@ runs:
       uses: actions/setup-node@v6
       with:
         node-version: "24.x"
+
+    - name: Install esbuild for bridge legacy-module precompile
+      run: npm install -g esbuild
+      shell: bash

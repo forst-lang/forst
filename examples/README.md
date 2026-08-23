@@ -5,7 +5,7 @@
 | Profile | Example | `go.mod` | `.ft` sources | Workflow |
 | --- | --- | --- | --- | --- |
 | **Go-native** | [`in/go_interop/`](in/go_interop/) | project root | mixed with `.go` | `forst build` + `go run .` |
-| **Node-primary** | [`in/rfc/node-interop/remix-serve/`](in/rfc/node-interop/remix-serve/) | `.forst-gomod/` | `main/` under boundary | `forst generate` + `forst run` |
+| **Node-primary** | [`in/rfc/bridge-interop/remix-serve/`](in/rfc/bridge-interop/remix-serve/) | `.forst-gomod/` | `main/` under boundary | `forst generate` + `forst run` |
 | **Compiler dev** | any out-of-tree copy | either | either | `FORST_GOMOD_ROOT` points at the compiler module |
 
 In **Node-primary** layouts, `replace` paths in `.forst-gomod/go.mod` are relative to the **project boundary** (the directory with `ftconfig.json`), not to `.forst-gomod/` itself.

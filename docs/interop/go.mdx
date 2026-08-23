@@ -39,6 +39,8 @@ Call into the standard library and third-party modules with qualified names:
 
 <InteropFmtHello />
 
+When an import has no alias, the compiler uses the Go package name from `go/packages` (or the last path segment as a fallback before load). That local name must be a valid Forst identifier and cannot be a Forst or Go keyword. Add an explicit alias when the default would be invalid, for example `import typePkg "fmt"` instead of relying on a path segment named `type`. The alias `node` is allowed on Go imports (`import node "fmt"`) even though `node` is reserved for TypeScript opt-in imports.
+
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, `interface{}` (including variadic calls), and Forst **`func`** literals at Go **`func`** parameters.
 
 Calls with several return values become a `Tuple` when captured in one
@@ -68,7 +70,7 @@ mid := xs[1:3]
 tail := xs[2:]
 ```
 
-See **`examples/in/slices.ft`** (`task example:slices`). Subslices are a **language** feature on Forst slice values. They are distinct from **variadic spread** at Go call sites (next section).
+See [`examples/in/slices.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/slices.ft). Subslices are a **language** feature on Forst slice values. They are distinct from **variadic spread** at Go call sites (next section).
 
 ## Variadic spread into Go calls
 
@@ -76,7 +78,7 @@ When a Go function takes a variadic parameter, spread a Forst slice subslice at 
 
 <InteropExecSpread />
 
-See **`examples/in/go_interop/cli.ft`** and **`helpers.go`** (`task example:go-interop`).
+See [`examples/in/go_interop/cli.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/cli.ft) and [`helpers.go`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/helpers.go).
 
 ## Fields and methods on Go values
 
@@ -89,7 +91,7 @@ Qualified import calls such as `exec.Command(...)` are checked when the stdlib p
 
 ## Go function callbacks
 
-Pass a Forst function literal where Go expects a concrete **`func`** type—for example **`http.HandleFunc`**. See **`examples/in/go_interop/http_handle.ft`**.
+Pass a Forst function literal where Go expects a concrete **`func`** type—for example **`http.HandleFunc`**. See [`examples/in/go_interop/http_handle.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/go_interop/http_handle.ft).
 
 ## Forst packages in the same module
 
@@ -97,14 +99,7 @@ An `import "module/path"` can refer to **another Forst package** in the same Go 
 
 This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` emits ephemeral lib shims under `.forst/gen/test/`; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
 
-Try the cross-package provider examples:
-
-```bash
-task example:providers-cross_pkg
-task test:providers-cross_pkg
-```
-
-Cookbook: `examples/in/rfc/providers/cross_pkg/` (`auth` + `api`).
+See the cross-package provider example [`examples/in/rfc/providers/cross_pkg/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers/cross_pkg/) (`auth` + `api`).
 
 Do not confuse sibling Forst imports with **Go package** imports: `import "fmt"` loads Go via `go/packages`; `import "yourmod/auth"` loads a Forst package when `auth/` contains `.ft` files declaring `package auth`.
 
@@ -145,7 +140,7 @@ Forst supports three common Go module layouts. Pick one and stay consistent with
 
 **`forst run`** transpiles your entry, writes a temp sandbox under `.forst/run/` with its own `go.mod`, and executes via `go run`. **Go-native** projects (root `go.mod`, not only `.forst-gomod/`) use **Mode B**: an auto-managed `.forst/go.work` workspace instead of a fragile `replace` in the sandbox. **Node-primary** projects keep **Mode A** (`replace forst => …` in the sandbox `go.mod`). For mixed `.ft` + hand-written `.go` you want to commit or inspect, use **`forst generate`** with `generate.go.entry` / `generate.go.out` (or `--go-entry` / `--go-out`) and the normal Go toolchain.
 
-Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/node-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
+Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/bridge-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
 
 ## Runtime validation
 
@@ -155,51 +150,58 @@ Type constraints in Forst emit **runtime checks** in generated Go. Untrusted inp
 
 Forst **Providers** (`use` / `with`) declare shared runtime services at function boundaries and wire implementations at entry points. See [Providers (DI)](/language/providers).
 
-Run the provider examples:
+See the provider examples on GitHub:
 
-```bash
-task example:providers
-task example:providers-cross_pkg
-```
+* [`examples/in/rfc/providers/providers_demo/providers.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/rfc/providers/providers_demo/providers.ft)
+* [`examples/in/rfc/providers/cross_pkg/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers/cross_pkg/)
 
 ## When to keep hand written Go
 
-- **`unsafe`** or low-level syscalls not yet mapped
-- Large existing packages you are migrating incrementally
-- Performance-critical paths already audited in Go
+Forst supports **gradual adoption**. In some cases, you may need to keep hand-written **`.go`** when the compiler cannot yet type-check or lower a call site, or when your workflow needs committed Go next to generated output.
 
-Forst supports **gradual adoption**. You can migrate route by route without a big bang rewrite.
+* Operations that require `unsafe` or pointer arithmetic
+* Generic Go functions such as `slices.Contains` or `maps.Clone`
+* Go interfaces such as `io.Reader` or `http.Handler`
+* Same package `.go` helpers when running with `forst run`
+* Large existing packages or hot paths already tested in Go
+
+See below for details.
 
 ## Caveats
 
-**Go import loading** is **experimental**. The compiler loads packages via **`go/packages`** and type-checks calls when imports resolve. Common stdlib paths work; full parity with arbitrary Go packages is still maturing.
+Go package importing is experimental. The compiler loads packages through `go/packages` and checks types when imports resolve. Many standard library paths work well. Full support for every Go package is still evolving.
 
-**Known mapper gaps:**
+### Generic Go APIs
 
-- **Generic Go APIs** (`slices.Contains`, `maps.Clone`, …) — not supported yet; clear **`go-call`** diagnostic.
-- **`unsafe`** — not wired end-to-end; use hand-written **`.go`**.
-- **Non-empty Go interfaces** — Forst shapes do not automatically satisfy interfaces such as **`io.Reader`**.
-- **Anonymous structs** — exported fields map to Forst shapes; embedded or unexported fields stay opaque.
+Functions with type parameters are rejected. Calls to `slices.Contains` or `maps.Clone` produce a `go call` diagnostic message. Full support requires generic type parameters in Forst.
 
-`switch` / `case` / `fallthrough` are **language** features (Go-faithful), not interop gaps. Type switches (`switch v := x.(type)`) are deliberately unsupported; use **`is`** narrowing instead.
+### Unsafe package
 
-Failed **`go/packages`** loads surface as **`go-import`** diagnostics when the import path is referenced.
+Qualified calls to `unsafe.*` and conversions to `unsafe.Pointer` are not supported. Put low level pointer code in hand written `.go` files.
 
-### `unsafe` not end to end
+### Interface satisfaction
 
-Put **`unsafe`** usage in hand written **`.go`** and call from Forst. Qualified **`unsafe.*`** calls and **`unsafe.Pointer`** mapping are not wired through the Forst import path yet.
+Forst shape types do not satisfy Go interfaces like `io.Reader` or `http.Handler` automatically. Write a thin Go adapter or a type with explicit Go methods when a Go function expects an interface parameter.
 
-### `make` and `new` type args
+### Opaque structs and unexported fields
 
-**`make`** and **`new`** with a type argument are rejected until Forst type syntax works in that position (e.g. **`Array(Int)`**, not Go **`[]T`**).
+Go structs with unexported or embedded fields map to `Implicit` at the type boundary. You can call methods on tracked values. You cannot construct or inspect those internal fields directly inside Forst.
 
-### Slice subslices experimental
+### Function and method values
 
-Three index subslice syntax on Forst **`[]T`** values is experimental. It is distinct from variadic **spread** at Go call sites.
+Passing or storing package functions without calling them directly is limited. Function literals passed as arguments work well, such as `http.HandleFunc`. Storing function values in variables can lose signature details.
+
+### Same package Go files with forst run
+
+The `forst run` command executes code in a temporary sandbox. It does not copy co-located `.go` files into that sandbox. Use `forst generate` along with `go run` or `go test` when mixing `.ft` and `.go` files in the same package.
+
+### Builtin make and new calls
+
+Use Forst type syntax with `make` and `new`. Write `make(Array(Int), 10)` or `new(Int)`.
 
 ### JSON field export
 
-Shape fields lower to unexported Go identifiers by default. For JSON marshaling, see [Shapes and constraints § Caveats](/language/shapes-and-constraints#caveats).
+Shape fields lower to unexported Go names by default. Enable exported struct fields in configuration when you need JSON marshaling.
 
 ## Related
 
@@ -210,10 +212,10 @@ Shape fields lower to unexported Go identifiers by default. For JSON marshaling,
   <Card title="Editor workflow" icon="puzzle-piece" href="/workflow/editor">
     LSP hover for Go imports, godoc, and cross-package Forst siblings.
   </Card>
-  <Card title="Node overview" icon="server" href="/interop/node">
+  <Card title="JavaScript overview" icon="server" href="/interop/invoke">
     Share types, call Forst from Node, or call JavaScript from Forst.
   </Card>
-  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/node/call-javascript">
+  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/bridge">
     Call legacy `.ts`/`.js` from Forst at runtime.
   </Card>
 </CardGroup>

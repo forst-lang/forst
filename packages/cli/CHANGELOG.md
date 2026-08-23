@@ -125,7 +125,7 @@
 
 ### Features
 
-* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
+* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/runtime`.
 * **cli:** Declare `@forst/errors` as a runtime dependency so apps with `@forst/cli` can import shared invoke failure classes without adding Effect.
 * **cli:** Host-mode invoke auth handoff via `FORST_INVOKE_AUTH_RECV_FD` (`prepareInvokeConnect` / `getInvokeAuthHandoff`), plus shared `DEFAULT_EMBEDDED_INVOKE_PORT` and `DEFAULT_EMBEDDED_INVOKE_BASE_URL`.
 
@@ -152,11 +152,11 @@
 
 ### ⚠ BREAKING CHANGES
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
 
 ### Features
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
 
 ## [0.0.37](https://github.com/forst-lang/forst/compare/cli-v0.0.36...cli-v0.0.37) (2026-06-28)
 

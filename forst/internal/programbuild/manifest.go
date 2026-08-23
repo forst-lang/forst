@@ -26,7 +26,7 @@ const ContractVersion = "2"
 // ProgramManifest describes a native program build output directory from forst build -o.
 // Kind is the embedded program binary (entry + invoke + optional Node host), not a sidecar.
 // Binary is the relative path to the linked executable under the -o directory (from entry stem).
-// HostMode reflects ftconfig node.hostMode at build time for CI layout checks.
+// HostMode reflects ftconfig bridge.hostMode at build time for CI layout checks.
 type ProgramManifest struct {
 	SchemaVersion     int      `json:"schemaVersion"`
 	Kind              string   `json:"kind"`
@@ -39,6 +39,9 @@ type ProgramManifest struct {
 	EmbeddedInvoke    bool     `json:"embeddedInvoke"`
 	HostMode          bool     `json:"hostMode"`
 	SkipNodeHostDefault bool     `json:"skipNodeHostDefault"`
+	NeedsBridgeRuntime  bool     `json:"needsBridgeRuntime,omitempty"`
+	CompiledModulesDir  string   `json:"compiledModulesDir,omitempty"`
+	LegacyModuleFormat  string   `json:"legacyModuleFormat,omitempty"`
 	Packages          []string `json:"packages"`
 	Binary            string   `json:"binary"`
 	BuiltAt           string   `json:"builtAt"`
