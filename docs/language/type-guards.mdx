@@ -28,7 +28,7 @@ This `LoggedIn` guard requires an `AppContext` with both a session and a user.
 The declaration starts with `is`, followed by the value, its base type, and the
 guard name.
 
-```forst
+```ft
 is (subject BaseType) GuardName() {
     // checks
 }
@@ -36,7 +36,7 @@ is (subject BaseType) GuardName() {
 
 Use the guard anywhere you can use an `is` check.
 
-```forst
+```ft
 ensure ctx is LoggedIn()
 ```
 
@@ -108,7 +108,7 @@ address this later.
 
 Narrowing works best when `ensure` checks a simple variable.
 
-```forst
+```ft
 ensure x is LoggedIn()
 ```
 

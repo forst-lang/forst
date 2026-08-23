@@ -1,0 +1,71 @@
+/* Client-side Forst syntax highlighting for Mintlify docs (ft / forst fences). */
+
+/* Light mode: direct color on our spans. */
+pre code .ft-tok-comment {
+  color: var(--mint-token-comment, #6a737d);
+}
+
+pre code .ft-tok-string {
+  color: var(--mint-token-string, #032f62);
+}
+
+pre code .ft-tok-keyword {
+  color: var(--mint-token-keyword, #d73a49);
+}
+
+pre code .ft-tok-function {
+  color: var(--mint-token-function, #6f42c1);
+}
+
+pre code .ft-tok-type {
+  color: var(--mint-token-constant, #005cc5);
+}
+
+pre code .ft-tok-constant {
+  color: var(--mint-token-constant, #005cc5);
+}
+
+pre code .ft-tok-variable {
+  color: var(--mint-token-parameter, #24292e);
+}
+
+pre code .ft-tok-punct {
+  color: var(--mint-token-punctuation, #24292e);
+}
+
+/*
+ * Dark mode: Mintlify/Shiki sets `color: var(--shiki-dark) !important` on
+ * `.shiki span`, which overrides direct `color` on our tokens. Set per-token
+ * `--shiki-dark` so Shiki's rule picks up the right hue.
+ */
+html.dark pre code .ft-tok-comment {
+  --shiki-dark: var(--mint-token-comment, #8b949e);
+}
+
+html.dark pre code .ft-tok-string {
+  --shiki-dark: var(--mint-token-string, #9ecbff);
+}
+
+html.dark pre code .ft-tok-keyword {
+  --shiki-dark: var(--mint-token-keyword, #ff7b72);
+}
+
+html.dark pre code .ft-tok-function {
+  --shiki-dark: var(--mint-token-function, #d2a8ff);
+}
+
+html.dark pre code .ft-tok-type {
+  --shiki-dark: var(--mint-token-constant, #79c0ff);
+}
+
+html.dark pre code .ft-tok-constant {
+  --shiki-dark: var(--mint-token-constant, #79c0ff);
+}
+
+html.dark pre code .ft-tok-variable {
+  --shiki-dark: var(--mint-token-parameter, #e6edf3);
+}
+
+html.dark pre code .ft-tok-punct {
+  --shiki-dark: var(--mint-token-punctuation, #e6edf3);
+}

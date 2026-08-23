@@ -57,9 +57,11 @@ import CatalogOrder from "/snippets/catalog-order.mdx";
 <CatalogOrder />
 ```
 
-Syntax highlighting uses a TextMate grammar at [`languages/forst.json`](./languages/forst.json). The fence tag must be `ft` (matches the grammar `"name"` field).
+Syntax highlighting for Forst uses client-side tokenization in [`forst-highlight.js`](./forst-highlight.js) and [`forst-highlight.css`](./forst-highlight.css). Mintlify auto-loads those files on every page. Fence tag must be `ft`.
 
-When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json` (`task sync:forst-grammar`).
+Hosted Mintlify does not reliably embed custom Shiki grammars, so we do not depend on `styling.codeblocks.languages.custom`. The TextMate grammar at [`languages/forst.json`](./languages/forst.json) is the rule source for the client highlighter.
+
+When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json` and rebuild the browser bundle (`task sync:forst-grammar`).
 
 Brand icons for cards live in [`icons/`](./icons/). TypeScript logo from [typescriptlang.org](https://www.typescriptlang.org/branding/) (Wikimedia). Go blue wordmark from [go.dev/brand](https://go.dev/brand) (Wikimedia).
 

@@ -27,7 +27,7 @@ experimental.
 Use a union when a function has a small set of expected failures. The `|`
 operator means that the value can belong to either named type.
 
-```forst
+```ft
 error ParseError {
     code: Int,
 }
@@ -56,7 +56,7 @@ the errors.
 
 Use `Err(ErrorName)` when each error needs a different response.
 
-```forst
+```ft
 func handleParseError(err ParseError) {}
 
 func inspect() {
@@ -78,7 +78,7 @@ TypeScript uses the same alternatives.
 A general union can describe a value with several possible types. For example,
 an identifier might come from text input or a numeric database column.
 
-```forst
+```ft
 type Identifier = String | Int
 ```
 
@@ -91,7 +91,7 @@ complete.
 
 An intersection uses `&`. It describes a value that must satisfy every member.
 
-```forst
+```ft
 type Named = {
     name: String,
 }

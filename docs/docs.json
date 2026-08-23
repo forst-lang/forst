@@ -13,11 +13,6 @@
       "theme": {
         "light": "github-light-default",
         "dark": "dark-plus"
-      },
-      "languages": {
-        "custom": [
-          "/languages/forst.json"
-        ]
       }
     }
   },

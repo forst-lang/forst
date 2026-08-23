@@ -1,11 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" fill="none">
-  <text
-    x="16"
-    y="16"
-    dominant-baseline="central"
-    fill="#A5D6A7"
-    font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif"
-    font-size="18"
-    font-weight="700"
-    text-anchor="middle">FT</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="1.5" fill="#59865E"/>
+  <path fill="#fff" d="M18 32h18v6H24v5h12v6H24v11h-6V32z"/>
+  <path fill="#fff" d="M39 32h22v6H53v22h-6V38H39V32z"/>
 </svg>

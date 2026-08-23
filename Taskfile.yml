@@ -191,14 +191,19 @@ tasks:
       - packages/vscode-forst/out/extension.js.map
 
   sync:forst-grammar:
-    desc: Sync forst.tmLanguage.json to docs/languages/forst.json (Mintlify)
+    desc: Sync forst.tmLanguage.json to docs/languages/forst.json and build client highlighter
     dir: packages/vscode-forst
     cmds:
       - bun run sync:grammar
     sources:
       - syntaxes/forst.tmLanguage.json
+      - scripts/forst-tokenize.mjs
+      - scripts/forst-highlight-detect.mjs
+      - scripts/forst-highlight-browser.mjs
+      - scripts/sync-forst-grammar.mjs
     generates:
       - docs/languages/forst.json
+      - docs/forst-highlight.js
 
   install:
     desc: Install the Forst compiler
