@@ -45,11 +45,11 @@ type T_PNXTj8VxMub struct {
 
 func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	if !G_cADKLRyByvZ(req.State) {
-		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
 	}
 	playing := req.State.Status == "playing"
 	if !playing {
-		return MoveResponse{State: GameState{Status: "", Cells: nil, NextPlayer: ""}, Message: ""}, invalidMove("game already finished")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("game already finished")
 	}
 	row := req.Row
 	if row <= -1 {
@@ -63,12 +63,12 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("col must be <= 2")
 	}
 	idx := cellIndex(row, col)
 	cellEmpty := req.State.Cells[idx] == ""
 	if !cellEmpty {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, CellTaken{Row: row, Col: col}
+		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, CellTaken{Row: row, Col: col}
 	}
 	next := setCell(cloneCells(req.State.Cells), idx, req.State.NextPlayer)
 	np := opponent(req.State.NextPlayer)
@@ -148,7 +148,7 @@ func main() {
 	a1 := getCell(g.Cells, 1)
 	a2 := getCell(g.Cells, 2)
 	fmt.Println("top row |", a0, a1, a2)
-	move, moveErr := PlayMove(MoveRequest{State: g, Row: 1, Col: 2})
+	_, moveErr := PlayMove(MoveRequest{State: g, Row: 1, Col: 2})
 	if moveErr == nil {
 		fmt.Println("after X @ (1,2) | msg:", move.Message)
 		fmt.Println("then    | next:", move.State.NextPlayer, "| status:", move.State.Status)

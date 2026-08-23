@@ -45,16 +45,24 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 		"fn":       functionNode.Ident.ID,
 	}).Debug("Restored function scope")
 
-	for _, param := range functionNode.Params {
+	for i, param := range functionNode.Params {
 		switch typedParam := param.(type) {
 		case ast.SimpleParamNode:
+			paramType := typedParam.Type
+			if sig, ok := tc.Functions[functionNode.Ident.ID]; ok && i < len(sig.Parameters) {
+				paramType = sig.Parameters[i].Type
+			}
 			tc.scopeStack.currentScope().RegisterSymbol(
 				typedParam.Ident.ID,
-				[]ast.TypeNode{typedParam.Type},
+				[]ast.TypeNode{paramType},
 				SymbolVariable)
-			tc.bindVariableGoTypeFromParamType(typedParam.Ident.ID, typedParam.Type)
+			tc.bindVariableGoTypeFromParamType(typedParam.Ident.ID, paramType)
 		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(typedParam.Fields, typedParam.Type, SymbolVariable)
+			paramType := typedParam.Type
+			if sig, ok := tc.Functions[functionNode.Ident.ID]; ok && i < len(sig.Parameters) {
+				paramType = sig.Parameters[i].Type
+			}
+			tc.registerDestructuredParamSymbols(typedParam.Fields, paramType, SymbolVariable)
 		}
 	}
 	tc.DebugPrintCurrentScope()
@@ -69,7 +77,11 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 		return nil, err
 	}
 
+	sig, hasSig := tc.Functions[functionNode.Ident.ID]
 	for index, inferredParamTypes := range paramTypes {
+		if hasSig && len(sig.TypeParams) > 0 {
+			continue
+		}
 		param := functionNode.Params[index]
 		tc.log.WithFields(logrus.Fields{
 			"paramTypes": inferredParamTypes,
@@ -106,12 +118,13 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 		}
 	}
 
-	if signature, ok := tc.Functions[functionNode.Ident.ID]; ok {
+	if signature, ok := tc.Functions[functionNode.Ident.ID]; ok && len(signature.TypeParams) == 0 {
 		for index := range signature.Parameters {
 			if index < len(paramTypes) && len(paramTypes[index]) >= 1 {
 				signature.Parameters[index].Type = paramTypes[index][0]
 			}
 		}
+		tc.Functions[functionNode.Ident.ID] = signature
 	}
 
 	for _, bodyNode := range functionNode.Body {

@@ -25,6 +25,7 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"generic_function.ft",
 		"generic_first.ft",
 		"generic_pick.ft",
+		"generic_eq.ft",
 		"go_builtins.ft",
 		"slices.ft",
 		"go_interop/cli.ft",

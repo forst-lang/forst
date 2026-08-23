@@ -7,5 +7,7 @@ func identity[T any](x T) T {
 }
 func main() {
 	n := identity(42)
+	explicit := identity(42)
 	println(strconv.Itoa(n))
+	println(strconv.Itoa(explicit))
 }

@@ -8,6 +8,7 @@
     {"file": "generic_function.ft"},
     {"file": "generic_first.ft"},
     {"file": "generic_pick.ft"},
+    {"file": "generic_eq.ft"},
     {"file": "slices.ft"},
     {"file": "go_builtins.ft"}
   ]

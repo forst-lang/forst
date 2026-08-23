@@ -233,19 +233,23 @@ func (tc *TypeChecker) collectFunctionNode(scopeNode ast.Node, n ast.FunctionNod
 		}
 	}
 
+	tpSet := newTypeParamSet(n.TypeParams)
+	for _, tp := range n.TypeParams {
+		tpType := ast.NewTypeParamType(ast.TypeIdent(tp.Name))
+		tc.storeSymbol(tp.Name, []ast.TypeNode{tpType}, SymbolVariable)
+	}
+
 	for _, param := range n.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
+			paramType := normalizeTypesWithTypeParams(p.Type, tpSet)
+			if p.Variadic {
+				paramType = ast.NewArrayType(paramType)
+			}
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{paramType}, SymbolVariable)
 		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolVariable)
+			tc.registerDestructuredParamSymbols(p.Fields, normalizeTypesWithTypeParams(p.Type, tpSet), SymbolVariable)
 		}
-	}
-
-	for _, tp := range n.TypeParams {
-		tpType := ast.TypeNode{Ident: ast.TypeIdent(tp.Name), TypeKind: ast.TypeKindTypeParam}
-		tc.Defs[ast.TypeIdent(tp.Name)] = tpType
-		tc.storeSymbol(tp.Name, []ast.TypeNode{tpType}, SymbolVariable)
 	}
 
 	for _, bodyNode := range n.Body {

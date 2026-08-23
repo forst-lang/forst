@@ -2,7 +2,7 @@ package main
 
 // Generic function with Array(T) parameter. Type argument is inferred from the slice literal.
 // Golden output: ../out/generic_first.go
-func first[T any](xs Array(T)): T {
+func first[T any](xs []T): T {
 	return xs[0]
 }
 

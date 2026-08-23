@@ -10,7 +10,7 @@ type T_BSiWS9EsB18 struct {
 }
 
 func main() {
-	result, resultErr := forst_bridge_callsync_legacy_payment_js_create()
+	_, resultErr := forst_bridge_callsync_legacy_payment_js_create()
 	if !(resultErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", resultErr)

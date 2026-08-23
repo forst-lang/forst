@@ -6,9 +6,9 @@ type T_H4c2uQ34ZJV struct {
 }
 
 func main() {
-	x, xErr := one()
+	_, xErr := one()
 	if xErr == nil {
-		println(x)
+		println()
 	}
 }
 func one() (int, error) {

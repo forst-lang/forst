@@ -400,6 +400,20 @@ func (p *printer) printFunction(fn ast.FunctionNode) (string, error) {
 		b.WriteString(") ")
 	}
 	b.WriteString(string(fn.Ident.ID))
+	if len(fn.TypeParams) > 0 {
+		b.WriteByte('[')
+		for i, tp := range fn.TypeParams {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(string(tp.Name))
+			if tp.Constraint != nil {
+				b.WriteByte(' ')
+				b.WriteString(printType(*tp.Constraint))
+			}
+		}
+		b.WriteByte(']')
+	}
 	b.WriteByte('(')
 	for i, param := range fn.Params {
 		if i > 0 {
@@ -1050,7 +1064,25 @@ func (p *printer) printBinary(b ast.BinaryExpressionNode) (string, error) {
 
 func (p *printer) printCall(c ast.FunctionCallNode) (string, error) {
 	var b strings.Builder
-	b.WriteString(string(c.Function.ID))
+	if c.Callee != nil {
+		callee, err := p.printExpr(c.Callee)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(callee)
+	} else {
+		b.WriteString(string(c.Function.ID))
+	}
+	if len(c.TypeArgs) > 0 {
+		b.WriteByte('[')
+		for i, ta := range c.TypeArgs {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(printType(ta))
+		}
+		b.WriteByte(']')
+	}
 	b.WriteByte('(')
 	for i, a := range c.Arguments {
 		if i > 0 {

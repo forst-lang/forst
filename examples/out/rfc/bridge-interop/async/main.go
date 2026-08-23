@@ -15,20 +15,20 @@ type T_NTbLJjyksQg struct {
 }
 
 func checkout(amount float64, currency string) string {
-	result, resultErr := forst_bridge_callasync_legacy_payment_js_create(amount, currency)
+	_, resultErr := forst_bridge_callasync_legacy_payment_js_create(amount, currency)
 	if !(resultErr == nil) {
 		return ""
 	}
 	return result.Id
 }
 func drainEvents(userId string) int {
-	seq, seqErr := forst_bridge_open_seq_legacy_events_js_subscribe(userId)
+	_, seqErr := forst_bridge_open_seq_legacy_events_js_subscribe(userId)
 	if !(seqErr == nil) {
 		return 0
 	}
 	var count int = 0
 	{
-		_nodeIt := seq
+		_nodeIt :=
 		defer _nodeIt.Close()
 		var (
 			_nodeStep     forstBridgeGenStep_t_g2n6vmumv8n
@@ -65,7 +65,7 @@ func drainEvents(userId string) int {
 	return count
 }
 func echo(n float64) string {
-	res, resErr := forst_bridge_callasync_legacy_payment_js_concurrentEcho(n)
+	_, resErr := forst_bridge_callasync_legacy_payment_js_concurrentEcho(n)
 	if !(resErr == nil) {
 		return ""
 	}

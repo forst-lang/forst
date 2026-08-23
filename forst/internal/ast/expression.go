@@ -30,6 +30,7 @@ type BinaryExpressionNode struct {
 type FunctionCallNode struct {
 	Function  Ident
 	Callee    ExpressionNode // non-nil for calls on arbitrary expressions (e.g. func literals)
+	TypeArgs  []TypeNode     // explicit type arguments for generic calls (e.g. identity[Int](42))
 	Arguments []ExpressionNode
 	CallSpan  SourceSpan   // from '(' through ')' of this call; zero if unset
 	ArgSpans  []SourceSpan // parallel to Arguments when set by parser

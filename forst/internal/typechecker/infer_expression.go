@@ -336,10 +336,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
 
 		var argTypes [][]ast.TypeNode
-		if sig, ok := tc.Functions[e.Function.ID]; ok && len(sig.TypeParams) == 0 && len(e.Arguments) == len(sig.Parameters) {
+		if signature, exists := tc.Functions[e.Function.ID]; exists {
 			argTypes = make([][]ast.TypeNode, len(e.Arguments))
 			for i, arg := range e.Arguments {
-				exp := &sig.Parameters[i].Type
+				var exp *ast.TypeNode
+				if i < len(signature.Parameters) && !signature.Parameters[i].Type.IsTypeParam() {
+					pt := signature.Parameters[i].Type
+					exp = &pt
+				}
 				ts, err := tc.inferExpressionTypeWithExpected(arg, exp)
 				if err != nil {
 					return nil, err
@@ -359,23 +363,25 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
 			callSig := signature
+			callSpan := e.CallSpan
+			if !callSpan.IsSet() {
+				callSpan = e.Function.Span
+			}
 			if len(signature.TypeParams) > 0 {
-				inst, err := tc.instantiateGenericCall(signature, argTypes)
+				var inst FunctionSignature
+				var err error
+				if len(e.TypeArgs) > 0 {
+					inst, err = tc.instantiateGenericCallExplicit(signature, e.TypeArgs, argTypes, callSpan)
+				} else {
+					inst, err = tc.instantiateGenericCall(signature, argTypes, callSpan)
+				}
 				if err != nil {
-					sp := e.CallSpan
-					if !sp.IsSet() {
-						sp = e.Function.Span
-					}
-					return nil, diagnosticf(sp, "call-type", "%s: %v", e.Function.ID, err)
+					return nil, err
 				}
 				callSig = inst
 			}
 			if err := tc.checkUserFunctionCall(e.Function.ID, callSig, e, argTypes); err != nil {
 				return nil, err
-			}
-			callSpan := e.CallSpan
-			if !callSpan.IsSet() {
-				callSpan = e.Function.Span
 			}
 			tc.recordFunctionCall(e.Function.ID, callSpan)
 			retTypes := callSig.ReturnTypes

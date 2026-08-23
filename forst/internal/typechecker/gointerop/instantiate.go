@@ -6,6 +6,7 @@ import (
 	"go/types"
 
 	"forst/internal/ast"
+	"forst/internal/typechecker/typeinfer"
 )
 
 // InstantiateFuncSignature resolves type arguments for a generic Go function and returns
@@ -60,7 +61,17 @@ func inferTypeArgs(sig *types.Signature, argGoTypes []types.Type) ([]types.Type,
 				arg = sl.Elem()
 			}
 		}
+		_ = i
 		unifyType(bindings, params.At(i).Type(), arg)
+	}
+	if err := typeinfer.RequireAllBound(tparams.Len(), func(i int) bool {
+		tp := tparams.At(i)
+		_, ok := bindings[tp]
+		return ok
+	}, func(i int) string {
+		return tparams.At(i).Obj().Name()
+	}); err != nil {
+		return nil, err
 	}
 	targs := make([]types.Type, tparams.Len())
 	for i := 0; i < tparams.Len(); i++ {

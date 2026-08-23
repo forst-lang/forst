@@ -153,7 +153,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 
 			// If the expected type is a named struct and the value is a variable or shape, wrap it in the expected type
-			if expectedType != nil && expectedType.IsUserDefined() && !t.TypeChecker.IsTypeParamType(*expectedType) {
+			if expectedType != nil && expectedType.IsUserDefined() && !expectedType.IsTypeParam() {
 				// PINPOINT: Log when we have a user-defined expected type
 				if t.log != nil {
 					t.log.WithFields(logrus.Fields{

@@ -82,6 +82,8 @@ type TypeNode struct {
 	Node
 	Ident      TypeIdent
 	Assertion  *AssertionNode
+	// TypeParams holds element/key/value types for built-in type constructors (Array, Map, Pointer, etc.).
+	// Function type parameters use TypeKindTypeParam on the TypeNode itself, not entries here.
 	TypeParams []TypeNode // Generic type parameters
 	TypeKind   TypeKind
 	// ArrayLen, when non-nil, is the fixed length N for [N]T; nil means slice []T.
@@ -283,6 +285,35 @@ func (t *TypeNode) IsTypeParam() bool {
 	return t.TypeKind == TypeKindTypeParam
 }
 
+// TypeStorageClass describes how compiler state should normalize a TypeNode before storage.
+type TypeStorageClass int
+
+const (
+	// TypeStorageTypeParam: function type parameters are stored unchanged.
+	TypeStorageTypeParam TypeStorageClass = iota
+	// TypeStorageBuiltinOrStructural: builtins and hash-based structural types stay as-is.
+	TypeStorageBuiltinOrStructural
+	// TypeStorageNamedUserType: named user types get TypeKindUserDefined.
+	TypeStorageNamedUserType
+)
+
+// BuiltinIdentPredicate reports whether ident is a predeclared Forst type constructor name.
+type BuiltinIdentPredicate func(TypeIdent) bool
+
+// StorageClass picks the normalization branch for persisting t in Defs, symbols, or inferred types.
+func (t TypeNode) StorageClass(isBuiltinIdent BuiltinIdentPredicate) TypeStorageClass {
+	if t.IsTypeParam() {
+		return TypeStorageTypeParam
+	}
+	if t.IsHashBased() {
+		return TypeStorageBuiltinOrStructural
+	}
+	if t.IsGoBuiltin() || isBuiltinIdent(t.Ident) {
+		return TypeStorageBuiltinOrStructural
+	}
+	return TypeStorageNamedUserType
+}
+
 // NewBuiltinType creates a new TypeNode for a built-in type
 func NewBuiltinType(ident TypeIdent) TypeNode {
 	return TypeNode{
@@ -296,6 +327,14 @@ func NewUserDefinedType(ident TypeIdent) TypeNode {
 	return TypeNode{
 		Ident:    ident,
 		TypeKind: TypeKindUserDefined,
+	}
+}
+
+// NewTypeParamType creates a TypeNode for a function type parameter (T in func f[T any]).
+func NewTypeParamType(ident TypeIdent) TypeNode {
+	return TypeNode{
+		Ident:    ident,
+		TypeKind: TypeKindTypeParam,
 	}
 }
 

@@ -8,5 +8,7 @@ func identity[T any](x T): T {
 
 func main() {
 	n := identity(42)
+	explicit := identity[Int](42)
 	println(string(n))
+	println(string(explicit))
 }
