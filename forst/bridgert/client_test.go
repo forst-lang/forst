@@ -74,7 +74,7 @@ func TestClient_initializePingCallShutdown_happyPath(t *testing.T) {
 	defer func() { _ = client.Shutdown() }()
 
 	manifest := sampleManifest()
-	if err := client.Initialize(manifest, nil); err != nil {
+	if err := client.Initialize(manifest, nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	if !client.Initialized() {
@@ -143,7 +143,7 @@ func TestClient_rpcForbiddenError(t *testing.T) {
 		return okResponse(req)
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	_, err := client.Call(MethodCall, CallParams{
@@ -169,7 +169,7 @@ func TestClient_rpcMethodNotFoundError(t *testing.T) {
 		}
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	_, err := client.Call("forst.node/eval", struct{}{})
@@ -213,7 +213,7 @@ func TestManifest_AllowCall_rejectsBeforeRPCSend(t *testing.T) {
 		return okResponse(req)
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	_, err := client.CallSync("legacy/other.ts", "create", json.RawMessage(`[]`))
@@ -227,7 +227,7 @@ func TestClient_pingAfterServerClose_fails(t *testing.T) {
 	client, server := pairedClientServer(t, func(req Request) Response {
 		return okResponse(req)
 	})
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	if err := server.Close(); err != nil {
@@ -251,7 +251,7 @@ func TestClient_inFlightCallFailsWithNodeRuntimeDied(t *testing.T) {
 		}
 		return okResponse(req)
 	})
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 
@@ -291,7 +291,7 @@ func TestClient_callTimesOutWhenServerSilent(t *testing.T) {
 	})
 	defer func() { _ = server.Close() }()
 	client.SetCallTimeout(50 * time.Millisecond)
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	start := time.Now()

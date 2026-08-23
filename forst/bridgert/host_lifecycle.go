@@ -15,6 +15,7 @@ import (
 // HostProcessConfig configures parent-owned node host spawn (no RPC dial).
 type HostProcessConfig struct {
 	BoundaryRoot, WorkDir string
+	ModulesDir            string
 	NodePath              string
 	Bridge                ftconfig.Bridge
 	ModuleIDs             []string
@@ -99,10 +100,19 @@ func HostProcessConfigFromFTConfig(cfg *ftconfig.Config, boundaryRoot string, lo
 		return HostProcessConfig{}, err
 	}
 
+	modulesDir := ""
+	if bridge.ModuleFormat == ftconfig.LegacyModuleCompiled {
+		modulesDir, err = ftconfig.ResolveModulesDir(boundaryRoot, cfg)
+		if err != nil {
+			return HostProcessConfig{}, fmt.Errorf("resolve compiled modules directory: %w", err)
+		}
+	}
+
 	workDir := boundaryRoot
 	return HostProcessConfig{
 		BoundaryRoot:       boundaryRoot,
 		WorkDir:            workDir,
+		ModulesDir:         modulesDir,
 		NodePath:           nodeBinary,
 		Bridge:             bridge,
 		ShimArgs:           append([]string(nil), cfg.Bridge.Args...),
@@ -155,6 +165,7 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 
 	hostCmd, err := BuildHostSpawnCommand(HostSpawnInput{
 		BoundaryRoot:       cfg.BoundaryRoot,
+		ModulesDir:         cfg.ModulesDir,
 		Executable:         cfg.NodePath,
 		ShimArgs:           cfg.ShimArgs,
 		WorkDir:            cfg.WorkDir,

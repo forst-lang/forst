@@ -65,6 +65,8 @@ export type JsonRpcResponse = JsonRpcSuccessResponse | JsonRpcErrorResponse;
 export interface InitializeParams {
   protocolVersion: number;
   boundaryRoot: string;
+  /** Absolute path to compiled bridge modules when using compiled legacy format. */
+  modulesDir?: string;
   manifest: unknown;
   filesExclude?: string[];
   supportedProtocols?: string[];

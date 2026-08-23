@@ -103,9 +103,6 @@ func ValidateModuleID(moduleID string) error {
 	if strings.Contains(clean, "node_modules/") {
 		return fmt.Errorf("%w: node_modules path %q", ErrInvalidModuleID, moduleID)
 	}
-	if strings.HasPrefix(clean, ".forst/js/") || clean == ".forst/js" {
-		return nil
-	}
 	return nil
 }
 

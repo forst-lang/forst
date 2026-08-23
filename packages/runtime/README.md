@@ -183,6 +183,7 @@ The compiler calls this during type checking. You rarely run it yourself.
 | `OTEL_EXPORTER_OTLP_HEADERS` | Optional OTLP headers (`key=value,key2=value2`). |
 | `FORST_BRIDGE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
 | `FORST_BRIDGE_BOOTSTRAP` | Absolute path to `bootstrap.js` (bootstrap mode spawn planning) |
+| `FORST_BRIDGE_MODULES_DIR` | Absolute path to compiled bridge modules (`.js` manifest IDs resolve here in compiled format) |
 | `FORST_BRIDGE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC. Bootstrap default: `{boundaryRoot}/.forst/node-bootstrap.sock`. Host default: `{boundaryRoot}/.forst/node.sock`. |
 | `FORST_BRIDGE_HOST_READY` | Absolute path to JSON readiness file (`{socket}.ready`); Go waits for `phase: "app"` before dialing. |
 

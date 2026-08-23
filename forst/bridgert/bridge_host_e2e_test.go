@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	compiledLegacyPaymentModuleID = ".forst/js/legacy/payment.js"
+	compiledLegacyPaymentModuleID = "legacy/payment.js"
 	typeScriptLegacyPaymentModuleID = "legacy/payment.ts"
 )
 

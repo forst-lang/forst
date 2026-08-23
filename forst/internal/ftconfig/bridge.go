@@ -27,6 +27,7 @@ const (
 // LegacyModulesConfig configures compile-time precompile and runtime module format.
 type LegacyModulesConfig struct {
 	Format     LegacyModuleFormat `json:"format"`
+	Dir        string             `json:"dir"` // runtime compiled modules directory (absolute or relative to boundary)
 	Precompile PrecompileConfig   `json:"precompile"`
 }
 
@@ -71,6 +72,9 @@ func (b BridgeConfig) EffectiveHostAutoRegister() bool {
 	}
 	return b.HostMode
 }
+
+// EnvBridgeModulesDir overrides the runtime directory for compiled bridge modules.
+const EnvBridgeModulesDir = "FORST_BRIDGE_MODULES_DIR"
 
 // Bridge is the effective bridge host + module format after merging ftconfig.
 type Bridge struct {
@@ -130,6 +134,12 @@ func EffectiveBridge(cfg *Config) (Bridge, error) {
 
 	if host == BridgeHostDeno && !denoHostEnabled() {
 		return Bridge{}, fmt.Errorf("bridge.host deno is not enabled yet (set FORST_DENO_HOST_ENABLED=1 when supported)")
+	}
+
+	if dir := strings.TrimSpace(cfg.Bridge.LegacyModules.Dir); dir != "" {
+		if err := validateLegacyModulesDir(dir); err != nil {
+			return Bridge{}, err
+		}
 	}
 
 	return Bridge{
@@ -207,12 +217,64 @@ func validateLegacyModuleFormat(mode LegacyModuleFormat) error {
 	}
 }
 
+// CompiledModuleID maps a source moduleId to the runtime moduleId under the compiled modules directory.
+func CompiledModuleID(sourceID string) string {
+	ext := filepath.Ext(sourceID)
+	stem := strings.TrimSuffix(sourceID, ext)
+	return filepath.ToSlash(stem + ".js")
+}
+
+// PrecompileOutputRel returns the project-relative path where esbuild writes a compiled module.
+func PrecompileOutputRel(sourceID, outDir string) string {
+	return filepath.ToSlash(filepath.Join(outDir, CompiledModuleID(sourceID)))
+}
+
+// ResolveModulesDir returns the absolute runtime directory for compiled bridge modules.
+// Precedence: FORST_BRIDGE_MODULES_DIR → bridge.legacyModules.dir → boundaryRoot/outDir.
+func ResolveModulesDir(boundaryRoot string, cfg *Config) (string, error) {
+	if v := strings.TrimSpace(os.Getenv(EnvBridgeModulesDir)); v != "" {
+		abs, err := filepath.Abs(v)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s: %w", EnvBridgeModulesDir, err)
+		}
+		return abs, nil
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("ftconfig: config is nil")
+	}
+	bridge, err := EffectiveBridge(cfg)
+	if err != nil {
+		return "", err
+	}
+	if bridge.ModuleFormat != LegacyModuleCompiled {
+		return "", nil
+	}
+	absBoundary, err := filepath.Abs(boundaryRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve boundary root: %w", err)
+	}
+	dir := strings.TrimSpace(cfg.Bridge.LegacyModules.Dir)
+	if dir == "" {
+		return filepath.Join(absBoundary, filepath.FromSlash(bridge.OutDir)), nil
+	}
+	if filepath.IsAbs(dir) {
+		return filepath.Clean(dir), nil
+	}
+	return filepath.Clean(filepath.Join(absBoundary, filepath.FromSlash(dir))), nil
+}
+
+func validateLegacyModulesDir(dir string) error {
+	clean := filepath.ToSlash(filepath.Clean(dir))
+	if strings.Contains(clean, "..") {
+		return fmt.Errorf("bridge.legacyModules.dir must not contain ..")
+	}
+	return nil
+}
+
 // RuntimeModuleID maps a source moduleId to the runtime path for the given module format.
 func RuntimeModuleID(sourceID, outDir string, format LegacyModuleFormat) string {
 	if normalizeLegacyModuleFormat(format) != LegacyModuleCompiled {
 		return sourceID
 	}
-	ext := filepath.Ext(sourceID)
-	stem := strings.TrimSuffix(sourceID, ext)
-	return filepath.ToSlash(filepath.Join(outDir, stem+".js"))
+	return CompiledModuleID(sourceID)
 }

@@ -175,7 +175,7 @@ func (tc *TypeChecker) resolveNodeImports() error {
 		if err := bridgeinterop.PrecompileEntries(boundaryRoot, sourceIDs, effectiveBridge.OutDir); err != nil {
 			return diagnosticf(ast.SourceSpan{}, "js-import", "precompile legacy modules: %v", err)
 		}
-		manifest = bridgeinterop.RemapManifestModuleIDs(manifest, effectiveBridge.OutDir)
+		manifest = bridgeinterop.RemapManifestModuleIDs(manifest)
 	}
 
 	manifestJSON, err := manifest.EmbeddedManifestJSON()

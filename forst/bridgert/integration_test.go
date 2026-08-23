@@ -21,6 +21,7 @@ func TestIntegration_CallAsync_realBootstrap(t *testing.T) {
 	t.Setenv(envNodeBootstrap, bootstrap)
 
 	root := t.TempDir()
+	writeBridgeTypeScriptFtconfig(t, root)
 	legacyDir := filepath.Join(root, "legacy")
 	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -92,6 +93,7 @@ func TestIntegration_CallSync_realBootstrap(t *testing.T) {
 	t.Setenv(envNodeBootstrap, bootstrap)
 
 	root := t.TempDir()
+	writeBridgeTypeScriptFtconfig(t, root)
 	legacyDir := filepath.Join(root, "legacy")
 	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
 		t.Fatal(err)

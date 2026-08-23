@@ -11,6 +11,7 @@ import (
 // SpawnHookInput configures host-adaptive argv for bridge spawn.
 type SpawnHookInput struct {
 	BoundaryRoot       string
+	ModulesDir         string
 	Bridge             ftconfig.Bridge
 	ConfiguredBinary   string
 	ModuleIDs          []string
@@ -64,7 +65,7 @@ func spawnHooks(in SpawnHookInput) (SpawnHooks, error) {
 			prefix = append(prefix, "--preload", reg)
 		}
 	case ftconfig.BridgeHostDeno:
-		allowRead := denoAllowReadPaths(in.BoundaryRoot, in.SearchDirs...)
+		allowRead := denoAllowReadPaths(in.BoundaryRoot, in.ModulesDir, in.SearchDirs...)
 		allowWrite := denoAllowWritePaths(in.BoundaryRoot, in.SocketPath, in.ReadyPath)
 		prefix = append(prefix, denoRunFlags(allowRead, allowWrite)...)
 		if in.HostAutoRegister {
@@ -86,7 +87,7 @@ func spawnHooks(in SpawnHookInput) (SpawnHooks, error) {
 	}, nil
 }
 
-func denoAllowReadPaths(boundaryRoot string, searchDirs ...string) string {
+func denoAllowReadPaths(boundaryRoot string, modulesDir string, searchDirs ...string) string {
 	seen := make(map[string]struct{})
 	var paths []string
 	add := func(p string) {
@@ -105,6 +106,9 @@ func denoAllowReadPaths(boundaryRoot string, searchDirs ...string) string {
 		paths = append(paths, abs)
 	}
 	add(boundaryRoot)
+	if modulesDir != "" {
+		add(modulesDir)
+	}
 	for _, dir := range searchDirs {
 		if dir == "" {
 			continue

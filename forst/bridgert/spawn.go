@@ -423,6 +423,7 @@ func hostSpawnExecutableAndArgs(boundaryRoot, interpreter, shimExecutable string
 // BootstrapSpawnInput configures bootstrap-mode child spawn.
 type BootstrapSpawnInput struct {
 	BoundaryRoot  string
+	ModulesDir    string
 	Executable    string
 	BootstrapPath string
 	WorkDir       string
@@ -457,6 +458,7 @@ func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, 
 
 	hooks, err := spawnHooks(SpawnHookInput{
 		BoundaryRoot:     in.BoundaryRoot,
+		ModulesDir:       in.ModulesDir,
 		Bridge:           in.Bridge,
 		ConfiguredBinary: in.Executable,
 		ModuleIDs:        in.ModuleIDs,
@@ -475,6 +477,7 @@ func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, 
 
 	env := buildSpawnEnv(spawnEnvInput{
 		BoundaryRoot: in.BoundaryRoot,
+		ModulesDir:   in.ModulesDir,
 		FilesExclude: in.FilesExclude,
 		Env:          mergeEnv(in.Env, hooks.ExtraEnv),
 		NodeOptions:  nodeOpts,
@@ -495,6 +498,7 @@ func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, 
 // HostSpawnInput configures host-mode app shim spawn.
 type HostSpawnInput struct {
 	BoundaryRoot       string
+	ModulesDir         string
 	Executable         string
 	ShimArgs           []string
 	WorkDir            string
@@ -521,6 +525,7 @@ type HostSpawnCommand struct {
 
 type spawnEnvInput struct {
 	BoundaryRoot string
+	ModulesDir   string
 	FilesExclude []string
 	Env          []string
 	NodeOptions  []string
@@ -532,6 +537,7 @@ type spawnEnvInput struct {
 func buildSpawnEnv(in spawnEnvInput) []string {
 	opts := ProcessOptions{
 		BoundaryRoot: in.BoundaryRoot,
+		ModulesDir:   in.ModulesDir,
 		FilesExclude: in.FilesExclude,
 		Env:          in.Env,
 	}
@@ -608,6 +614,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 
 	env := buildSpawnEnv(spawnEnvInput{
 		BoundaryRoot: in.BoundaryRoot,
+		ModulesDir:   in.ModulesDir,
 		FilesExclude: in.FilesExclude,
 		Env:          childEnv,
 		HostMode:     true,

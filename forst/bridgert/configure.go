@@ -109,6 +109,17 @@ func configureFromManifest(manifestJSON string) error {
 	}
 	moduleIDs := manifestModuleIDs(manifest)
 
+	modulesDir := ""
+	if bridge.ModuleFormat == ftconfig.LegacyModuleCompiled && manifestUsesCompiledModules(manifest) {
+		modulesDir, err = ftconfig.ResolveModulesDir(boundaryRoot, cfg)
+		if err != nil {
+			return fmt.Errorf("node runtime: resolve compiled modules directory: %w", err)
+		}
+		if err := validateCompiledModulesDir(modulesDir); err != nil {
+			return err
+		}
+	}
+
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: effectiveHostMode,
 		HostSocketPath: hostProcessCfg.SocketPath,
@@ -118,6 +129,7 @@ func configureFromManifest(manifestJSON string) error {
 		HostAppReadyModule: hostProcessCfg.HostAppReadyModule,
 		ShimArgs: hostProcessCfg.ShimArgs,
 		AttachOnly: os.Getenv(EnvNodeAttachOnly) == "1",
+		ModulesDir: modulesDir,
 		ProcessOptions: ProcessOptions{
 			NodePath:      nodeBinary,
 			BootstrapPath: bootstrap,
@@ -125,6 +137,7 @@ func configureFromManifest(manifestJSON string) error {
 			Bridge:        bridge,
 			ModuleIDs:     moduleIDs,
 			BoundaryRoot:  boundaryRoot,
+			ModulesDir:    modulesDir,
 			FilesExclude:  append([]string(nil), cfg.Files.Exclude...),
 		},
 		Manifest: manifest,
@@ -318,6 +331,40 @@ func ResolveHostRegisterPath(boundaryRoot string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("node runtime: host register.mjs not found (build packages/runtime or install @forst/runtime)")
+}
+
+func validateCompiledModulesDir(modulesDir string) error {
+	if strings.TrimSpace(modulesDir) == "" {
+		return fmt.Errorf(
+			"node runtime: compiled modules directory is not configured (set %s or bridge.legacyModules.dir in ftconfig.json)",
+			ftconfig.EnvBridgeModulesDir,
+		)
+	}
+	st, err := os.Stat(modulesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf(
+				"node runtime: compiled modules directory %q does not exist (copy or mount .forst/js and set %s if not at the default location)",
+				modulesDir,
+				ftconfig.EnvBridgeModulesDir,
+			)
+		}
+		return fmt.Errorf("node runtime: compiled modules directory %q: %w", modulesDir, err)
+	}
+	if !st.IsDir() {
+		return fmt.Errorf("node runtime: compiled modules path %q is not a directory", modulesDir)
+	}
+	return nil
+}
+
+func manifestUsesCompiledModules(m Manifest) bool {
+	for _, exp := range m.Exports {
+		ext := strings.ToLower(filepath.Ext(strings.TrimSpace(exp.ModuleID)))
+		if ext == ".js" {
+			return true
+		}
+	}
+	return false
 }
 
 func manifestModuleIDs(m Manifest) []string {

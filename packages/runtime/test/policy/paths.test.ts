@@ -33,10 +33,10 @@ describe("paths exclude patterns", () => {
     expect(() => validateModuleIdSyntax("legacy/payment.ts")).not.toThrow();
   });
 
-  test("validateModuleIdSyntax allows precompiled .forst/js despite .forst exclude", () => {
+  test("validateModuleIdSyntax rejects .forst paths under files.exclude", () => {
     setFilesExcludePatterns(["**/.forst/**"]);
     expect(() =>
-      validateModuleIdSyntax(".forst/js/legacy/payment.js")
+      validateModuleIdSyntax("legacy/payment.js")
     ).not.toThrow();
     expect(() =>
       validateModuleIdSyntax(".forst/client/main.js")
@@ -96,6 +96,49 @@ describe("resolveModulePath", () => {
       ).rejects.toThrow(/escapes boundaryRoot/);
     } finally {
       await fs.rm(boundaryRoot, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("resolves compiled .js under modulesDir when set", async () => {
+    const boundaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "forst-bound-"));
+    const modulesDir = await fs.mkdtemp(path.join(os.tmpdir(), "forst-modules-"));
+    try {
+      await fs.mkdir(path.join(modulesDir, "legacy"), { recursive: true });
+      const modulePath = path.join(modulesDir, "legacy", "payment.js");
+      await fs.writeFile(modulePath, "export function add() {}\n");
+
+      const abs = await resolveModulePath(
+        boundaryRoot,
+        "legacy/payment.js",
+        modulesDir
+      );
+      expect(abs.endsWith("legacy/payment.js")).toBe(true);
+    } finally {
+      await fs.rm(boundaryRoot, { recursive: true, force: true });
+      await fs.rm(modulesDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects symlink escape outside modulesDir", async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "forst-out-"));
+    const boundaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "forst-bound-"));
+    const modulesDir = await fs.mkdtemp(path.join(os.tmpdir(), "forst-modules-"));
+    try {
+      const outsideFile = path.join(outside, "escape.js");
+      await fs.writeFile(outsideFile, "export const x = 1;\n");
+
+      const linkDir = path.join(modulesDir, "legacy");
+      await fs.mkdir(linkDir, { recursive: true });
+      const linkPath = path.join(linkDir, "escape.js");
+      await fs.symlink(outsideFile, linkPath);
+
+      expect(
+        resolveModulePath(boundaryRoot, "legacy/escape.js", modulesDir)
+      ).rejects.toThrow(/compiled modules directory/);
+    } finally {
+      await fs.rm(boundaryRoot, { recursive: true, force: true });
+      await fs.rm(modulesDir, { recursive: true, force: true });
       await fs.rm(outside, { recursive: true, force: true });
     }
   });

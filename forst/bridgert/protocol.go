@@ -49,6 +49,7 @@ type ResponseError struct {
 type InitializeParams struct {
 	ProtocolVersion    int      `json:"protocolVersion"`
 	BoundaryRoot       string   `json:"boundaryRoot"`
+	ModulesDir         string   `json:"modulesDir,omitempty"`
 	Manifest           Manifest `json:"manifest"`
 	FilesExclude       []string `json:"filesExclude,omitempty"`
 	SupportedProtocols []string `json:"supportedProtocols,omitempty"`

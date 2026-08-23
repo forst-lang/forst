@@ -40,7 +40,7 @@ func TestSpawnHooks_nodePrecompiledSkipsTsx(t *testing.T) {
 	hooks, err := spawnHooks(SpawnHookInput{
 		BoundaryRoot: root,
 		Bridge:       testBridgeNodeCompiled(),
-		ModuleIDs:    []string{".forst/js/legacy/payment.js"},
+		ModuleIDs:    []string{"legacy/payment.js"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,6 +107,35 @@ func TestSpawnHooks_denoRequiresEnabledFlag(t *testing.T) {
 	}
 }
 
+func TestSpawnHooks_denoIncludesModulesDirInAllowRead(t *testing.T) {
+	ftconfig.SetDenoHostEnabledForTest(true)
+	t.Cleanup(func() { ftconfig.SetDenoHostEnabledForTest(false) })
+
+	root := t.TempDir()
+	modulesDir := filepath.Join(root, "mounted", "js")
+	if err := os.MkdirAll(modulesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bridge, err := ftconfig.EffectiveBridge(&ftconfig.Config{
+		Bridge: ftconfig.BridgeConfig{Host: ftconfig.BridgeHostDeno},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooks, err := spawnHooks(SpawnHookInput{
+		BoundaryRoot: root,
+		ModulesDir:   modulesDir,
+		Bridge:       bridge,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(hooks.PrefixArgs, " ")
+	if !strings.Contains(joined, modulesDir) {
+		t.Fatalf("PrefixArgs = %#v want modulesDir in --allow-read", hooks.PrefixArgs)
+	}
+}
+
 func TestBuildHostSpawnCommand_precompiledOmitsTsx(t *testing.T) {
 	root := t.TempDir()
 	nodePath := filepath.Join(root, "shim")
@@ -120,7 +149,7 @@ func TestBuildHostSpawnCommand_precompiledOmitsTsx(t *testing.T) {
 		ShimArgs:     []string{"server.js"},
 		WorkDir:      root,
 		Bridge:       testBridgeNodeCompiled(),
-		ModuleIDs:    []string{".forst/js/legacy/payment.js"},
+		ModuleIDs:    []string{"legacy/payment.js"},
 	})
 	if err != nil {
 		t.Fatal(err)

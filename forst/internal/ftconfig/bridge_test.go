@@ -1,6 +1,7 @@
 package ftconfig
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -72,7 +73,7 @@ func TestEffectiveBridge_precompiledAliasValue(t *testing.T) {
 
 func TestNeedTsx_compiledJSManifest(t *testing.T) {
 	bridge := Bridge{Host: BridgeHostNode, ModuleFormat: LegacyModuleCompiled}
-	if NeedTsx(bridge, []string{".forst/js/legacy/payment.js"}) {
+	if NeedTsx(bridge, []string{"legacy/payment.js"}) {
 		t.Fatal("expected no tsx for compiled js manifest")
 	}
 }
@@ -89,16 +90,65 @@ func TestNeedTsx_typeScriptOrTS(t *testing.T) {
 	if NeedTsx(Bridge{Host: BridgeHostBun, ModuleFormat: LegacyModuleTypeScript}, []string{"legacy/payment.ts"}) {
 		t.Fatal("bun should never need tsx")
 	}
-	if NeedTsx(Bridge{Host: BridgeHostNode, ModuleFormat: LegacyModuleTypeScript}, []string{".forst/js/legacy/payment.js"}) {
+	if NeedTsx(Bridge{Host: BridgeHostNode, ModuleFormat: LegacyModuleTypeScript}, []string{"legacy/payment.js"}) {
 		t.Fatal("typescript format with only .js manifest should not need tsx")
 	}
 }
 
 func TestRuntimeModuleID_compiled(t *testing.T) {
 	got := RuntimeModuleID("legacy/payment.ts", ".forst/js", LegacyModuleCompiled)
-	want := ".forst/js/legacy/payment.js"
+	want := "legacy/payment.js"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestCompiledModuleID(t *testing.T) {
+	got := CompiledModuleID("legacy/payment.ts")
+	want := "legacy/payment.js"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestResolveModulesDir_defaultUnderBoundary(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Default()
+	got, err := ResolveModulesDir(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(dir, ".forst", "js")
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestResolveModulesDir_configRelative(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Default()
+	cfg.Bridge.LegacyModules.Dir = "dist/js"
+	got, err := ResolveModulesDir(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(dir, "dist", "js")
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestResolveModulesDir_envOverrides(t *testing.T) {
+	dir := t.TempDir()
+	override := filepath.Join(dir, "mounted", "js")
+	t.Setenv(EnvBridgeModulesDir, override)
+	cfg := Default()
+	got, err := ResolveModulesDir(dir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != override {
+		t.Fatalf("got %q want %q", got, override)
 	}
 }
 

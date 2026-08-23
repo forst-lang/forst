@@ -11,6 +11,8 @@ import * as Errors from "../rpc/errors.js";
 export interface ManifestIndex {
   /** Absolute project boundary root from the manifest. */
   boundaryRoot: string;
+  /** Absolute compiled modules directory when compiled legacy format is active. */
+  modulesDir: string | null;
   /** Flat list of allowed exports. */
   exports: ForstNodeManifestExportV1[];
   /** Lookup map keyed by moduleId and export name. */
@@ -34,13 +36,19 @@ export function validateManifest(manifest: unknown): ForstNodeManifestV1 {
 }
 
 /** Builds a lookup index from a validated manifest. */
-export function buildManifestIndex(manifest: ForstNodeManifestV1): ManifestIndex {
+export function buildManifestIndex(
+  manifest: ForstNodeManifestV1,
+  modulesDir?: string | null
+): ManifestIndex {
   const byKey = new Map<string, ForstNodeManifestExportV1>();
   for (const entry of manifest.exports) {
     byKey.set(exportKey(entry.moduleId, entry.name), entry);
   }
+  const resolvedModulesDir =
+    modulesDir === undefined ? null : modulesDir === "" ? null : modulesDir;
   return {
     boundaryRoot: manifest.boundaryRoot,
+    modulesDir: resolvedModulesDir,
     exports: manifest.exports,
     byKey,
   };

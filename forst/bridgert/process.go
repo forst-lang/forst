@@ -21,6 +21,7 @@ type ProcessOptions struct {
 	WorkDir       string
 	Bridge        ftconfig.Bridge
 	ModuleIDs     []string
+	ModulesDir    string
 	BoundaryRoot  string
 	FilesExclude  []string
 	Env           []string
@@ -95,6 +96,7 @@ func (p *managedProcess) stderrTail() string {
 func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*managedProcess, error) {
 	spawnCmd, err := BuildBootstrapSpawnCommand(BootstrapSpawnInput{
 		BoundaryRoot:  opts.BoundaryRoot,
+		ModulesDir:    opts.ModulesDir,
 		Executable:    opts.NodePath,
 		BootstrapPath: opts.BootstrapPath,
 		WorkDir:       opts.WorkDir,
@@ -238,6 +240,9 @@ func buildNodeChildEnv(opts ProcessOptions) []string {
 	}
 	if opts.BoundaryRoot != "" {
 		env = setEnvVar(env, EnvRoot, opts.BoundaryRoot)
+	}
+	if opts.ModulesDir != "" {
+		env = setEnvVar(env, ftconfig.EnvBridgeModulesDir, opts.ModulesDir)
 	}
 	env = setEnvVar(env, "FORST_BRIDGE_PROTOCOL", envNodeProtocolDefault)
 	if len(opts.FilesExclude) > 0 {

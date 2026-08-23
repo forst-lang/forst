@@ -23,6 +23,7 @@ type SupervisorConfig struct {
 	ShimArgs           []string
 	AttachOnly         bool
 	ProcessOptions     ProcessOptions
+	ModulesDir         string
 	Manifest           Manifest
 	RPC                RPCConfig
 }
@@ -310,7 +311,7 @@ func finishSupervisorInit(cfg SupervisorConfig, client *Client, proc *managedPro
 		}
 		return nil, fmt.Errorf("manifest: %w", err)
 	}
-	if err := client.Initialize(cfg.Manifest, cfg.ProcessOptions.FilesExclude); err != nil {
+	if err := client.Initialize(cfg.Manifest, cfg.ProcessOptions.FilesExclude, cfg.ModulesDir); err != nil {
 		if conn != nil {
 			_ = conn.Close()
 		}

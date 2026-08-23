@@ -20,7 +20,7 @@ func BenchmarkClientGenNextBatch_singleStep(b *testing.B) {
 		return okResponse(req)
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		b.Fatal(err)
 	}
 	streamID := "bench-stream"
@@ -46,7 +46,7 @@ func BenchmarkClientGenNextBatch_batch32(b *testing.B) {
 		return okResponse(req)
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		b.Fatal(err)
 	}
 	streamID := "bench-stream"

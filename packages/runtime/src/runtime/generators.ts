@@ -103,7 +103,8 @@ const loadGeneratorExport = Effect.fn("Runtime.loadGeneratorExport")(
     }
 
     const absPath = yield* Effect.tryPromise({
-      try: () => resolveModulePath(index.boundaryRoot, moduleId),
+      try: () =>
+        resolveModulePath(index.boundaryRoot, moduleId, index.modulesDir),
       catch: (cause) => serializeThrownError(cause, moduleId, exportName),
     });
     const fileUrl = modulePathToFileUrl(absPath);

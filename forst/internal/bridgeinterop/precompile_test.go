@@ -8,7 +8,7 @@ import (
 
 func TestRuntimeModuleID_precompiled(t *testing.T) {
 	got := RuntimeModuleID("legacy/payment.ts", ".forst/js")
-	want := ".forst/js/legacy/payment.js"
+	want := "legacy/payment.js"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
@@ -19,8 +19,8 @@ func TestRemapManifestModuleIDs(t *testing.T) {
 		Version: 1,
 		Exports: []ExportEntry{{ModuleID: "legacy/a.ts", Name: "f", Kind: ExportKindFunction}},
 	}
-	got := RemapManifestModuleIDs(m, ".forst/js")
-	if got.Exports[0].ModuleID != ".forst/js/legacy/a.js" {
+	got := RemapManifestModuleIDs(m)
+	if got.Exports[0].ModuleID != "legacy/a.js" {
 		t.Fatalf("moduleId: %q", got.Exports[0].ModuleID)
 	}
 }

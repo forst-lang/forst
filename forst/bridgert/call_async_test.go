@@ -178,7 +178,7 @@ func TestCallAsync_timeout_cleansPending(t *testing.T) {
 func pairedCallAsyncClient(t *testing.T, handler func(Request) Response) (*Client, *mockServer) {
 	t.Helper()
 	client, server := pairedClientServer(t, handler)
-	if err := client.Initialize(sampleManifestAsync(), nil); err != nil {
+	if err := client.Initialize(sampleManifestAsync(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	return client, server

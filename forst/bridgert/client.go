@@ -131,13 +131,14 @@ func (c *Client) Manifest() Manifest {
 }
 
 // Initialize sends forst.node/initialize with the manifest allowlist.
-func (c *Client) Initialize(manifest Manifest, filesExclude []string) error {
+func (c *Client) Initialize(manifest Manifest, filesExclude []string, modulesDir string) error {
 	if err := manifest.Validate(); err != nil {
 		return fmt.Errorf("manifest: %w", err)
 	}
 	params := InitializeParams{
 		ProtocolVersion:    ProtocolVersion,
 		BoundaryRoot:       manifest.BoundaryRoot,
+		ModulesDir:         modulesDir,
 		Manifest:           manifest,
 		FilesExclude:       filesExclude,
 		SupportedProtocols: defaultSupportedProtocols(),

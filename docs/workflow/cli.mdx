@@ -231,6 +231,9 @@ bin/main
 | `hostMode` | `bridge.hostMode` from `ftconfig.json` at build time |
 | `embeddedInvoke` | Always `true` for `forst build` |
 | `boundaryRoot` | Project root used at build time |
+| `needsBridgeRuntime` | `true` when the program embeds bridge interop |
+| `compiledModulesDir` | Relative compiled modules path when bridge imports use compiled format |
+| `legacyModuleFormat` | `compiled` or `typescript` from `bridge.legacyModules.format` at build time |
 | `contractVersion` | Invoke HTTP contract version |
 
 Older manifests may show `"kind": "invoke"` and `"binary": "bin/forst-invoke"`.

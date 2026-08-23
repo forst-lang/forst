@@ -39,6 +39,9 @@ type ProgramManifest struct {
 	EmbeddedInvoke    bool     `json:"embeddedInvoke"`
 	HostMode          bool     `json:"hostMode"`
 	SkipNodeHostDefault bool     `json:"skipNodeHostDefault"`
+	NeedsBridgeRuntime  bool     `json:"needsBridgeRuntime,omitempty"`
+	CompiledModulesDir  string   `json:"compiledModulesDir,omitempty"`
+	LegacyModuleFormat  string   `json:"legacyModuleFormat,omitempty"`
 	Packages          []string `json:"packages"`
 	Binary            string   `json:"binary"`
 	BuiltAt           string   `json:"builtAt"`

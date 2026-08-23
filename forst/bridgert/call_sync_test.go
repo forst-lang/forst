@@ -39,7 +39,7 @@ func TestCallSync_nullResultReturnsZeroValue(t *testing.T) {
 		}
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	setTestSupervisorClient(t, client)
@@ -69,7 +69,7 @@ func TestCallSync_emptyResultReturnsZeroValue(t *testing.T) {
 		}
 	})
 	defer func() { _ = server.Close() }()
-	if err := client.Initialize(sampleManifest(), nil); err != nil {
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
 	setTestSupervisorClient(t, client)

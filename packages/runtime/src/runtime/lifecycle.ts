@@ -4,7 +4,7 @@ import {
   validateManifest,
   type ManifestIndex,
 } from "../policy/manifest.js";
-import { setFilesExcludePatterns } from "../policy/paths.js";
+import { setFilesExcludePatterns, resolveModulesDirFromEnv } from "../policy/paths.js";
 import * as Errors from "../rpc/errors.js";
 import {
   PROTOCOL_VERSION,
@@ -48,6 +48,7 @@ function initializeFingerprint(params: InitializeParams): string {
   return JSON.stringify({
     protocolVersion: params.protocolVersion,
     boundaryRoot: params.boundaryRoot,
+    modulesDir: params.modulesDir ?? resolveModulesDirFromEnv() ?? null,
     manifest: params.manifest,
     filesExclude: params.filesExclude ?? null,
     supportedProtocols: params.supportedProtocols ?? null,
@@ -202,7 +203,8 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
     }
 
     state.manifest = manifest;
-    state.index = buildManifestIndex(manifest);
+    const modulesDir = resolveModulesDirFromEnv(params.modulesDir);
+    state.index = buildManifestIndex(manifest, modulesDir);
     state.wireProtocol = protocol;
     setFilesExcludePatterns(params.filesExclude);
     state.initialized = true;
@@ -215,6 +217,9 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
     };
 
     yield* Effect.annotateCurrentSpan("boundary_root", params.boundaryRoot);
+    if (modulesDir) {
+      yield* Effect.annotateCurrentSpan("modules_dir", modulesDir);
+    }
     yield* Effect.annotateCurrentSpan("export_count", manifest.exports.length);
     yield* Effect.annotateCurrentSpan("protocol", protocol);
 

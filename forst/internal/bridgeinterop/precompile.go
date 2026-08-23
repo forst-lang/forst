@@ -38,7 +38,7 @@ func PrecompileEntries(boundaryRoot string, sourceModuleIDs []string, outDir str
 		if st, statErr := os.Stat(entry); statErr != nil || st.IsDir() {
 			return fmt.Errorf("precompile: source module not found: %s", src)
 		}
-		outRel := ftconfig.RuntimeModuleID(src, outDir, ftconfig.LegacyModuleCompiled)
+		outRel := ftconfig.PrecompileOutputRel(src, outDir)
 		outFile := filepath.Join(boundaryRoot, filepath.FromSlash(outRel))
 		if err := os.MkdirAll(filepath.Dir(outFile), 0o750); err != nil {
 			return fmt.Errorf("precompile: mkdir %s: %w", filepath.Dir(outFile), err)
@@ -81,12 +81,12 @@ func RuntimeModuleID(sourceID, outDir string) string {
 }
 
 // RemapManifestModuleIDs returns a copy of manifest with export moduleIds rewritten for runtime.
-func RemapManifestModuleIDs(m ManifestV1, outDir string) ManifestV1 {
+func RemapManifestModuleIDs(m ManifestV1) ManifestV1 {
 	out := m
 	out.Exports = make([]ExportEntry, len(m.Exports))
 	for i, exp := range m.Exports {
 		out.Exports[i] = exp
-		out.Exports[i].ModuleID = ftconfig.RuntimeModuleID(exp.ModuleID, outDir, ftconfig.LegacyModuleCompiled)
+		out.Exports[i].ModuleID = ftconfig.CompiledModuleID(exp.ModuleID)
 	}
 	return out
 }

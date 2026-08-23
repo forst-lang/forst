@@ -6,6 +6,8 @@ import * as Errors from "../rpc/errors.js";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js"]);
 
+export const envBridgeModulesDir = "FORST_BRIDGE_MODULES_DIR";
+
 function loadFilesExcludeFromEnv(): string[] {
   const raw = process.env.FORST_FILES_EXCLUDE;
   if (!raw) {
@@ -88,23 +90,10 @@ function matchesGlobPattern(pattern: string, candidate: string): boolean {
   return globPatternToRegExp(normalizedPattern).test(normalizedCandidate);
 }
 
-const PRECOMPILE_PREFIX = ".forst/js/";
-
-function isPrecompileArtifactPath(moduleId: string): boolean {
-  const posixPath = moduleId.replace(/\\/g, "/");
-  return (
-    posixPath === PRECOMPILE_PREFIX.slice(0, -1) ||
-    posixPath.startsWith(PRECOMPILE_PREFIX)
-  );
-}
-
 function matchesExcludePatterns(
   moduleId: string,
   patterns: readonly string[]
 ): boolean {
-  if (isPrecompileArtifactPath(moduleId)) {
-    return false;
-  }
   if (patterns.length === 0) {
     return false;
   }
@@ -153,18 +142,51 @@ function isUnderRoot(root: string, candidate: string): boolean {
   );
 }
 
-/** Resolve moduleId under boundaryRoot with realpath hardening against symlink escape. */
+/** Resolves the jail root for a module id (.js under modulesDir when set). */
+export function moduleResolutionRoot(
+  boundaryRoot: string,
+  modulesDir: string | null | undefined,
+  moduleId: string
+): string {
+  const ext = path.posix.extname(moduleId);
+  if (ext === ".js" && modulesDir) {
+    return modulesDir;
+  }
+  return boundaryRoot;
+}
+
+/** Resolve modulesDir from initialize params or FORST_BRIDGE_MODULES_DIR. */
+export function resolveModulesDirFromEnv(
+  explicit?: string
+): string | null {
+  const fromParam = explicit?.trim();
+  if (fromParam) {
+    return fromParam;
+  }
+  const fromEnv = process.env[envBridgeModulesDir]?.trim();
+  return fromEnv ? fromEnv : null;
+}
+
+/** Resolve moduleId under boundaryRoot or modulesDir with realpath hardening. */
 export async function resolveModulePath(
   boundaryRoot: string,
-  moduleId: string
+  moduleId: string,
+  modulesDir?: string | null
 ): Promise<string> {
   validateModuleIdSyntax(moduleId);
 
+  const jailRoot = moduleResolutionRoot(boundaryRoot, modulesDir, moduleId);
+
   let resolvedRoot: string;
   try {
-    resolvedRoot = await fs.realpath(boundaryRoot);
+    resolvedRoot = await fs.realpath(jailRoot);
   } catch {
-    throw Errors.invalidParams("boundaryRoot does not exist", { boundaryRoot });
+    const label =
+      jailRoot === boundaryRoot ? "boundaryRoot" : "compiled modules directory";
+    throw Errors.invalidParams(`${label} does not exist`, {
+      boundaryRoot,
+      modulesDir: modulesDir ?? null,
+    });
   }
 
   const candidate = path.resolve(resolvedRoot, moduleId);
@@ -179,9 +201,12 @@ export async function resolveModulePath(
   }
 
   if (!isUnderRoot(resolvedRoot, realCandidate)) {
-    throw Errors.forbidden("moduleId escapes boundaryRoot", {
+    const label =
+      jailRoot === boundaryRoot ? "boundaryRoot" : "compiled modules directory";
+    throw Errors.forbidden(`moduleId escapes ${label}`, {
       moduleId,
       boundaryRoot: resolvedRoot,
+      modulesDir: modulesDir ?? null,
     });
   }
 
