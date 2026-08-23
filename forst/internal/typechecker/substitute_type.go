@@ -28,6 +28,20 @@ func SubstituteType(t ast.TypeNode, bindings map[ast.TypeIdent]ast.TypeNode, isT
 				args := make([]ast.ConstraintArgumentNode, len(c.Args))
 				for j, a := range c.Args {
 					args[j] = a
+					if a.Shape != nil {
+						sh := *a.Shape
+						fields := make(map[string]ast.ShapeFieldNode, len(sh.Fields))
+						for name, f := range sh.Fields {
+							sf := f
+							if f.Type != nil {
+								sub := SubstituteType(*f.Type, bindings, isTypeParam)
+								sf.Type = &sub
+							}
+							fields[name] = sf
+						}
+						sh.Fields = fields
+						args[j].Shape = &sh
+					}
 					if a.Type != nil {
 						sub := SubstituteType(*a.Type, bindings, isTypeParam)
 						args[j].Type = &sub

@@ -1,0 +1,12 @@
+package main
+
+// Generic function with map[K]V and two type parameters.
+// Golden output: ../out/generic_map.go
+func mapLen[K comparable, V any](m map[K]V): Int {
+	return len(m)
+}
+
+func main() {
+	m := map[String]Int{"a": 1}
+	println(string(mapLen(m)))
+}

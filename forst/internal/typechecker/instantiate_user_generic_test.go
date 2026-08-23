@@ -133,6 +133,96 @@ func main() {
 `,
 			fileID: "generic_function_explicit.ft",
 		},
+		{
+			name: "pointerParam",
+			src: `package main
+
+func deref[T any](p *T): T {
+	return *p
+}
+
+func main() {
+	n := 7
+	x := deref(&n)
+	println(string(x))
+}
+`,
+			fileID: "generic_pointer.ft",
+		},
+		{
+			name: "mapTwoTypeParams",
+			src: `package main
+
+func mapLen[K comparable, V any](m map[K]V): Int {
+	return len(m)
+}
+
+func main() {
+	m := map[String]Int{"a": 1}
+	println(string(mapLen(m)))
+}
+`,
+			fileID: "generic_map.ft",
+		},
+		{
+			name: "fixedArrayLengthMismatch",
+			src: `package main
+
+func takeTwo[T any](xs: [2]T): T {
+	return xs[0]
+}
+
+func main() {
+	_ = takeTwo([1, 2, 3])
+}
+`,
+			fileID:      "generic_fixed_array.ft",
+			expectError: "array literal has 3 elements",
+		},
+		{
+			name: "explicitTypeArgConflict",
+			src: `package main
+
+func identity[T any](x T): T {
+	return x
+}
+
+func main() {
+	_ = identity[String](42)
+}
+`,
+			fileID:      "generic_explicit_conflict.ft",
+			expectError: "inferred as",
+		},
+		{
+			name: "variadicAllSame",
+			src: `package main
+
+func ignore[T any](xs ...T): Bool {
+	return true
+}
+
+func main() {
+	println(ignore(1, 2, 3))
+}
+`,
+			fileID: "generic_variadic.ft",
+		},
+		{
+			name: "unboundTypeParamHint",
+			src: `package main
+
+func empty[T any](): Bool {
+	return true
+}
+
+func main() {
+	empty()
+}
+`,
+			fileID:      "generic_shape_unbound.ft",
+			expectError: "try explicit type arguments",
+		},
 	}
 
 	for _, tt := range tests {

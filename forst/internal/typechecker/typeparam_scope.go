@@ -50,6 +50,39 @@ func normalizeTypesWithTypeParams(t ast.TypeNode, params typeParamSet) ast.TypeN
 			id := base.Ident
 			asn.BaseType = &id
 		}
+		if len(asn.Constraints) > 0 {
+			constraints := make([]ast.ConstraintNode, len(asn.Constraints))
+			for i, c := range asn.Constraints {
+				constraints[i] = c
+				if len(c.Args) == 0 {
+					continue
+				}
+				args := make([]ast.ConstraintArgumentNode, len(c.Args))
+				for j, a := range c.Args {
+					args[j] = a
+					if a.Shape != nil {
+						sh := *a.Shape
+						fields := make(map[string]ast.ShapeFieldNode, len(sh.Fields))
+						for name, f := range sh.Fields {
+							sf := f
+							if f.Type != nil {
+								tn := normalizeTypesWithTypeParams(*f.Type, params)
+								sf.Type = &tn
+							}
+							fields[name] = sf
+						}
+						sh.Fields = fields
+						args[j].Shape = &sh
+					}
+					if a.Type != nil {
+						tn := normalizeTypesWithTypeParams(*a.Type, params)
+						args[j].Type = &tn
+					}
+				}
+				constraints[i].Args = args
+			}
+			asn.Constraints = constraints
+		}
 		out.Assertion = &asn
 	}
 	if len(t.TypeParams) > 0 {

@@ -23,6 +23,29 @@ func TestSubstituteType(t *testing.T) {
 			want: "Array(Int)",
 		},
 		{
+			name: "shapeConstraintField",
+			in: func() ast.TypeNode {
+				baseType := ast.TypeIdent(ast.TypeShape)
+				return ast.TypeNode{
+					Ident: ast.TypeShape,
+					Assertion: &ast.AssertionNode{
+						BaseType: &baseType,
+						Constraints: []ast.ConstraintNode{{
+							Name: ConstraintMatch,
+							Args: []ast.ConstraintArgumentNode{{
+								Shape: &ast.ShapeNode{
+									Fields: map[string]ast.ShapeFieldNode{
+										"value": {Type: ptrTypeNode(ast.NewTypeParamType("T"))},
+									},
+								},
+							}},
+						}},
+					},
+				}
+			}(),
+			want: "Int",
+		},
+		{
 			name: "assertionConstraintArg",
 			in: ast.TypeNode{
 				Ident: ast.TypeIdent("Payload"),
@@ -45,6 +68,17 @@ func TestSubstituteType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			out := tc.substituteTypeBindings(tt.in, bindings)
+			if tt.name == "shapeConstraintField" {
+				fields, ok := tc.ShapeFieldsFromParamType(out)
+				if !ok {
+					t.Fatal("expected shape fields")
+				}
+				ft, ok := ShapeFieldTypeNode(fields["value"])
+				if !ok || ft.Ident != ast.TypeInt {
+					t.Fatalf("value field = %+v, want Int", ft)
+				}
+				return
+			}
 			if out.String() != tt.want {
 				t.Fatalf("got %s, want %s", out.String(), tt.want)
 			}

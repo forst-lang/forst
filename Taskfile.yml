@@ -356,6 +356,24 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generics.ft
 
+  example:generic-pointer:
+    desc: Compile user generic pointer example (golden examples/out/generic_pointer.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_pointer.ft
+
+  example:generic-map:
+    desc: Compile user generic map example (golden examples/out/generic_map.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_map.ft
+
+  example:generic-variadic:
+    desc: Compile user generic variadic example (golden examples/out/generic_variadic.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_variadic.ft
+
   example:function:
     desc: Compile function example
     dir: forst
