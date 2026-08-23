@@ -6,7 +6,7 @@ import (
 	"forst/internal/ast"
 )
 
-func TestAnalyzeNeedsNodeRuntime_optedInTSImport(t *testing.T) {
+func TestAnalyzeNeedsBridgeRuntime_optedInTSImport(t *testing.T) {
 	root := writeBoundaryFixture(t, map[string]string{
 		"legacy/payment.ts": "export async function create() {}",
 	})
@@ -14,7 +14,7 @@ func TestAnalyzeNeedsNodeRuntime_optedInTSImport(t *testing.T) {
 	nodes := []ast.Node{
 		ast.ImportNode{Path: "./legacy/payment", BridgeOptIn: true},
 	}
-	got := AnalyzeNeedsNodeRuntime(nodes, root)
+	got := AnalyzeNeedsBridgeRuntime(nodes, root)
 
 	if !got.Needed {
 		t.Fatal("Needed = false, want true")
@@ -24,7 +24,7 @@ func TestAnalyzeNeedsNodeRuntime_optedInTSImport(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNeedsNodeRuntime_withoutOptIn(t *testing.T) {
+func TestAnalyzeNeedsBridgeRuntime_withoutOptIn(t *testing.T) {
 	root := writeBoundaryFixture(t, map[string]string{
 		"legacy/payment.ts": "export {}",
 	})
@@ -32,7 +32,7 @@ func TestAnalyzeNeedsNodeRuntime_withoutOptIn(t *testing.T) {
 	nodes := []ast.Node{
 		ast.ImportNode{Path: "./legacy/payment", BridgeOptIn: false},
 	}
-	got := AnalyzeNeedsNodeRuntime(nodes, root)
+	got := AnalyzeNeedsBridgeRuntime(nodes, root)
 
 	if got.Needed {
 		t.Fatal("Needed = true, want false")
@@ -42,13 +42,13 @@ func TestAnalyzeNeedsNodeRuntime_withoutOptIn(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNeedsNodeRuntime_bareSpecifier(t *testing.T) {
+func TestAnalyzeNeedsBridgeRuntime_bareSpecifier(t *testing.T) {
 	root := writeBoundaryFixture(t, map[string]string{})
 
 	nodes := []ast.Node{
 		ast.ImportNode{Path: "effect", BridgeOptIn: true},
 	}
-	got := AnalyzeNeedsNodeRuntime(nodes, root)
+	got := AnalyzeNeedsBridgeRuntime(nodes, root)
 
 	if !got.Needed {
 		t.Fatal("Needed = false, want true")
@@ -58,7 +58,7 @@ func TestAnalyzeNeedsNodeRuntime_bareSpecifier(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNeedsNodeRuntime_importGroup(t *testing.T) {
+func TestAnalyzeNeedsBridgeRuntime_importGroup(t *testing.T) {
 	root := writeBoundaryFixture(t, map[string]string{
 		"legacy/payment.ts": "export {}",
 		"legacy/billing.ts": "export {}",
@@ -70,7 +70,7 @@ func TestAnalyzeNeedsNodeRuntime_importGroup(t *testing.T) {
 			{Path: "./legacy/billing", BridgeOptIn: true},
 		}},
 	}
-	got := AnalyzeNeedsNodeRuntime(nodes, root)
+	got := AnalyzeNeedsBridgeRuntime(nodes, root)
 
 	if !got.Needed {
 		t.Fatal("Needed = false, want true")

@@ -223,7 +223,7 @@ func runMain(argv []string) int {
 			return 1
 		}
 	} else {
-		mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithNodeRuntime()
+		mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithBridgeRuntime()
 		if err != nil {
 			log.Error(err)
 			return 1
@@ -232,7 +232,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFileFn(mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
+			outputPath, err = createTempOutputFileFn(mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
 			if err != nil {
 				log.Error(err)
 				return 1

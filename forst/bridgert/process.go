@@ -177,7 +177,7 @@ func (p *managedProcess) wait() error {
 	p.waited = true
 	err := p.cmd.Wait()
 	if err != nil {
-		p.waitErr = fmt.Errorf("%w: %v", ErrNodeRuntimeDied, err)
+		p.waitErr = fmt.Errorf("%w: %v", ErrBridgeRuntimeDied, err)
 		return p.waitErr
 	}
 	return nil

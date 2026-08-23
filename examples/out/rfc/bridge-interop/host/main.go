@@ -5,7 +5,7 @@ import fmt "fmt"
 import os "os"
 
 func main() {
-	first, firstErr := forst_node_callsync_legacy_counter_ts_inc()
+	first, firstErr := forst_bridge_callsync_legacy_counter_js_inc()
 	if !(firstErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", firstErr)
@@ -13,7 +13,7 @@ func main() {
 		}
 	}
 	println(strconv.FormatFloat(first, 'f', 0, 64))
-	second, secondErr := forst_node_callsync_legacy_counter_ts_inc()
+	second, secondErr := forst_bridge_callsync_legacy_counter_js_inc()
 	if !(secondErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", secondErr)
@@ -21,5 +21,5 @@ func main() {
 		}
 	}
 	println(strconv.FormatFloat(second, 'f', 0, 64))
-	ForstNodeWaitForShutdown()
+	ForstBridgeWaitForShutdown()
 }

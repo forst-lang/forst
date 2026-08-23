@@ -6,10 +6,10 @@ import (
 	"forst/internal/bridgeinterop"
 )
 
-func TestNodeRuntimeSummary_deduplicatesAndSortsModuleIDs(t *testing.T) {
+func TestBridgeRuntimeSummary_deduplicatesAndSortsModuleIDs(t *testing.T) {
 	tc := &TypeChecker{}
-	tc.SetNodeRuntimeInfo(NodeRuntimeInfo{
-		NeedsNodeRuntime: true,
+	tc.SetBridgeRuntimeInfo(BridgeRuntimeInfo{
+		NeedsBridgeRuntime: true,
 		Manifest: bridgeinterop.ManifestV1{
 			Exports: []bridgeinterop.ExportEntry{
 				{ModuleID: "legacy/b.ts", Name: "mul", Kind: bridgeinterop.ExportKindFunction},
@@ -19,7 +19,7 @@ func TestNodeRuntimeSummary_deduplicatesAndSortsModuleIDs(t *testing.T) {
 		},
 	})
 
-	modules, exports, ids := tc.NodeRuntimeSummary()
+	modules, exports, ids := tc.BridgeRuntimeSummary()
 	if modules != 2 {
 		t.Fatalf("modules = %d want 2", modules)
 	}
@@ -31,17 +31,17 @@ func TestNodeRuntimeSummary_deduplicatesAndSortsModuleIDs(t *testing.T) {
 	}
 }
 
-func TestNodeRuntimeSummary_zeroWhenNotNeeded(t *testing.T) {
+func TestBridgeRuntimeSummary_zeroWhenNotNeeded(t *testing.T) {
 	tc := &TypeChecker{}
-	modules, exports, ids := tc.NodeRuntimeSummary()
+	modules, exports, ids := tc.BridgeRuntimeSummary()
 	if modules != 0 || exports != 0 || ids != nil {
 		t.Fatalf("summary = (%d, %d, %v)", modules, exports, ids)
 	}
 }
 
-func TestNodeRuntimeSummary_nilTypeChecker(t *testing.T) {
+func TestBridgeRuntimeSummary_nilTypeChecker(t *testing.T) {
 	var tc *TypeChecker
-	modules, exports, ids := tc.NodeRuntimeSummary()
+	modules, exports, ids := tc.BridgeRuntimeSummary()
 	if modules != 0 || exports != 0 || ids != nil {
 		t.Fatalf("summary = (%d, %d, %v)", modules, exports, ids)
 	}

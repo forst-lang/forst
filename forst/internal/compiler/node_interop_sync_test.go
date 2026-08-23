@@ -34,14 +34,14 @@ func TestNodeInteropSync_typechecksWithPackageRoot(t *testing.T) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	main, runtime, _, _, _, err := c.CompileWithNodeRuntime()
+	main, runtime, _, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime: %v", err)
+		t.Fatalf("CompileWithBridgeRuntime: %v", err)
 	}
-	if main == "" || !containsAll(main, "forst_node_callsync_", "resultErr") {
+	if main == "" || !containsAll(main, "forst_bridge_callsync_", "resultErr") {
 		t.Fatalf("generated main missing bridge wrapper:\n%s", main)
 	}
-	if runtime == "" || !containsAll(runtime, "bridgert.CallSync", "forstNodeManifestJSON") {
+	if runtime == "" || !containsAll(runtime, "bridgert.CallSync", "forstBridgeManifestJSON") {
 		t.Fatalf("generated runtime missing bridgert wiring:\n%s", runtime)
 	}
 }

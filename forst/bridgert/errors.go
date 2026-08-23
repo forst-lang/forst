@@ -8,7 +8,7 @@ import (
 
 // Sentinel errors for node runtime client failures.
 var (
-	ErrNodeRuntimeDied    = errors.New("node runtime process exited")
+	ErrBridgeRuntimeDied    = errors.New("node runtime process exited")
 	ErrForbidden          = errors.New("forbidden: module or export not in manifest")
 	ErrNotInitialized     = errors.New("node runtime not initialized")
 	ErrInitializeRequired = errors.New("initialize required before rpc call")

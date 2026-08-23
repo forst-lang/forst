@@ -27,7 +27,7 @@ var (
 )
 
 // MustConfigureFromManifest parses embedded manifest JSON and configures the supervisor.
-// Generated Go programs call this from init() when needsNodeRuntime is true.
+// Generated Go programs call this from init() when needsBridgeRuntime is true.
 func MustConfigureFromManifest(manifestJSON string) {
 	configureOnce.Do(func() {
 		configureErr = configureFromManifest(manifestJSON)

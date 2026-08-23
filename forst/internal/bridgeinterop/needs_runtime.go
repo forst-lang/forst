@@ -6,18 +6,18 @@ import (
 	"sort"
 )
 
-// NeedsNodeRuntimeResult summarizes compile-time Node runtime requirement.
-type NeedsNodeRuntimeResult struct {
+// NeedsBridgeRuntimeResult summarizes compile-time Node runtime requirement.
+type NeedsBridgeRuntimeResult struct {
 	Needed  bool
 	Modules []string
 	Exports []ExportEntry
 }
 
-// AnalyzeNeedsNodeRuntime walks opted-in imports in nodes and collects TS module paths.
+// AnalyzeNeedsBridgeRuntime walks opted-in imports in nodes and collects TS module paths.
 // Imports are resolved relative to boundaryRoot (the ftconfig project root).
 // Exports remain empty until index data is merged via BuildManifestV1.
-func AnalyzeNeedsNodeRuntime(nodes []ast.Node, boundaryRoot string) NeedsNodeRuntimeResult {
-	var result NeedsNodeRuntimeResult
+func AnalyzeNeedsBridgeRuntime(nodes []ast.Node, boundaryRoot string) NeedsBridgeRuntimeResult {
+	var result NeedsBridgeRuntimeResult
 	moduleSet := make(map[string]struct{})
 
 	for _, imp := range collectImportNodes(nodes) {

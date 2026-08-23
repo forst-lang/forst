@@ -34,17 +34,17 @@ func TestNodeInteropModules_typechecksNestedCheckoutEntry(t *testing.T) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	main, runtime, _, _, _, err := c.CompileWithNodeRuntime()
+	main, runtime, _, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime: %v", err)
+		t.Fatalf("CompileWithBridgeRuntime: %v", err)
 	}
-	if main == "" || !containsAll(main, "forst_node_callsync_") {
+	if main == "" || !containsAll(main, "forst_bridge_callsync_") {
 		t.Fatalf("generated main missing bridge wrapper:\n%s", main)
 	}
 	if runtime == "" || !containsAll(runtime,
 		"bridgert.CallSync",
-		"forstNodeManifestJSON",
-		"legacy/api/checkout.ts",
+		"forstBridgeManifestJSON",
+		"legacy/api/checkout.js",
 		"createOrder",
 	) {
 		t.Fatalf("generated runtime missing nested module wiring:\n%s", runtime)

@@ -25,7 +25,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		PackageRoot: root,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -80,7 +80,7 @@ func main() {}
 		ReloadProfile: true,
 		LogLevel:      "error",
 	}, nil)
-	_, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	_, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -112,7 +112,7 @@ func main() {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -159,7 +159,7 @@ func Hash(input HashInput) {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -266,14 +266,14 @@ func ComparePassword(input ComparePasswordRequest) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
@@ -294,8 +294,8 @@ func ComparePassword(input ComparePasswordRequest) {
 	if !strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main should call shutdown when companion present:\n%s", mainCode)
 	}
-	if !strings.Contains(nodeRuntime, "forstNodeManifestJSON") {
-		t.Fatalf("node runtime missing manifest:\n%s", nodeRuntime)
+	if !strings.Contains(bridgeRuntime, "forstBridgeManifestJSON") {
+		t.Fatalf("node runtime missing manifest:\n%s", bridgeRuntime)
 	}
 }
 
@@ -376,7 +376,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		DevSession:    session,
 		LogLevel:      "error",
 	}, nil)
-	_, _, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	_, _, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -488,14 +488,14 @@ func ComparePassword(input {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
@@ -564,21 +564,21 @@ func main() {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode != "" {
 		t.Fatalf("expected no invoke companion, got:\n%s", invokeCode)
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion")
 	}
-	if !strings.Contains(nodeRuntime, "ForstNodeWaitForShutdown") {
-		t.Fatalf("node runtime missing shutdown helper:\n%s", nodeRuntime)
+	if !strings.Contains(bridgeRuntime, "ForstBridgeWaitForShutdown") {
+		t.Fatalf("node runtime missing shutdown helper:\n%s", bridgeRuntime)
 	}
-	if !strings.Contains(mainCode, "ForstNodeWaitForShutdown") {
-		t.Fatalf("main should call ForstNodeWaitForShutdown:\n%s", mainCode)
+	if !strings.Contains(mainCode, "ForstBridgeWaitForShutdown") {
+		t.Fatalf("main should call ForstBridgeWaitForShutdown:\n%s", mainCode)
 	}
 	if strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main must not call invoke shutdown without invoke companion:\n%s", mainCode)
@@ -598,24 +598,24 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	_, nodeRuntime, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	_, bridgeRuntime, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion")
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke server companion")
 	}
 	for _, want := range []string{
-		"forstNodeManifestJSON",
+		"forstBridgeManifestJSON",
 		"bridgert.CallSync",
 		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_ListTodos",
 	} {
-		body := nodeRuntime + invokeCode
+		body := bridgeRuntime + invokeCode
 		if !strings.Contains(body, want) {
 			t.Fatalf("missing %q in companions", want)
 		}
@@ -707,7 +707,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -722,7 +722,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	if extraPkgs["bcrypt"] != string(bcryptDisk) {
 		t.Fatalf("written bcrypt package differs from compile output")
 	}
-	if err := BuildGoProgram(mainCode, nodeRuntime, invokeCode, extraPkgs, dir); err != nil {
+	if err := BuildGoProgram(mainCode, bridgeRuntime, invokeCode, extraPkgs, dir); err != nil {
 		t.Fatalf("BuildGoProgram with extras: %v", err)
 	}
 }

@@ -30,8 +30,8 @@ func TestCompilePhaseTiming_emittedWhenReloadProfile(t *testing.T) {
 		ReloadProfile: true,
 	}, log)
 
-	if _, _, _, _, _, err := c.CompileWithNodeRuntime(); err != nil {
-		t.Fatalf("CompileWithNodeRuntime: %v", err)
+	if _, _, _, _, _, err := c.CompileWithBridgeRuntime(); err != nil {
+		t.Fatalf("CompileWithBridgeRuntime: %v", err)
 	}
 	timings := c.TakeCompileTimings()
 	var sandbox CompileSandboxTiming

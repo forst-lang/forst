@@ -25,7 +25,7 @@ func EmitGoSources(args Args, log *logrus.Logger) error {
 		}
 	}
 	c := New(args, log)
-	if _, _, _, _, _, err := c.CompileWithNodeRuntime(); err != nil {
+	if _, _, _, _, _, err := c.CompileWithBridgeRuntime(); err != nil {
 		return err
 	}
 	log.Infof("Wrote Go sources beside %s", args.OutputPath)

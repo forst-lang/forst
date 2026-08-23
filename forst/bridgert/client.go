@@ -370,7 +370,7 @@ func (c *Client) removePending(id int64) {
 
 func (c *Client) failAllPending(err error) {
 	if err != nil && (errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe)) {
-		err = fmt.Errorf("%w: %v", ErrNodeRuntimeDied, err)
+		err = fmt.Errorf("%w: %v", ErrBridgeRuntimeDied, err)
 	}
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()

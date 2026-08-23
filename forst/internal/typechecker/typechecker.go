@@ -126,8 +126,8 @@ type TypeChecker struct {
 	typecheckNodes []ast.Node
 	// packageConsts tracks top-level const names (reject reassignment).
 	packageConsts map[ast.Identifier]struct{}
-	// nodeRuntime holds compile-time Node interop facts (needsNodeRuntime, manifest JSON).
-	nodeRuntime NodeRuntimeInfo
+	// bridgeRuntime holds compile-time bridge interop facts (needsBridgeRuntime, manifest JSON).
+	bridgeRuntime BridgeRuntimeInfo
 }
 
 // New creates a new TypeChecker.

@@ -19,20 +19,20 @@ type nodeImportBinding struct {
 	Index    *bridgeinterop.IndexV1
 }
 
-// NodeRuntimeState holds compile-time Node interop facts for the compiler pipeline.
-type NodeRuntimeState struct {
-	NeedsNodeRuntime bool
+// BridgeRuntimeState holds compile-time bridge interop facts for the compiler pipeline.
+type BridgeRuntimeState struct {
+	NeedsBridgeRuntime bool
 	Manifest         bridgeinterop.ManifestV1
 }
 
-// NodeRuntimeState returns node runtime facts for this typecheck.
-func (tc *TypeChecker) NodeRuntimeState() NodeRuntimeState {
+// BridgeRuntimeState returns bridge runtime facts for this typecheck.
+func (tc *TypeChecker) BridgeRuntimeState() BridgeRuntimeState {
 	if tc == nil {
-		return NodeRuntimeState{}
+		return BridgeRuntimeState{}
 	}
-	return NodeRuntimeState{
-		NeedsNodeRuntime: tc.nodeRuntime.NeedsNodeRuntime,
-		Manifest:         tc.nodeRuntime.Manifest,
+	return BridgeRuntimeState{
+		NeedsBridgeRuntime: tc.bridgeRuntime.NeedsBridgeRuntime,
+		Manifest:         tc.bridgeRuntime.Manifest,
 	}
 }
 
@@ -89,7 +89,7 @@ func (tc *TypeChecker) tsImportWithoutOptInHint(imp ast.ImportNode) string {
 
 func (tc *TypeChecker) resolveNodeImports() error {
 	if len(tc.nodeImports) == 0 {
-		tc.nodeRuntime = NodeRuntimeInfo{}
+		tc.bridgeRuntime = BridgeRuntimeInfo{}
 		return nil
 	}
 	if tc.nodeImportsByLocal == nil {
@@ -182,8 +182,8 @@ func (tc *TypeChecker) resolveNodeImports() error {
 	if err != nil {
 		return diagnosticf(ast.SourceSpan{}, "js-import", "failed to encode bridge manifest: %v", err)
 	}
-	tc.nodeRuntime = NodeRuntimeInfo{
-		NeedsNodeRuntime: true,
+	tc.bridgeRuntime = BridgeRuntimeInfo{
+		NeedsBridgeRuntime: true,
 		Manifest:         manifest,
 		ManifestJSON:     string(manifestJSON),
 	}
@@ -270,8 +270,8 @@ func (tc *TypeChecker) nodeModuleForLocal(local string) (nodeImportBinding, bool
 	return b, ok
 }
 
-// NodeImportCount returns opted-in TypeScript imports collected for this check.
-func (tc *TypeChecker) NodeImportCount() int {
+// BridgeImportCount returns opted-in TypeScript imports collected for this check.
+func (tc *TypeChecker) BridgeImportCount() int {
 	if tc == nil {
 		return 0
 	}
@@ -351,8 +351,8 @@ func (tc *TypeChecker) tryNodeQualifiedCall(pkgLocal, funcName string, e ast.Fun
 				pkgLocal, funcName, i+1, param.Ident, argTypes[i][0].Ident)
 		}
 	}
-	if kind == NodeExportKindFunction || kind == NodeExportKindAsyncFunction ||
-		kind == NodeExportKindGenerator || kind == NodeExportKindAsyncGenerator {
+	if kind == BridgeExportKindFunction || kind == BridgeExportKindAsyncFunction ||
+		kind == BridgeExportKindGenerator || kind == BridgeExportKindAsyncGenerator {
 		wrapped := make([]ast.TypeNode, len(returns))
 		errType := ast.NewBuiltinType(ast.TypeError)
 		for i, ret := range returns {

@@ -168,7 +168,7 @@ func setupRemixServeIntegrationRoot(t *testing.T) string {
 	return root
 }
 
-func linkNodeRuntimeFromRepo(t *testing.T, root string) {
+func linkBridgeRuntimeFromRepo(t *testing.T, root string) {
 	t.Helper()
 	repo := repoRoot(t)
 	src := filepath.Join(repo, "packages", "runtime")
@@ -216,7 +216,7 @@ export function inc(): number {
 	}
 
 	linkTsxFromRepo(t, root)
-	linkNodeRuntimeFromRepo(t, root)
+	linkBridgeRuntimeFromRepo(t, root)
 	t.Setenv(envNodeSocket, shortHostSocketPath(t))
 
 	writeHostFtconfig(t, root, []string{"app/server.mjs"}, 30)

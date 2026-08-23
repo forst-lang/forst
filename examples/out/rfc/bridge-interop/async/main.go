@@ -15,14 +15,14 @@ type T_NTbLJjyksQg struct {
 }
 
 func checkout(amount float64, currency string) string {
-	result, resultErr := forst_node_callasync_legacy_payment_ts_create(amount, currency)
+	result, resultErr := forst_bridge_callasync_legacy_payment_js_create(amount, currency)
 	if !(resultErr == nil) {
 		return ""
 	}
 	return result.Id
 }
 func drainEvents(userId string) int {
-	seq, seqErr := forst_node_open_seq_legacy_events_ts_subscribe(userId)
+	seq, seqErr := forst_bridge_open_seq_legacy_events_js_subscribe(userId)
 	if !(seqErr == nil) {
 		return 0
 	}
@@ -31,8 +31,8 @@ func drainEvents(userId string) int {
 		_nodeIt := seq
 		defer _nodeIt.Close()
 		var (
-			_nodeStep     forstNodeGenStep_t_g2n6vmumv8n
-			_nodeBatch    []forstNodeGenStep_t_g2n6vmumv8n
+			_nodeStep     forstBridgeGenStep_t_g2n6vmumv8n
+			_nodeBatch    []forstBridgeGenStep_t_g2n6vmumv8n
 			_nodeBatchIdx int
 			_nodeBatchErr error
 		)
@@ -51,21 +51,21 @@ func drainEvents(userId string) int {
 			}
 			_nodeStep = _nodeBatch[_nodeBatchIdx]
 			_nodeBatchIdx++
-			if _nodeStep.Kind == forstNodeGenStepDone {
+			if _nodeStep.Kind == forstBridgeGenStepDone {
 				break
 			}
-			if _nodeStep.Kind == forstNodeGenStepError {
+			if _nodeStep.Kind == forstBridgeGenStepError {
 				panic(_nodeStep.Message)
 			}
 			evt := _nodeStep.Value
-			forst_node_callasync_legacy_events_ts_dispatch(evt)
+			forst_bridge_callasync_legacy_events_js_dispatch(evt)
 			count = count + 1
 		}
 	}
 	return count
 }
 func echo(n float64) string {
-	res, resErr := forst_node_callasync_legacy_payment_ts_concurrentEcho(n)
+	res, resErr := forst_bridge_callasync_legacy_payment_js_concurrentEcho(n)
 	if !(resErr == nil) {
 		return ""
 	}

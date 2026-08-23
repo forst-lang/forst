@@ -29,7 +29,7 @@ var validExportKinds = map[string]struct{}{
 	ExportKindAsyncGenerator: {},
 }
 
-// ManifestV1 is the compile-time execution allowlist embedded when needsNodeRuntime is true.
+// ManifestV1 is the compile-time execution allowlist embedded when needsBridgeRuntime is true.
 type ManifestV1 struct {
 	Version      int           `json:"version"`
 	BoundaryRoot string        `json:"boundaryRoot"`

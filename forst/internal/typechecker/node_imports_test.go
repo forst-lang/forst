@@ -43,12 +43,12 @@ func main() {
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
 	})
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
-	state := tc.NodeRuntimeState()
-	if !state.NeedsNodeRuntime {
-		t.Fatal("NodeRuntimeState.NeedsNodeRuntime = false")
+	state := tc.BridgeRuntimeState()
+	if !state.NeedsBridgeRuntime {
+		t.Fatal("BridgeRuntimeState.NeedsBridgeRuntime = false")
 	}
 	if len(state.Manifest.Exports) != 1 {
 		t.Fatalf("manifest exports: %+v", state.Manifest.Exports)
@@ -98,8 +98,8 @@ func main() {
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
 	})
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime under implicit importPolicy")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime under implicit importPolicy")
 	}
 	if tc.NodeImportPolicy != "implicit" {
 		t.Fatalf("NodeImportPolicy = %q", tc.NodeImportPolicy)
@@ -264,8 +264,8 @@ func main() {
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
 	})
-	if tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime false for Go alias import node \"fmt\"")
+	if tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime false for Go alias import node \"fmt\"")
 	}
 	if !tc.IsImportedLocalName("node") {
 		t.Fatal("expected local name node to be a Go import")

@@ -22,9 +22,9 @@ func formatTransformerGoFiles(t *testing.T, tr *Transformer, mainFile *goast.Fil
 		t.Fatalf("format main: %v", err)
 	}
 	mainCode = mainBuf.String()
-	runtimeAST, err := tr.NodeRuntimeFile()
+	runtimeAST, err := tr.BridgeRuntimeFile()
 	if err != nil {
-		t.Fatalf("NodeRuntimeFile: %v", err)
+		t.Fatalf("BridgeRuntimeFile: %v", err)
 	}
 	if runtimeAST == nil {
 		return mainCode, ""
@@ -62,13 +62,13 @@ func main() {
 	if strings.Contains(mainCode, "bridgert.") {
 		t.Fatalf("main must not reference bridgert:\n%s", mainCode)
 	}
-	if !strings.Contains(mainCode, "forst_node_callsync_") {
+	if !strings.Contains(mainCode, "forst_bridge_callsync_") {
 		t.Fatalf("missing wrapper call in main:\n%s", mainCode)
 	}
 	if !strings.Contains(runtimeCode, "bridgert.CallSync") {
 		t.Fatalf("missing bridgert.CallSync in runtime:\n%s", runtimeCode)
 	}
-	if !strings.Contains(runtimeCode, "forstNodeManifestJSON") {
+	if !strings.Contains(runtimeCode, "forstBridgeManifestJSON") {
 		t.Fatalf("missing manifest in runtime:\n%s", runtimeCode)
 	}
 	if !strings.Contains(mainCode, "resultErr") {
@@ -173,11 +173,11 @@ func drain(userId String): Void {
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
 	for _, want := range []string{
-		"forst_node_open_seq_",
+		"forst_bridge_open_seq_",
 		"seqErr",
 		".NextBatch(",
 		".Close()",
-		"forst_node_callasync_",
+		"forst_bridge_callasync_",
 	} {
 		if !strings.Contains(mainCode, want) {
 			t.Fatalf("missing %q in main:\n%s", want, mainCode)
@@ -216,10 +216,10 @@ func main() {
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
 	for _, want := range []string{
-		"forst_node_open_seq_",
+		"forst_bridge_open_seq_",
 		".NextBatch(",
 		".Close()",
-		"forstNodeGenStepDone",
+		"forstBridgeGenStepDone",
 	} {
 		if !strings.Contains(mainCode, want) {
 			t.Fatalf("missing %q in main:\n%s", want, mainCode)
@@ -291,7 +291,7 @@ func main() {
 		t.Fatalf("TransformForstFileToGo: %v", err)
 	}
 	mainCode, _ := formatTransformerGoFiles(t, tr, file)
-	if !strings.Contains(mainCode, forstNodeGenStepErrorIdent) {
+	if !strings.Contains(mainCode, forstBridgeGenStepErrorIdent) {
 		t.Fatalf("missing error-kind branch in main:\n%s", mainCode)
 	}
 	if !strings.Contains(mainCode, "panic") {

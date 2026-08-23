@@ -22,7 +22,7 @@ func TestParseMergedTypecheckProject_remixServeNodeInterop(t *testing.T) {
 	if len(chunks) != 1 {
 		t.Fatalf("chunks = %d", len(chunks))
 	}
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
 }

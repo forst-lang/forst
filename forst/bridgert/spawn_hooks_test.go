@@ -2,6 +2,7 @@ package bridgert
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -74,6 +75,10 @@ func TestSpawnHooks_bunStripsTsxFromNodeOptions(t *testing.T) {
 }
 
 func TestSpawnHooks_denoRequiresEnabledFlag(t *testing.T) {
+	if _, err := exec.LookPath("deno"); err != nil {
+		t.Skip("deno not on PATH")
+	}
+
 	ftconfig.SetDenoHostEnabledForTest(false)
 	t.Cleanup(func() { ftconfig.SetDenoHostEnabledForTest(false) })
 
@@ -108,6 +113,10 @@ func TestSpawnHooks_denoRequiresEnabledFlag(t *testing.T) {
 }
 
 func TestSpawnHooks_denoIncludesModulesDirInAllowRead(t *testing.T) {
+	if _, err := exec.LookPath("deno"); err != nil {
+		t.Skip("deno not on PATH")
+	}
+
 	ftconfig.SetDenoHostEnabledForTest(true)
 	t.Cleanup(func() { ftconfig.SetDenoHostEnabledForTest(false) })
 

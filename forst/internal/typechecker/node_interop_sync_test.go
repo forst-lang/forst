@@ -42,8 +42,8 @@ func TestNodeInteropSyncExample_typechecks(t *testing.T) {
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
 	})
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
 }
 

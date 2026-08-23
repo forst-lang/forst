@@ -44,8 +44,8 @@ func TestNodeInteropExampleFile_typechecks(t *testing.T) {
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
 	_ = forstpkg.PackageNameFromNodes(nodes)
 }

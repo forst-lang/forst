@@ -63,27 +63,27 @@ type T_LKhz7DyfNqT struct {
 
 func AddTodo(input AddTodoRequest) AddTodoResponse {
 	println("api:AddTodo:" + input.Title)
-	created, createdErr := forst_node_callsync_legacy_todos_ts_addTodo(input.Title)
+	created, createdErr := forst_bridge_callsync_legacy_todos_js_addTodo(input.Title)
 	if !(createdErr == nil) {
-		return AddTodoResponse{Id: "", Title: "", Status: ""}
+		return AddTodoResponse{Status: "", Id: "", Title: ""}
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
 }
-func CompleteTodo(input CompleteTodoRequest) AddTodoResponse {
+func CompleteTodo(input CompleteTodoRequest) CompleteTodoResponse {
 	println("api:CompleteTodo:" + input.Id)
-	updated, updatedErr := forst_node_callsync_legacy_todos_ts_toggleTodo(input.Id)
+	updated, updatedErr := forst_bridge_callsync_legacy_todos_js_toggleTodo(input.Id)
 	if !(updatedErr == nil) {
-		return AddTodoResponse{Id: "", Title: "", Status: ""}
+		return CompleteTodoResponse{Title: "", Status: "", Id: ""}
 	}
-	return AddTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
+	return CompleteTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
 }
 func GetDashboard() T_7nWLvcjQ76D {
 	println("api:GetDashboard")
-	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
+	open, openErr := forst_bridge_callsync_legacy_todos_js_openCount()
 	if !(openErr == nil) {
 		return T_7nWLvcjQ76D{SavedAt: "", Open: 0.0, RecentTitles: "", ActivityKinds: ""}
 	}
-	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
+	snap, snapErr := forst_bridge_callasync_legacy_todos_js_persistSnapshot()
 	if !(snapErr == nil) {
 		return T_7nWLvcjQ76D{SavedAt: "", Open: 0.0, RecentTitles: "", ActivityKinds: ""}
 	}
@@ -91,23 +91,23 @@ func GetDashboard() T_7nWLvcjQ76D {
 }
 func ListTodos() T_D415raHQ7uQ {
 	println("api:ListTodos")
-	encoded, encodedErr := forst_node_callsync_legacy_todos_ts_formatTodoList()
+	encoded, encodedErr := forst_bridge_callsync_legacy_todos_js_formatTodoList()
 	if !(encodedErr == nil) {
 		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
 	}
-	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
+	open, openErr := forst_bridge_callsync_legacy_todos_js_openCount()
 	if !(openErr == nil) {
-		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
+		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
 	}
-	total, totalErr := forst_node_callsync_legacy_todos_ts_todoCount()
+	total, totalErr := forst_bridge_callsync_legacy_todos_js_todoCount()
 	if !(totalErr == nil) {
-		return T_D415raHQ7uQ{Done: 0.0, Encoded: "", Open: 0.0}
+		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
 	}
 	done := total - open
 	return T_D415raHQ7uQ{Open: open, Done: done, Encoded: encoded}
 }
 func main() {
-	first, firstErr := forst_node_callsync_legacy_todos_ts_bumpEditCount()
+	first, firstErr := forst_bridge_callsync_legacy_todos_js_bumpEditCount()
 	if !(firstErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", firstErr)
@@ -115,7 +115,7 @@ func main() {
 		}
 	}
 	println("sync:" + strconv.FormatFloat(first, 'f', 0, 64))
-	second, secondErr := forst_node_callsync_legacy_todos_ts_bumpEditCount()
+	second, secondErr := forst_bridge_callsync_legacy_todos_js_bumpEditCount()
 	if !(secondErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", secondErr)
@@ -123,7 +123,7 @@ func main() {
 		}
 	}
 	println("sync:" + strconv.FormatFloat(second, 'f', 0, 64))
-	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
+	snap, snapErr := forst_bridge_callasync_legacy_todos_js_persistSnapshot()
 	if !(snapErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", snapErr)
@@ -132,7 +132,7 @@ func main() {
 	}
 	println("async:" + snap.SavedAt)
 	var titleCount int = 0
-	titleSeq, titleSeqErr := forst_node_open_seq_legacy_activity_ts_recentTitles()
+	titleSeq, titleSeqErr := forst_bridge_open_seq_legacy_activity_js_recentTitles()
 	if !(titleSeqErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", titleSeqErr)
@@ -143,8 +143,8 @@ func main() {
 		_nodeIt := titleSeq
 		defer _nodeIt.Close()
 		var (
-			_nodeStep     forstNodeGenStep_string
-			_nodeBatch    []forstNodeGenStep_string
+			_nodeStep     forstBridgeGenStep_string
+			_nodeBatch    []forstBridgeGenStep_string
 			_nodeBatchIdx int
 			_nodeBatchErr error
 		)
@@ -163,10 +163,10 @@ func main() {
 			}
 			_nodeStep = _nodeBatch[_nodeBatchIdx]
 			_nodeBatchIdx++
-			if _nodeStep.Kind == forstNodeGenStepDone {
+			if _nodeStep.Kind == forstBridgeGenStepDone {
 				break
 			}
-			if _nodeStep.Kind == forstNodeGenStepError {
+			if _nodeStep.Kind == forstBridgeGenStepError {
 				panic(_nodeStep.Message)
 			}
 			titleCount = titleCount + 1
@@ -174,7 +174,7 @@ func main() {
 	}
 	println("gen:" + strconv.Itoa(titleCount))
 	var feedCount int = 0
-	feed, feedErr := forst_node_open_seq_legacy_activity_ts_activityFeed()
+	feed, feedErr := forst_bridge_open_seq_legacy_activity_js_activityFeed()
 	if !(feedErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", feedErr)
@@ -185,8 +185,8 @@ func main() {
 		_nodeIt := feed
 		defer _nodeIt.Close()
 		var (
-			_nodeStep     forstNodeGenStep_t_lkhz7dyfnqt
-			_nodeBatch    []forstNodeGenStep_t_lkhz7dyfnqt
+			_nodeStep     forstBridgeGenStep_t_lkhz7dyfnqt
+			_nodeBatch    []forstBridgeGenStep_t_lkhz7dyfnqt
 			_nodeBatchIdx int
 			_nodeBatchErr error
 		)
@@ -205,14 +205,14 @@ func main() {
 			}
 			_nodeStep = _nodeBatch[_nodeBatchIdx]
 			_nodeBatchIdx++
-			if _nodeStep.Kind == forstNodeGenStepDone {
+			if _nodeStep.Kind == forstBridgeGenStepDone {
 				break
 			}
-			if _nodeStep.Kind == forstNodeGenStepError {
+			if _nodeStep.Kind == forstBridgeGenStepError {
 				panic(_nodeStep.Message)
 			}
 			evt := _nodeStep.Value
-			forst_node_callasync_legacy_activity_ts_dispatchActivity(evt)
+			forst_bridge_callasync_legacy_activity_js_dispatchActivity(evt)
 			feedCount = feedCount + 1
 		}
 	}

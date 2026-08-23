@@ -31,12 +31,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			goldenRel: "rfc/bridge-interop/main.go",
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callsync_",
+				"forst_bridge_callsync_",
 				"func main()",
 			},
 			runtimeMarkers: []string{
 				"package main",
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"forst/bridgert",
 				"bridgert.CallSync",
 			},
@@ -48,12 +48,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callsync_",
+				"forst_bridge_callsync_",
 				"result.Amount",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallSync",
 			},
 		},
@@ -64,12 +64,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callasync_",
+				"forst_bridge_callasync_",
 				"concurrentEcho",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallAsync",
 			},
 		},
@@ -80,12 +80,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_open_seq_",
-				"forstNodeGenStepDone",
+				"forst_bridge_open_seq_",
+				"forstBridgeGenStepDone",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.OpenSeq",
 			},
 		},
@@ -96,12 +96,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callasync_",
-				"forst_node_open_seq_",
+				"forst_bridge_callasync_",
+				"forst_bridge_open_seq_",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallAsync",
 				"bridgert.OpenSeq",
 			},
@@ -113,11 +113,11 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callsync_",
+				"forst_bridge_callsync_",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallSync",
 			},
 		},
@@ -135,11 +135,9 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallSync",
-				"bridgert.CallAsync",
-				"bridgert.OpenSeq",
-				"legacy/todos.ts",
+				"legacy/todos.js",
 			},
 			invokeMarkers: []string{
 				"invokeembed.MustPrepareEmbeddedHostAuth",
@@ -155,13 +153,13 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callsync_",
+				"forst_bridge_callsync_",
 				"func main()",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallSync",
-				"legacy/api/checkout.ts",
+				"legacy/api/checkout.js",
 			},
 		},
 		{
@@ -171,12 +169,12 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			exportStructFields: true,
 			mainMarkers: []string{
 				"package main",
-				"forst_node_callsync_",
+				"forst_bridge_callsync_",
 				"func main()",
 				"ForstInvokeWaitForShutdown",
 			},
 			runtimeMarkers: []string{
-				"forstNodeManifestJSON",
+				"forstBridgeManifestJSON",
 				"bridgert.CallSync",
 				"hostPing",
 			},
@@ -268,20 +266,20 @@ func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string,
 		ExportStructFields: exportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, runtimeCode, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, runtimeCode, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
+		t.Fatalf("CompileWithBridgeRuntime(%s): %v", absEntry, err)
 	}
 	return nodeInteropCompileOutput{Main: mainCode, Runtime: runtimeCode, Invoke: invokeCode, Extra: extraPkgs}
 }
 
-func nodeRuntimeGoldenPath(mainGoldenPath string) string {
+func bridgeRuntimeGoldenPath(mainGoldenPath string) string {
 	ext := filepath.Ext(mainGoldenPath)
 	base := strings.TrimSuffix(mainGoldenPath, ext)
 	if ext == "" {
-		return base + "_forst_0_node_runtime.gen.go"
+		return base + "_forst_0_bridge_runtime.gen.go"
 	}
-	return base + "_forst_0_node_runtime.gen" + ext
+	return base + "_forst_0_bridge_runtime.gen" + ext
 }
 
 func verifyNodeInteropPackageCompileGolden(t *testing.T, expected, actual, goldenPath string, markers []string) {
@@ -309,7 +307,7 @@ func writeNodeInteropPackageGolden(t *testing.T, tc nodeInteropGoldenCase) {
 	entry := filepath.Join(inDir, tc.entryRel)
 	root := nodeInteropPackageRoot(t, inDir, tc)
 	goldenPath := filepath.Join(outDir, tc.goldenRel)
-	runtimeGoldenPath := nodeRuntimeGoldenPath(goldenPath)
+	runtimeGoldenPath := bridgeRuntimeGoldenPath(goldenPath)
 
 	out := compileNodeInteropPackageForGolden(t, entry, root, tc.exportStructFields)
 	if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
@@ -360,7 +358,7 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			goldenPath := filepath.Join(outDir, tc.goldenRel)
-			runtimeGoldenPath := nodeRuntimeGoldenPath(goldenPath)
+			runtimeGoldenPath := bridgeRuntimeGoldenPath(goldenPath)
 
 			actual := compileNodeInteropPackageForGolden(t, entry, root, tc.exportStructFields)
 
@@ -377,7 +375,7 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 			verifyCompanionPackageGoBuild(t, companionGoBuildOpts{
 				Label:            "fresh compile/" + tc.name,
 				MainCode:         actual.Main,
-				NodeRuntimeCode:  actual.Runtime,
+				BridgeRuntimeCode:  actual.Runtime,
 				InvokeServerCode: actual.Invoke,
 				ExtraPackages:    actual.Extra,
 				BoundaryRoot:     absRoot,

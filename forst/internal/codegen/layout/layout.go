@@ -8,7 +8,7 @@ import (
 const (
 	SuffixGen        = ".gen.go"
 	FileInvokeServer = "forst_1_invoke_server.gen.go"
-	FileNodeRuntime  = "forst_0_node_runtime.gen.go"
+	FileBridgeRuntime = "forst_0_bridge_runtime.gen.go"
 	FileTestWrapper  = "forst_gen_test.go"
 	FileLibShim      = "forst_lib.gen.go"
 )
@@ -61,7 +61,7 @@ func (r Root) RunSession(sessionID string) SessionPaths {
 		GoMod:        filepath.Join(dir, "go.mod"),
 		HostMain:     filepath.Join(dir, "cmd", "host", "main"+SuffixGen),
 		InvokeServer: filepath.Join(dir, "internal", "invoke", FileInvokeServer),
-		NodeRuntime:  filepath.Join(dir, "internal", "bridgert", FileNodeRuntime),
+		BridgeRuntime: filepath.Join(dir, "internal", "bridgert", FileBridgeRuntime),
 	}
 }
 
@@ -109,7 +109,7 @@ func (r Root) GoWork() string {
 // SessionPaths are the generated file locations for one forst run/dev
 // runtime sandbox, as returned by Root.RunSession.
 type SessionPaths struct {
-	Dir, GoMod, HostMain, InvokeServer, NodeRuntime string
+	Dir, GoMod, HostMain, InvokeServer, BridgeRuntime string
 }
 
 // ExecPaths are the generated file locations for one dev-executor temp

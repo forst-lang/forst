@@ -361,6 +361,7 @@ func resetSupervisorForTest() {
 		_ = supervisorInst.shutdown()
 	}
 	supervisorInst = nil
+	supervisorCfg = SupervisorConfig{}
 	supervisorErr = nil
 	supervisorErrPrinted = sync.Once{}
 	configureOnce = sync.Once{}

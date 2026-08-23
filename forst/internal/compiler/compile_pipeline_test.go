@@ -8,7 +8,7 @@ import (
 	"forst/internal/typechecker"
 )
 
-func TestRequireNoBridge_allowsWhenNoNodeRuntime(t *testing.T) {
+func TestRequireNoBridge_allowsWhenNoBridgeRuntime(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
 	if err := checkRequireNoBridge(Args{RequireNoBridge: true}, tc); err != nil {
@@ -16,10 +16,10 @@ func TestRequireNoBridge_allowsWhenNoNodeRuntime(t *testing.T) {
 	}
 }
 
-func TestRequireNoBridge_rejectsWhenNeedsNodeRuntime(t *testing.T) {
+func TestRequireNoBridge_rejectsWhenNeedsBridgeRuntime(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{NeedsBridgeRuntime: true})
 	err := checkRequireNoBridge(Args{RequireNoBridge: true}, tc)
 	if err == nil {
 		t.Fatal("expected error")
@@ -32,24 +32,24 @@ func TestRequireNoBridge_rejectsWhenNeedsNodeRuntime(t *testing.T) {
 func TestRequireNoBridge_ignoredWhenFlagUnset(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{NeedsBridgeRuntime: true})
 	if err := checkRequireNoBridge(Args{}, tc); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestFormatNodeRuntimeLogLine_notRequired(t *testing.T) {
+func TestFormatBridgeRuntimeLogLine_notRequired(t *testing.T) {
 	t.Parallel()
-	if got := FormatNodeRuntimeLogLine(typechecker.New(nil, false)); got != "node runtime: not required" {
+	if got := FormatBridgeRuntimeLogLine(typechecker.New(nil, false)); got != "node runtime: not required" {
 		t.Fatalf("got %q", got)
 	}
 }
 
-func TestFormatNodeRuntimeLogLine_requiredWithModules(t *testing.T) {
+func TestFormatBridgeRuntimeLogLine_requiredWithModules(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{
-		NeedsNodeRuntime: true,
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{
+		NeedsBridgeRuntime: true,
 		Manifest: bridgeinterop.ManifestV1{
 			Exports: []bridgeinterop.ExportEntry{
 				{ModuleID: "legacy/payment.ts", Name: "create", Kind: "asyncFunction"},
@@ -58,25 +58,25 @@ func TestFormatNodeRuntimeLogLine_requiredWithModules(t *testing.T) {
 			},
 		},
 	})
-	got := FormatNodeRuntimeLogLine(tc)
+	got := FormatBridgeRuntimeLogLine(tc)
 	want := "node runtime: required (2 modules, 3 exports) — legacy/events.ts, legacy/payment.ts"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
-type nodeRuntimeLogSpy struct {
+type bridgeRuntimeLogSpy struct {
 	info  []string
 	debug []string
 }
 
-func (s *nodeRuntimeLogSpy) Info(args ...any)  { s.info = append(s.info, args[0].(string)) }
-func (s *nodeRuntimeLogSpy) Debug(args ...any) { s.debug = append(s.debug, args[0].(string)) }
+func (s *bridgeRuntimeLogSpy) Info(args ...any)  { s.info = append(s.info, args[0].(string)) }
+func (s *bridgeRuntimeLogSpy) Debug(args ...any) { s.debug = append(s.debug, args[0].(string)) }
 
-func TestLogNodeRuntimeRequirement_notRequiredUsesDebug(t *testing.T) {
+func TestLogBridgeRuntimeRequirement_notRequiredUsesDebug(t *testing.T) {
 	t.Parallel()
-	spy := &nodeRuntimeLogSpy{}
-	logNodeRuntimeRequirement(spy, typechecker.New(nil, false))
+	spy := &bridgeRuntimeLogSpy{}
+	logBridgeRuntimeRequirement(spy, typechecker.New(nil, false))
 	if len(spy.info) != 0 {
 		t.Fatalf("info = %v, want none", spy.info)
 	}
@@ -85,12 +85,12 @@ func TestLogNodeRuntimeRequirement_notRequiredUsesDebug(t *testing.T) {
 	}
 }
 
-func TestLogNodeRuntimeRequirement_requiredUsesInfo(t *testing.T) {
+func TestLogBridgeRuntimeRequirement_requiredUsesInfo(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
-	spy := &nodeRuntimeLogSpy{}
-	logNodeRuntimeRequirement(spy, tc)
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{NeedsBridgeRuntime: true})
+	spy := &bridgeRuntimeLogSpy{}
+	logBridgeRuntimeRequirement(spy, tc)
 	if len(spy.debug) != 0 {
 		t.Fatalf("debug = %v, want none", spy.debug)
 	}

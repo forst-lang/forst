@@ -56,15 +56,15 @@ type Transformer struct {
 	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
 	entryNodes []ast.Node
 
-	// NodeRuntimeOutput holds generated forst_node_runtime.gen.go content (bridgert import, wrappers).
-	NodeRuntimeOutput *TransformerOutput
+	// BridgeRuntimeOutput holds generated forst_0_bridge_runtime.gen.go content (bridgert import, wrappers).
+	BridgeRuntimeOutput *TransformerOutput
 	nodeWrappersEmitted map[string]bool
 	nodeSeqTypesEmitted map[string]bool
 
 	// EmbedInvokeServer when true appends ForstInvokeWaitForShutdown() to main for long-lived binaries.
 	EmbedInvokeServer bool
-	// EmbedNodeHostMode when true emits ForstNodeWaitForShutdown for host-mode bridgert binaries.
-	EmbedNodeHostMode bool
+	// EmbedBridgeHostMode when true emits ForstBridgeWaitForShutdown for host-mode bridgert binaries.
+	EmbedBridgeHostMode bool
 	// SandboxModulePath when set rewrites cross-package invoke imports (e.g. forst.run.temp/bcrypt).
 	SandboxModulePath string
 }

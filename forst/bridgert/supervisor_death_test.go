@@ -53,6 +53,7 @@ export function add(a: number, b: number): { sum: number } {
 
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
+	t.Setenv(EnvNodeAttachOnly, "")
 	if err := configureFromManifest(string(manifestJSON)); err != nil {
 		t.Fatal(err)
 	}
@@ -97,8 +98,8 @@ export function add(a: number, b: number): { sum: number } {
 		if err == nil {
 			t.Fatal("expected in-flight call to fail after node death")
 		}
-		if !errors.Is(err, ErrNodeRuntimeDied) {
-			t.Fatalf("in-flight err = %v want ErrNodeRuntimeDied", err)
+		if !errors.Is(err, ErrBridgeRuntimeDied) {
+			t.Fatalf("in-flight err = %v want ErrBridgeRuntimeDied", err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("in-flight call did not fail after node death")

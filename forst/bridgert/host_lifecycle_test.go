@@ -175,7 +175,7 @@ func TestTerminateHostPID_terminatesSleepChild(t *testing.T) {
 
 func TestWaitForHostMarkerReady_failsFastWhenProcessExits(t *testing.T) {
 	exitCh := make(chan error, 1)
-	exitCh <- fmt.Errorf("%w: exit status 1", ErrNodeRuntimeDied)
+	exitCh <- fmt.Errorf("%w: exit status 1", ErrBridgeRuntimeDied)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -193,7 +193,7 @@ func TestWaitForHostMarkerReady_failsFastWhenProcessExits(t *testing.T) {
 	if !strings.Contains(err.Error(), "listen EPERM") {
 		t.Fatalf("stderr not in error: %v", err)
 	}
-	if !errors.Is(err, ErrNodeRuntimeDied) && !strings.Contains(err.Error(), "node runtime process exited") {
+	if !errors.Is(err, ErrBridgeRuntimeDied) && !strings.Contains(err.Error(), "node runtime process exited") {
 		t.Fatalf("exit reason not in error: %v", err)
 	}
 	if elapsed > 2*time.Second {

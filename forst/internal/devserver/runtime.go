@@ -304,7 +304,7 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 		args.LogLevel = cfg.Dev.LogLevel
 	}
 	comp := deps.NewCompiler(args, log)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, err := comp.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, err := comp.CompileWithBridgeRuntime()
 	if err != nil {
 		return "", 0, err
 	}
@@ -312,9 +312,9 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 		var sandbox compiler.CompileSandboxTiming
 		var outputPath string
 		if deps.CreateOutputForReload != nil {
-			outputPath, err = deps.CreateOutputForReload(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, &sandbox)
+			outputPath, err = deps.CreateOutputForReload(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, &sandbox)
 		} else {
-			outputPath, err = compiler.CreateDevReloadOutputFiles(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, deps.ModTidyCache, &sandbox)
+			outputPath, err = compiler.CreateDevReloadOutputFiles(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, deps.ModTidyCache, &sandbox)
 		}
 		if err != nil {
 			return "", 0, err
@@ -337,7 +337,7 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 		comp.LogCompilePhaseTiming(timings)
 		return binPath, goBuildMs, nil
 	}
-	outputPath, err := deps.CreateOutput(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
+	outputPath, err := deps.CreateOutput(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
 	if err != nil {
 		return "", 0, err
 	}

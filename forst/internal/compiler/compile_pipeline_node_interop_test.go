@@ -19,17 +19,17 @@ func TestCompileNodeInteropExample(t *testing.T) {
 		PackageRoot: exampleRoot,
 		LogLevel:    "error",
 	}, nil)
-	main, runtime, _, _, _, err := c.CompileWithNodeRuntime()
+	main, runtime, _, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime: %v", err)
+		t.Fatalf("CompileWithBridgeRuntime: %v", err)
 	}
-	if !strings.Contains(main, "forst_node_callsync_") {
+	if !strings.Contains(main, "forst_bridge_callsync_") {
 		t.Fatalf("missing bridge wrapper in main:\n%s", main)
 	}
 	if runtime == "" || !strings.Contains(runtime, "bridgert.CallSync") {
 		t.Fatalf("missing bridgert.CallSync in runtime:\n%s", runtime)
 	}
-	if !strings.Contains(runtime, "forstNodeManifestJSON") {
+	if !strings.Contains(runtime, "forstBridgeManifestJSON") {
 		t.Fatalf("missing manifest in runtime:\n%s", runtime)
 	}
 }

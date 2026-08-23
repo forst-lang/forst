@@ -238,12 +238,12 @@ func TestClient_pingAfterServerClose_fails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected Ping error after server closed")
 	}
-	if !errors.Is(err, ErrNodeRuntimeDied) && !strings.Contains(err.Error(), "closed") {
+	if !errors.Is(err, ErrBridgeRuntimeDied) && !strings.Contains(err.Error(), "closed") {
 		t.Fatalf("Ping after close: %v", err)
 	}
 }
 
-func TestClient_inFlightCallFailsWithNodeRuntimeDied(t *testing.T) {
+func TestClient_inFlightCallFailsWithBridgeRuntimeDied(t *testing.T) {
 	t.Helper()
 	client, server := pairedClientServer(t, func(req Request) Response {
 		if req.Method == MethodCall {
@@ -270,8 +270,8 @@ func TestClient_inFlightCallFailsWithNodeRuntimeDied(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected in-flight call to fail")
 		}
-		if !errors.Is(err, ErrNodeRuntimeDied) {
-			t.Fatalf("in-flight err = %v want ErrNodeRuntimeDied", err)
+		if !errors.Is(err, ErrBridgeRuntimeDied) {
+			t.Fatalf("in-flight err = %v want ErrBridgeRuntimeDied", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("in-flight call did not fail")

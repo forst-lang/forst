@@ -77,9 +77,9 @@ func compileEmbeddedInvokePackageForGolden(t *testing.T, opts compileEmbeddedInv
 		ExportStructFields: opts.ExportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
+		t.Fatalf("CompileWithBridgeRuntime(%s): %v", absEntry, err)
 	}
 	return embeddedInvokeCompileOutput{Main: mainCode, Invoke: invokeCode}
 }
