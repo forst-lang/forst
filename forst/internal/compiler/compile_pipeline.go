@@ -513,9 +513,10 @@ func (c *Compiler) bridgeHostModeEnabled() bool {
 	return cfg.Bridge.HostMode
 }
 
-// PreferPackageDirRunEmit sets OutputPath to a .gen.go beside the entry when `forst run`
-// can execute as a normal Go package (sibling hand-written .go participates via `go run .`).
-// Embedded invoke / bridge host mode keep the isolated sandbox.
+// PreferPackageDirRunEmit sets OutputPath beside the entry only when `generate.go` is
+// configured in ftconfig (or the caller already set -o). Otherwise OutputPath stays empty
+// so `forst run` uses the temp sandbox and does not litter `*.gen.go` next to source.
+// Embedded invoke / bridge host mode always keep the isolated sandbox.
 func (c *Compiler) PreferPackageDirRunEmit() {
 	if c.Args.Command != "run" || c.Args.OutputPath != "" {
 		return
@@ -523,17 +524,29 @@ func (c *Compiler) PreferPackageDirRunEmit() {
 	if c.useEmbeddedInvokeRuntime() || c.bridgeHostModeEnabled() {
 		return
 	}
-	if out := c.defaultPackageGoOut(); out != "" {
+	if out := c.configuredPackageGoOut(); out != "" {
 		c.Args.OutputPath = out
 	}
 }
 
-func (c *Compiler) defaultPackageGoOut() string {
+// configuredPackageGoOut returns generate.go.out when ftconfig configures Go emit.
+func (c *Compiler) configuredPackageGoOut() string {
 	boundary := RunBoundaryRoot(c.Args)
-	if cfg, err := c.loadFtconfig(); err == nil && cfg != nil && cfg.Generate.Go.IsConfigured() {
-		if boundary != "" {
-			return cfg.Generate.Go.EffectiveGoOut(boundary)
-		}
+	if boundary == "" {
+		return ""
+	}
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil || !cfg.Generate.Go.IsConfigured() {
+		return ""
+	}
+	return cfg.Generate.Go.EffectiveGoOut(boundary)
+}
+
+// defaultPackageGoOut resolves the Go emit path for plain `forst build`: configured
+// generate.go.out first, else stem.gen.go beside the entry (needed for `go build .`).
+func (c *Compiler) defaultPackageGoOut() string {
+	if out := c.configuredPackageGoOut(); out != "" {
+		return out
 	}
 	entry := c.Args.FilePath
 	if entry == "" {

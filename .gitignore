@@ -284,6 +284,10 @@ out
 # Remix / Vite example build output
 examples/in/**/build/
 
+# Ad-hoc `forst run` must not commit litter beside loose examples/in/*.ft
+# (intentional package emits live under examples/in/<pkg>/*.gen.go).
+/examples/in/*.gen.go
+
 # Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
 forst/.gocache/
 forst/.gotmp/

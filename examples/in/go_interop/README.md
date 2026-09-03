@@ -13,9 +13,10 @@ Shows two ways Forst calls Go:
 
 ## CLI
 
-`forst run` emits into the package (default `*.gen.go` or `generate.go.out`) and wraps
-`go run .`, so **same-package hand-written `.go` participates**. Embedded invoke /
-bridge host mode still uses an isolated sandbox.
+When `ftconfig.json` configures `generate.go` (or you pass `-o`), `forst run` emits
+beside the package and wraps `go run .`, so **same-package hand-written `.go` participates**.
+Without that, `forst run` uses a temp sandbox (no `*.gen.go` next to source). Embedded
+invoke / bridge host mode always use an isolated sandbox.
 
 ```bash
 task example:go-interop
