@@ -1,6 +1,6 @@
 {
   "name": "@forst/runtime",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Runs JavaScript and TypeScript from compiled Forst programs (RPC bootstrap, host mode, and compile-time type indexing)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

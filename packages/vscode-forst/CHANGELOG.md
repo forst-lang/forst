@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.4.0...vscode-forst-v0.5.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **interop:** node.loader is deprecated; use javascript.legacyModules.format. The default runtime mode is compiled JavaScript, not tsx-backed TypeScript source. Set javascript.legacyModules.format to typescript to restore the previous behavior.
+* **imports:** Migrate in one step — no compatibility shims remain. 1. Replace `import "./path" node` with `import "./path" js`. 2. Collapse `ftconfig.node` and `ftconfig.javascript` into `bridge` (use    `bridge.legacyModules.format` instead of `node.loader`). 3. `npm install @forst/runtime` and remove `@forst/node-runtime`. 4. Rename deploy env vars `FORST_NODE_*` to `FORST_BRIDGE_*`. 5. Point bootstrap defaults to `node_modules/@forst/runtime/dist/bootstrap.js`. 6. Replace CLI flag `-require-no-node` with `-require-no-bridge`.
+
+### Features
+
+* **docs:** add client-side Forst syntax highlighter for Mintlify ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **imports:** safe local names for node imports with LSP quickfixes ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **interop:** support Bun and Deno as JavaScript bridge hosts ([#190](https://github.com/forst-lang/forst/issues/190)) ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **vscode:** highlight nominal errors at or-use sites ([#192](https://github.com/forst-lang/forst/issues/192)) ([c623ed9](https://github.com/forst-lang/forst/commit/c623ed937f38e9677599965a46a779336ad8da61))
+
+
+### Bug Fixes
+
+* **docs:** correct tokenizer spans and dark-mode colors ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **gointerop:** close mixed-package and stdlib gaps ([#196](https://github.com/forst-lang/forst/issues/196)) ([a918266](https://github.com/forst-lang/forst/commit/a918266709c1aa5cd72d66aa6e70ed2d5e0afc0c))
+
 ## [0.4.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.4...vscode-forst-v0.4.0) (2026-07-11)
 
 

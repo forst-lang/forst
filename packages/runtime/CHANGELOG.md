@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/forst-lang/forst/compare/runtime-v0.4.2...runtime-v0.5.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **interop:** node.loader is deprecated; use javascript.legacyModules.format. The default runtime mode is compiled JavaScript, not tsx-backed TypeScript source. Set javascript.legacyModules.format to typescript to restore the previous behavior.
+* **imports:** Migrate in one step — no compatibility shims remain. 1. Replace `import "./path" node` with `import "./path" js`. 2. Collapse `ftconfig.node` and `ftconfig.javascript` into `bridge` (use    `bridge.legacyModules.format` instead of `node.loader`). 3. `npm install @forst/runtime` and remove `@forst/node-runtime`. 4. Rename deploy env vars `FORST_NODE_*` to `FORST_BRIDGE_*`. 5. Point bootstrap defaults to `node_modules/@forst/runtime/dist/bootstrap.js`. 6. Replace CLI flag `-require-no-node` with `-require-no-bridge`.
+
+### Features
+
+* **imports:** safe local names for node imports with LSP quickfixes ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **interop:** support Bun and Deno as JavaScript bridge hosts ([#190](https://github.com/forst-lang/forst/issues/190)) ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+
 ## [0.4.2](https://github.com/forst-lang/forst/compare/runtime-v0.4.1...node-runtime-v0.4.2) (2026-08-16)
 
 
