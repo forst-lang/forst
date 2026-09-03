@@ -1,0 +1,18 @@
+package main
+
+import "fmt"
+
+// Bool ensure uses the True() constraint (not a bare bool or `is true`).
+error PebbleFail {reason: String}
+
+func checkFlag(ok Bool): Result(String, Error) {
+	ensure ok is True()
+	    or PebbleFail({reason: "flag was false"})
+	return "ok"
+}
+
+func main() {
+	r := checkFlag(true)
+	ensure r is Ok()
+	fmt.Println(r)
+}

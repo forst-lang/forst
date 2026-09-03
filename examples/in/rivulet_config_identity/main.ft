@@ -1,0 +1,14 @@
+package main
+
+import (
+	"example.com/rivulet_config_identity/app"
+	"example.com/rivulet_config_identity/config"
+	"fmt"
+)
+
+func main() {
+	cfg := config.Load()
+	err := app.Run(cfg)
+	ensure !err
+	fmt.Println(cfg.Port)
+}

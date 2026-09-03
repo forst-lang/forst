@@ -28,3 +28,4 @@ Exploration of **`T | Nil`** (Crystal-style **`T?`**) vs Go’s **`(value, error
 - [PHILOSOPHY.md](../../../../PHILOSOPHY.md) — explicit errors, TypeScript + Go interop.
 - [ROADMAP.md](../../../../ROADMAP.md) — narrowing, `error`.
 - [Error system RFC](../errors/README.md), [generics RFC](../generics/README.md).
+- [Analyzable refinements](../refinements/README.md) — assertion `or` vs typed `else`; `|` for types; literal unions; type-guard fail-closed.

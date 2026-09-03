@@ -1,0 +1,12 @@
+package main
+
+import "net/http"
+
+import "fmt"
+
+func main() {
+	mux := http.NewServeMux()
+	srv := &http.Server{}
+	srv.Handler = mux
+	fmt.Println(srv.Handler != nil)
+}

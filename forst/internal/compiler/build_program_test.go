@@ -4,16 +4,21 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"forst/internal/programbuild"
 )
 
-func TestBuildNativeProgram_rejectsEmbeddedDisabled(t *testing.T) {
+func TestBuildNativeProgram_plainPackageWithoutEmbedded(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping native build in short mode")
+	}
 	dir := t.TempDir()
 	ft := filepath.Join(dir, "main.ft")
 	if err := os.WriteFile(ft, []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/plainbuild\n\ngo 1.22\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg := `{"files":{"include":["**/*.ft"]}}`
@@ -26,9 +31,19 @@ func TestBuildNativeProgram_rejectsEmbeddedDisabled(t *testing.T) {
 		FilePath: ft,
 		LogLevel: "error",
 	}, silentCompilerTestLogger())
-	err := c.BuildNativeProgram(outDir, "", "")
-	if err == nil || !strings.Contains(err.Error(), "server.embedded") {
-		t.Fatalf("BuildNativeProgram() = %v", err)
+	if err := c.BuildNativeProgram(outDir, "", ""); err != nil {
+		t.Fatalf("BuildNativeProgram: %v", err)
+	}
+	manifest, err := programbuild.Load(outDir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if manifest.EmbeddedInvoke {
+		t.Fatal("plain build must set EmbeddedInvoke false")
+	}
+	binPath := filepath.Join(outDir, manifest.Binary)
+	if _, err := os.Stat(binPath); err != nil {
+		t.Fatalf("binary missing: %v", err)
 	}
 }
 

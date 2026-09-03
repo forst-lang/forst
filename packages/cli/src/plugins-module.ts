@@ -95,12 +95,16 @@ export interface EnsurePluginsOptions {
   fetchFn?: FetchImpl;
   fs?: ResolveForstBinaryFs;
   homedirFn?: () => string;
+  /**
+   * When true (plugins listed in ftconfig or an official plugin command is invoked),
+   * missing release assets fail loudly instead of soft-ignoring 404.
+   */
+  required?: boolean;
 }
 
 /**
  * Downloads and extracts official semantic plugin binaries into the compiler
- * version cache directory when missing. Missing release assets (404) are ignored
- * so older compiler versions keep working.
+ * version cache directory when missing.
  */
 export async function ensurePluginsForVersion(
   options: EnsurePluginsOptions
@@ -122,9 +126,20 @@ export async function ensurePluginsForVersion(
   try {
     response = await fetchWithRetry(fetchFn, url);
   } catch (e: unknown) {
+    if (options.required) {
+      const detail = e instanceof Error ? e.message : String(e);
+      throw new CompilerBinaryDownloadFailed(
+        `Failed to download Forst plugins from ${url}: ${detail}`
+      );
+    }
     return pluginsDir;
   }
   if (response.status === 404) {
+    if (options.required) {
+      throw new CompilerBinaryDownloadFailed(
+        `Forst plugins are not published for compiler ${options.version} (${artifact}). Plugin not available for this compiler version.`
+      );
+    }
     return pluginsDir;
   }
   if (!response.ok) {

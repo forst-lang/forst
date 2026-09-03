@@ -39,3 +39,36 @@ func TestUnifyTypes_bitwiseRejectsBool(t *testing.T) {
 		t.Fatal("expected error for bool xor")
 	}
 }
+
+func TestUnifyTypes_bitwiseByteAndInt(t *testing.T) {
+	t.Parallel()
+	typecheckMustOK(t, `package main
+
+func maskPad(k []byte, i Int): []byte {
+	k[i] = k[i] ^ 0x36
+	return k
+}
+
+func main() {
+	b := []byte("hi")
+	println(len(maskPad(b, 0)))
+}
+`)
+}
+
+func TestUnifyTypes_bitwiseByteAndByte(t *testing.T) {
+	t.Parallel()
+	typecheckMustOK(t, `package main
+
+func xorInto(a []byte, b []byte, i Int): []byte {
+	a[i] = a[i] ^ b[i]
+	return a
+}
+
+func main() {
+	x := []byte{1}
+	y := []byte{2}
+	println(len(xorInto(x, y, 0)))
+}
+`)
+}

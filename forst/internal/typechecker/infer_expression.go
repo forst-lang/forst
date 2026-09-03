@@ -168,6 +168,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			tc.storeInferredType(e, []ast.TypeNode{elem})
 			return []ast.TypeNode{elem}, nil
 		}
+		if t.Ident == ast.TypeBytes {
+			if indexTypes[0].Ident != ast.TypeInt {
+				return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+			}
+			elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
+			tc.storeInferredType(e, []ast.TypeNode{elem})
+			return []ast.TypeNode{elem}, nil
+		}
 		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
 			return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
 		}
@@ -803,6 +811,14 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 			return nil, fmt.Errorf("index expression: string index must be Int, got %s", indexTypes[0].Ident)
 		}
 		elem := ast.TypeNode{Ident: ast.TypeInt}
+		tc.storeInferredType(e, []ast.TypeNode{elem})
+		return []ast.TypeNode{elem}, nil
+	}
+	if t.Ident == ast.TypeBytes {
+		if indexTypes[0].Ident != ast.TypeInt {
+			return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+		}
+		elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
 	}

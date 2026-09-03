@@ -1,0 +1,28 @@
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+)
+
+
+func FingerprintTag(pepper String, value String): String {
+	h := sha256.New()
+	h.Write([]byte(pepper + "|" + value))
+	sum := h.Sum([]byte{})
+	return hex.EncodeToString(sum)
+}
+
+func useHMAC(key String, msg String): Int {
+	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write([]byte(msg))
+	out := mac.Sum([]byte{})
+	return len(out)
+}
+
+func main() {
+	fmt.Println(FingerprintTag("vault", "tag"))
+	fmt.Println(useHMAC("k", "m"))
+}

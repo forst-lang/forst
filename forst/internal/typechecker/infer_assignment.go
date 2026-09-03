@@ -6,6 +6,8 @@ import (
 
 	"forst/internal/ast"
 
+	"go/types"
+
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -199,6 +201,21 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					}
 					if len(resolvedTypes[i]) != 1 {
 						return fmt.Errorf("field assignment: right-hand side must have a single type")
+					}
+					lhsGo := tc.goTypeForExpression(l)
+					if lhsGo == nil {
+						lhsGo = tc.goTypeForForstType(lhsType)
+					}
+					var rhsGo types.Type
+					if i < len(assign.RValues) {
+						rhsGo = tc.goTypeForExpression(assign.RValues[i])
+					}
+					if rhsGo == nil {
+						rhsGo = tc.goTypeForForstType(resolvedTypes[i][0])
+					}
+					if lhsGo != nil && rhsGo != nil && types.AssignableTo(rhsGo, lhsGo) {
+						tc.storeInferredType(l, []ast.TypeNode{lhsType})
+						break
 					}
 					if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsType) {
 						return fmt.Errorf("assignment type mismatch: cannot assign %s to %s (expected %s)",

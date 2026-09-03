@@ -36,10 +36,10 @@ func (t *Transformer) coerceGoStringAliasExprForType(expr goast.Expr, tn ast.Typ
 	return expr
 }
 
-func (at *AssertionTransformer) transformStringBuiltinVariable(variable ast.VariableNode) (goast.Expr, error) {
-	expr, err := at.transformer.transformExpression(variable)
+func (at *AssertionTransformer) transformStringBuiltinVariable(subject ast.ExpressionNode) (goast.Expr, error) {
+	expr, err := at.transformer.transformExpression(subject)
 	if err != nil {
 		return nil, err
 	}
-	return at.transformer.coerceGoStringAliasExpr(expr, variable), nil
+	return at.transformer.coerceGoStringAliasExpr(expr, subject), nil
 }

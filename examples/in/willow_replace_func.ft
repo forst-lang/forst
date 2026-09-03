@@ -1,0 +1,24 @@
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+type WillowOut = { Text: String }
+
+// Closure return type must stay String even when the outer function returns a shape/Result.
+func RedactWillow(text String): Result(WillowOut, Error) {
+	re := regexp.MustCompile("a+")
+	out := text
+	out = re.ReplaceAllStringFunc(out, func(m String): String {
+		return "x"
+	})
+	return { Text: out }
+}
+
+func main() {
+	r := RedactWillow("baa")
+	ensure r is Ok()
+	fmt.Println(r.Text)
+}

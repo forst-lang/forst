@@ -65,6 +65,7 @@ func (c *Compiler) validateWatchConfig() error {
 }
 
 func (c *Compiler) compileAndRunOnce() {
+	c.PreferPackageDirRunEmit()
 	mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		c.log.Error(err)
@@ -78,6 +79,8 @@ func (c *Compiler) compileAndRunOnce() {
 
 func (c *Compiler) resolveOutputPathForRun(mainCode, bridgeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) (string, error) {
 	if c.Args.OutputPath != "" {
+		// Package-dir emit already wrote via CompileWithBridgeRuntime; only create a
+		// sandbox when companions are present but were not written (OutputPath empty path).
 		return c.Args.OutputPath, nil
 	}
 	return createTempOutputFileForWatch(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports, RunBoundaryRoot(c.Args))

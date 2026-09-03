@@ -1,9 +1,26 @@
 package parser
 
 import (
+	"fmt"
 	"forst/internal/ast"
 	"strings"
 )
+
+// ensureMissingIsMessage explains that ensure requires `is` (bare Bool / `or` is not enough).
+func ensureMissingIsMessage(subject string, found ast.Token) string {
+	hint := fmt.Sprintf("for Bool use: ensure %s is True()", subject)
+	switch found.Type {
+	case ast.TokenOr:
+		return fmt.Sprintf("ensure requires 'is' before 'or'; %s", hint)
+	case ast.TokenGreater, ast.TokenLess, ast.TokenGreaterEqual, ast.TokenLessEqual,
+		ast.TokenEquals, ast.TokenNotEquals:
+		return fmt.Sprintf("ensure requires 'is' with a constraint (not a comparison); %s", hint)
+	case ast.TokenLParen:
+		return fmt.Sprintf("ensure subject must be an identifier (bind the call first); %s (found %s)", hint, found.Type)
+	default:
+		return fmt.Sprintf("ensure requires 'is' after the subject; %s (found %s)", hint, found.Type)
+	}
+}
 
 func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
 	body := []ast.Node{}
@@ -50,7 +67,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			},
 		}
 	} else {
-		// Parse the left side as a variable or field access
+		// Parse the left side as a variable or field access (identifiers only — no call subjects).
 		firstTok := p.expect(ast.TokenIdentifier)
 		curIdent := ast.Identifier(firstTok.Value)
 		lastTok := firstTok
@@ -68,7 +85,20 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			Ident: ast.Ident{ID: curIdent, Span: subjectSpan},
 		}
 
+		if p.current().Type != ast.TokenIs {
+			p.FailWithParseError(p.current(), ensureMissingIsMessage(string(curIdent), p.current()))
+		}
 		p.expect(ast.TokenIs)
+		if tok := p.current(); tok.Type == ast.TokenTrue || tok.Type == ast.TokenFalse {
+			want := "True()"
+			if tok.Type == ast.TokenFalse {
+				want = "False()"
+			}
+			p.FailWithParseError(tok, fmt.Sprintf(
+				"ensure predicate must be a constraint, not a boolean literal; use `ensure %s is %s`",
+				curIdent, want,
+			))
+		}
 		assertion = p.parseAssertionChain(false)
 
 		// Try to set the base type from the current scope if not set (simple subject only).

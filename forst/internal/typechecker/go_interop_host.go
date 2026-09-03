@@ -3,6 +3,7 @@ package typechecker
 import (
 	"sort"
 	"strconv"
+	"strings"
 
 	"go/types"
 
@@ -36,6 +37,10 @@ func (h *goInteropHost) GoTypeForForstType(f ast.TypeNode) types.Type {
 
 func (h *goInteropHost) InferExpressionType(expr ast.ExpressionNode) ([]ast.TypeNode, error) {
 	return (*TypeChecker)(h).inferExpressionType(expr)
+}
+
+func (h *goInteropHost) GoTypeForExpression(expr ast.ExpressionNode) types.Type {
+	return (*TypeChecker)(h).goTypeForExpression(expr)
 }
 
 // GoPackageForImportLocal returns the loaded Go package for an import local name, if any.
@@ -131,11 +136,60 @@ func (tc *TypeChecker) goTypeForForstType(f ast.TypeNode) types.Type {
 	case ast.TypeShape:
 		return tc.goTypeFromForstShapeType(f)
 	default:
+		if gt := tc.goNamedTypeForForstIdent(f.Ident); gt != nil {
+			return gt
+		}
 		if gt := tc.goTypeForForstUserType(f.Ident); gt != nil {
 			return gt
 		}
 		return nil
 	}
+}
+
+// goNamedTypeForForstIdent resolves a Forst type ident to a loaded Go named type when the
+// names match (same-package Go or a unique imported package). This bridges Forst shape
+// aliases to the emitted/sibling Go named struct for FFI assignability.
+func (tc *TypeChecker) goNamedTypeForForstIdent(ident ast.TypeIdent) types.Type {
+	name := string(ident)
+	if name == "" || strings.Contains(name, ".") {
+		return nil
+	}
+	if tc.samePackageGo != nil {
+		if obj := tc.samePackageGo.Scope().Lookup(name); obj != nil {
+			if tn, ok := obj.(*types.TypeName); ok {
+				return tn.Type()
+			}
+		}
+	}
+	var found types.Type
+	matches := 0
+	for local, pkg := range tc.goPkgsByLocal {
+		if pkg == nil {
+			continue
+		}
+		obj := pkg.Scope().Lookup(name)
+		if obj == nil {
+			continue
+		}
+		tn, ok := obj.(*types.TypeName)
+		if !ok {
+			continue
+		}
+		if _, ok := tc.Defs[ast.TypeIdent(local+"."+name)]; ok {
+			return tn.Type()
+		}
+		found = tn.Type()
+		matches++
+	}
+	if matches == 1 {
+		return found
+	}
+	if matches > 0 {
+		if _, ok := tc.Defs[ident]; ok && matches == 1 {
+			return found
+		}
+	}
+	return nil
 }
 
 func (tc *TypeChecker) goSignatureFromForstFunctionType(f ast.TypeNode) types.Type {

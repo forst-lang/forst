@@ -1,0 +1,13 @@
+package main
+
+// Go-style nested slice composites for table-driven data.
+func brookEdges(): [][]String {
+	return [][]String{[]String{"a", "b"}, []String{"c", "d"}}
+}
+
+func main() {
+	rows := brookEdges()
+	println(len(rows))
+	println(len(rows[0]))
+	println(rows[0][0])
+}

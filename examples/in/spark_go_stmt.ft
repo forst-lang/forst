@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func printHi() {
+	fmt.Println("spark")
+}
+
+func main() {
+	go printHi()
+	fmt.Println("done")
+}

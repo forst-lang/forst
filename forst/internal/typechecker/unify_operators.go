@@ -100,11 +100,24 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
 	leftType = tc.normalizeAliasForArithmetic(leftType)
 	rightType = tc.normalizeAliasForArithmetic(rightType)
-	if leftType.Ident != ast.TypeInt || rightType.Ident != ast.TypeInt {
+	if !isIntFamilyIdent(leftType.Ident) || !isIntFamilyIdent(rightType.Ident) {
 		return ast.TypeNode{}, fmt.Errorf("bitwise operator requires Int operands, got %s and %s",
 			leftType.Ident, rightType.Ident)
 	}
-	return ast.TypeNode{Ident: ast.TypeInt}, nil
+	byteID := ast.TypeIdent("byte")
+	switch {
+	case leftType.Ident == byteID && rightType.Ident == byteID:
+		return ast.TypeNode{Ident: byteID}, nil
+	case leftType.Ident == byteID && rightType.Ident == ast.TypeInt:
+		// Untyped/Int mask against byte (e.g. b ^ 0x36), like Go.
+		return ast.TypeNode{Ident: byteID}, nil
+	case leftType.Ident == ast.TypeInt && rightType.Ident == byteID:
+		return ast.TypeNode{Ident: byteID}, nil
+	case leftType.Ident == rightType.Ident:
+		return leftType, nil
+	default:
+		return ast.TypeNode{Ident: ast.TypeInt}, nil
+	}
 }
 
 // unifyArithmeticOperator handles type unification for arithmetic operators

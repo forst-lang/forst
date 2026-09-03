@@ -223,6 +223,10 @@ func runMain(argv []string) int {
 			return 1
 		}
 	} else {
+		if args.Command == "run" {
+			p.PreferPackageDirRunEmit()
+			args.OutputPath = p.Args.OutputPath
+		}
 		mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithBridgeRuntime()
 		if err != nil {
 			log.Error(err)

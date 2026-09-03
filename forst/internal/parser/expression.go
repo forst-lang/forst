@@ -420,7 +420,7 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 			ArgSpans:  argSpans,
 		}
 	}
-	if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) {
+	if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) && p.looksLikeTypedCompositeOrShapeBody() {
 		typeIdent := ast.TypeIdent(string(ident.ID))
 		return p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
 	}

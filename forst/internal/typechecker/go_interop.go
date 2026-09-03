@@ -384,6 +384,10 @@ func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fie
 		goTyp = o.Type()
 	case *types.Const:
 		goTyp = o.Type()
+	case *types.Func:
+		goTyp = o.Type()
+	case *types.TypeName:
+		return ast.TypeNode{}, fmt.Errorf("%s.%s is a type, not a value", local, fieldPath[0])
 	default:
 		return ast.TypeNode{}, fmt.Errorf("%s.%s is not a package variable", local, fieldPath[0])
 	}
@@ -565,7 +569,19 @@ func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 		if gt := tc.variableGoTypes[e.Ident.ID]; gt != nil {
 			return gt
 		}
+		parts := strings.Split(string(e.Ident.ID), ".")
+		if len(parts) > 1 {
+			if base := tc.variableGoTypes[ast.Identifier(parts[0])]; base != nil {
+				last, err := goTypeAtFieldPath(base, parts[1:])
+				if err == nil {
+					return last
+				}
+			}
+		}
 	case ast.FunctionCallNode:
+		if gt := tc.goTypeFromBuiltinNewCall(e); gt != nil {
+			return gt
+		}
 		if sig := tc.goFuncSignatureFromCall(e); sig != nil && sig.Results().Len() > 0 {
 			return sig.Results().At(0).Type()
 		}
@@ -594,6 +610,16 @@ func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 				return types.NewSlice(u.Elem())
 			}
 		}
+	case ast.ReferenceNode:
+		if inner := tc.goTypeForExpression(e.Value); inner != nil {
+			return types.NewPointer(inner)
+		}
+	case ast.ShapeNode:
+		if e.BaseType != nil {
+			if gt := tc.goTypeForQualifiedImportTypeIdent(*e.BaseType); gt != nil {
+				return gt
+			}
+		}
 	}
 	return nil
 }
@@ -612,25 +638,57 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if len(assign.RValues) != 1 {
 		return
 	}
-	fc, ok := assign.RValues[0].(ast.FunctionCallNode)
+	if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
+		if gt := tc.goTypeFromBuiltinNewCall(fc); gt != nil && len(assign.LValues) == 1 {
+			if vn, ok := assign.LValues[0].(ast.VariableNode); ok {
+				tc.variableGoTypes[vn.Ident.ID] = gt
+			}
+			return
+		}
+		sig := tc.goFuncSignatureFromCall(fc)
+		if sig == nil {
+			return
+		}
+		res := sig.Results()
+		if res.Len() != len(assign.LValues) {
+			// Arity mismatch (e.g. multi-return wrapped as Tuple): do not bind Go types.
+			return
+		}
+		for i, lv := range assign.LValues {
+			vn, ok := lv.(ast.VariableNode)
+			if !ok {
+				continue
+			}
+			tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+		}
+		return
+	}
+	if len(assign.LValues) != 1 {
+		return
+	}
+	vn, ok := assign.LValues[0].(ast.VariableNode)
 	if !ok {
 		return
 	}
-	sig := tc.goFuncSignatureFromCall(fc)
-	if sig == nil {
-		return
+	if gt := tc.goTypeForExpression(assign.RValues[0]); gt != nil {
+		tc.variableGoTypes[vn.Ident.ID] = gt
 	}
-	res := sig.Results()
-	if res.Len() != len(assign.LValues) {
-		return
+}
+
+// goTypeFromBuiltinNewCall returns *T when call is new(T) and T maps to a Go type.
+func (tc *TypeChecker) goTypeFromBuiltinNewCall(fc ast.FunctionCallNode) types.Type {
+	if string(fc.Function.ID) != "new" || len(fc.Arguments) != 1 {
+		return nil
 	}
-	for i, lv := range assign.LValues {
-		vn, ok := lv.(ast.VariableNode)
-		if !ok {
-			continue
-		}
-		tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+	te, ok := fc.Arguments[0].(ast.TypeExpressionNode)
+	if !ok {
+		return nil
 	}
+	elem := tc.goTypeForForstType(te.Type)
+	if elem == nil {
+		return nil
+	}
+	return types.NewPointer(elem)
 }
 
 func (tc *TypeChecker) goFuncSignatureFromCall(fc ast.FunctionCallNode) *types.Signature {
@@ -667,3 +725,4 @@ func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName str
 	}
 	return sig
 }
+

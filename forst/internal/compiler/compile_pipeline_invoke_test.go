@@ -771,3 +771,47 @@ func main() {}
 		t.Fatalf("new invoke companion missing at %s: %v", newInvoke, err)
 	}
 }
+
+func TestCompile_generate_neverEmitsInvokeCompanion(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module gladetest\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+  return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "main.gen.go")
+	c := New(Args{
+		Command:     "generate",
+		FilePath:    filepath.Join(dir, "main.ft"),
+		PackageRoot: dir,
+		OutputPath:  outPath,
+		LogLevel:    "error",
+	}, nil)
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if invokeCode != "" {
+		t.Fatalf("generate must not emit invoke companion, got:\n%s", invokeCode)
+	}
+	if strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
+		t.Fatalf("generate main must not call ForstInvokeWaitForShutdown:\n%s", mainCode)
+	}
+	if _, err := os.Stat(invokeServerOutputPath(outPath)); err == nil {
+		t.Fatal("generate must not write *_invoke_server*.gen.go beside --go-out")
+	}
+}

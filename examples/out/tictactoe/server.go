@@ -60,10 +60,10 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	}
 	col := req.Col
 	if col <= -1 {
-		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("col must be >= 0")
+		return MoveResponse{State: GameState{Status: "", Cells: nil, NextPlayer: ""}, Message: ""}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
-		return MoveResponse{Message: "", State: GameState{Status: "", Cells: nil, NextPlayer: ""}}, invalidMove("col must be <= 2")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
 	}
 	idx := cellIndex(row, col)
 	cellEmpty := req.State.Cells[idx] == ""
