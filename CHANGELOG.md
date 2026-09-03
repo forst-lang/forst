@@ -12,6 +12,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.18.0](https://github.com/forst-lang/forst/compare/v0.17.1...v0.18.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridgert:** `EnvNodeAttachOnly` is renamed to `EnvBridgeAttachOnly` and `ResolveNodeBinary` is renamed to `ResolveBridgeBinary`. Error messages now use the bridge runtime and bridge host prefixes instead of node runtime.
+* **interop:** node.loader is deprecated; use javascript.legacyModules.format. The default runtime mode is compiled JavaScript, not tsx-backed TypeScript source. Set javascript.legacyModules.format to typescript to restore the previous behavior.
+* **imports:** Migrate in one step — no compatibility shims remain. 1. Replace `import "./path" node` with `import "./path" js`. 2. Collapse `ftconfig.node` and `ftconfig.javascript` into `bridge` (use    `bridge.legacyModules.format` instead of `node.loader`). 3. `npm install @forst/runtime` and remove `@forst/node-runtime`. 4. Rename deploy env vars `FORST_NODE_*` to `FORST_BRIDGE_*`. 5. Point bootstrap defaults to `node_modules/@forst/runtime/dist/bootstrap.js`. 6. Replace CLI flag `-require-no-node` with `-require-no-bridge`.
+
+### Features
+
+* **docs:** add client-side Forst syntax highlighter for Mintlify ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **generics:** add user-defined generic functions ([#195](https://github.com/forst-lang/forst/issues/195)) ([1fc37bc](https://github.com/forst-lang/forst/commit/1fc37bc6750264095c90ee99f1c5bb1c71af5fae))
+* **imports:** safe local names for node imports with LSP quickfixes ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **interop:** support Bun and Deno as JavaScript bridge hosts ([#190](https://github.com/forst-lang/forst/issues/190)) ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **vscode:** highlight nominal errors at or-use sites ([#192](https://github.com/forst-lang/forst/issues/192)) ([c623ed9](https://github.com/forst-lang/forst/commit/c623ed937f38e9677599965a46a779336ad8da61))
+
+
+### Bug Fixes
+
+* **docs:** correct tokenizer spans and dark-mode colors ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **gointerop:** close mixed-package and stdlib gaps ([#196](https://github.com/forst-lang/forst/issues/196)) ([a918266](https://github.com/forst-lang/forst/commit/a918266709c1aa5cd72d66aa6e70ed2d5e0afc0c))
+
+
+### Code Refactoring
+
+* **bridgert:** unify bridge naming and extract spawn hooks ([#194](https://github.com/forst-lang/forst/issues/194)) ([aa23ee0](https://github.com/forst-lang/forst/commit/aa23ee06fdfdb2f73213d9affcf947fcb441e512))
+
 ## [0.17.1](https://github.com/forst-lang/forst/compare/v0.17.0...v0.17.1) (2026-08-18)
 
 
