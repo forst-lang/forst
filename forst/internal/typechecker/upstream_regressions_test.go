@@ -26,7 +26,7 @@ func typecheckMustOK(t *testing.T, src string) {
 	}
 }
 
-func TestRegression_vaultHash_cryptoSHA256AndHMAC(t *testing.T) {
+func TestRegression_cryptoSHA256AndHMAC(t *testing.T) {
 	t.Parallel()
 	typecheckMustOK(t, `package main
 
@@ -57,7 +57,7 @@ func main() {
 `)
 }
 
-func TestRegression_sparkGoStmt(t *testing.T) {
+func TestRegression_goStmt(t *testing.T) {
 	t.Parallel()
 	typecheckMustOK(t, `package main
 

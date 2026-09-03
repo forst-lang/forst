@@ -2,8 +2,8 @@ package main
 
 import "fmt"
 
-// Hex ints and byte^Int masks (tip handoff 10).
-func flintMask(k []byte): []byte {
+// Hex ints and byte^Int masks.
+func xorMask(k []byte): []byte {
 	i := 0
 	for i < len(k) {
 		k[i] = k[i] ^ 0x36
@@ -14,6 +14,6 @@ func flintMask(k []byte): []byte {
 
 func main() {
 	b := []byte("ab")
-	fmt.Println(flintMask(b)[0])
+	fmt.Println(xorMask(b)[0])
 	fmt.Println(0x36)
 }

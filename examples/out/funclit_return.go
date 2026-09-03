@@ -3,21 +3,21 @@ package main
 import "regexp"
 import fmt "fmt"
 import os "os"
-// WillowOut: TypeDefShapeExpr({Text: String})
-type WillowOut struct {
+// RedactOut: TypeDefShapeExpr({Text: String})
+type RedactOut struct {
 	Text string
 }
 
-func RedactWillow(text string) (WillowOut, error) {
+func Redact(text string) (RedactOut, error) {
 	re := regexp.MustCompile("a+")
 	out := text
 	out = re.ReplaceAllStringFunc(out, func(m string) string {
 		return "x"
 	})
-	return WillowOut{Text: out}, nil
+	return RedactOut{Text: out}, nil
 }
 func main() {
-	r, rErr := RedactWillow("baa")
+	r, rErr := Redact("baa")
 	if !(rErr == nil) {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", rErr)

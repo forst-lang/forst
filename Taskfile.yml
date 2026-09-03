@@ -398,6 +398,90 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
 
+  example:ensure-true:
+    desc: Compile ensure_true example (ensure ok is True())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure_true.ft
+
+  example:nested-slices:
+    desc: Compile nested_slices example (Go-style [][]T composites)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/nested_slices.ft
+
+  example:hex-byte-xor:
+    desc: Compile hex_byte_xor example (0x literals and byte^Int)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/hex_byte_xor.ft
+
+  example:http-handler-assign:
+    desc: Compile http_handler_assign example (ServeMux to Server.Handler)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/http_handler_assign.ft
+
+  example:go-stmt:
+    desc: Compile go_stmt example (go f())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_stmt.ft
+
+  example:crypto-hmac:
+    desc: Compile crypto_hmac example (sha256/hmac func values)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/crypto_hmac.ft
+
+  example:funclit-return:
+    desc: Compile funclit_return example (closure return vs outer Result)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/funclit_return.ft
+
+  example:go-ptr-composite:
+    desc: Compile go_ptr_composite example (&imported.T{…})
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_ptr_composite.ft
+
+  example:new-go-named:
+    desc: Compile new_go_named example (new(http.Request))
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/new_go_named.ft
+
+  example:http-err-closed-eq:
+    desc: Compile http_err_closed_eq example (err == http.ErrServerClosed)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/http_err_closed_eq.ft
+
+  example:plain-main:
+    desc: Compile plain_main package (generate without invoke companions)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/plain_main/main.ft
+
+  example:mixed-pkg:
+    desc: Compile mixed_pkg (Forst + sibling handwritten .go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/mixed_pkg/main.ft
+
+  example:new-imported-method:
+    desc: Compile new_imported_method (new(imported.T) then method call)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/new_imported_method/main.ft
+
+  example:config-identity:
+    desc: Compile config_identity (Forst shape alias assignable to Go named struct)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/config_identity/main.ft
+
   example:nominal-error:
     desc: Compile nominal error example (error X { ... } nominal failure type, RFC 02)
     dir: forst

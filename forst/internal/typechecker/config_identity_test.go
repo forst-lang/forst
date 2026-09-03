@@ -16,7 +16,7 @@ import (
 func TestForstAssignableToGoType_samePkgShapeAliasToGoNamedStruct(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("example.com/rivulet")), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("example.com/config_identity")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfgDir := filepath.Join(dir, "config")
@@ -32,11 +32,11 @@ type Config struct {
 		t.Fatal(err)
 	}
 	goload.ClearLoadCacheForTest()
-	loaded, err := goload.LoadByPkgPath(dir, []string{"example.com/rivulet/config"})
+	loaded, err := goload.LoadByPkgPath(dir, []string{"example.com/config_identity/config"})
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	pkg := loaded["example.com/rivulet/config"]
+	pkg := loaded["example.com/config_identity/config"]
 	if pkg == nil || pkg.Types == nil {
 		t.Fatal("config package missing")
 	}
@@ -52,7 +52,7 @@ type Config struct {
 	log.SetLevel(logrus.PanicLevel)
 	tc := New(log, false)
 	tc.GoWorkspaceDir = dir
-	tc.importPathByLocal = map[string]string{"config": "example.com/rivulet/config"}
+	tc.importPathByLocal = map[string]string{"config": "example.com/config_identity/config"}
 	tc.goPkgsByLocal = map[string]*types.Package{"config": pkg.Types}
 	tc.Defs[ast.TypeIdent("Config")] = ast.TypeDefNode{
 		Ident: ast.TypeIdent("Config"),

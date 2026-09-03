@@ -2,23 +2,23 @@ package main
 
 import "fmt"
 import os "os"
-// PebbleFail: TypeDefErrorExpr({reason: String})
-type PebbleFail struct {
+// FlagFail: TypeDefErrorExpr({reason: String})
+type FlagFail struct {
 	reason string
 }
 // T_CQ83zP8NNan: TypeDefShapeExpr({})
 type T_CQ83zP8NNan struct {
 }
 
-func (e PebbleFail) Error() string {
+func (e FlagFail) Error() string {
 	return "error"
 }
-func (e PebbleFail) ForstErrorTag() string {
-	return "main/PebbleFail"
+func (e FlagFail) ForstErrorTag() string {
+	return "main/FlagFail"
 }
 func checkFlag(ok bool) (string, error) {
 	if !ok {
-		return "", PebbleFail{reason: "flag was false"}
+		return "", FlagFail{reason: "flag was false"}
 	}
 	return "ok", nil
 }

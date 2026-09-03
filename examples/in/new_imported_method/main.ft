@@ -1,7 +1,7 @@
 package main
 
 import (
-	"example.com/meadow_pointer/store"
+	"example.com/new_imported_method/store"
 	"fmt"
 )
 

@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 func printHi() {
-	fmt.Println("spark")
+	fmt.Println("hi")
 }
 
 func main() {

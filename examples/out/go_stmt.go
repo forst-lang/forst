@@ -7,5 +7,5 @@ func main() {
 	fmt.Println("done")
 }
 func printHi() (int, error) {
-	return fmt.Println("spark")
+	return fmt.Println("hi")
 }

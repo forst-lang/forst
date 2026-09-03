@@ -5,10 +5,10 @@ import (
 	"regexp"
 )
 
-type WillowOut = { Text: String }
+type RedactOut = { Text: String }
 
 // Closure return type must stay String even when the outer function returns a shape/Result.
-func RedactWillow(text String): Result(WillowOut, Error) {
+func Redact(text String): Result(RedactOut, Error) {
 	re := regexp.MustCompile("a+")
 	out := text
 	out = re.ReplaceAllStringFunc(out, func(m String): String {
@@ -18,7 +18,7 @@ func RedactWillow(text String): Result(WillowOut, Error) {
 }
 
 func main() {
-	r := RedactWillow("baa")
+	r := Redact("baa")
 	ensure r is Ok()
 	fmt.Println(r.Text)
 }

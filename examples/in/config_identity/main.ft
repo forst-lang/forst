@@ -1,8 +1,8 @@
 package main
 
 import (
-	"example.com/rivulet_config_identity/app"
-	"example.com/rivulet_config_identity/config"
+	"example.com/config_identity/app"
+	"example.com/config_identity/config"
 	"fmt"
 )
 

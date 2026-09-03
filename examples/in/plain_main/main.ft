@@ -4,5 +4,5 @@ import "fmt"
 
 // Plain main: generate/--go-out must not inject invoke shutdown or companions.
 func main() {
-	fmt.Println("glade")
+	fmt.Println("plain")
 }
