@@ -109,7 +109,7 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 	}
 	tok = hoverTokenAdjustForMemberOpenParen(ctx.Tokens, position, tok)
 	if ctx.ParseErr != nil {
-		if text := lexicalHoverMarkdown(tok); text != "" {
+		if text := lexicalHoverMarkdown(ctx.Tokens, tok); text != "" {
 			return basicHoverMarkdown(text)
 		}
 		return nil
@@ -121,12 +121,15 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 }
 
 // lexicalHoverMarkdown returns hover text without type information (parse failed or no TC).
-func lexicalHoverMarkdown(tok *ast.Token) string {
+func lexicalHoverMarkdown(tokens []ast.Token, tok *ast.Token) string {
 	if tok == nil {
 		return ""
 	}
 	if literalHover(tok) {
 		return ""
+	}
+	if md := ampersandHoverMarkdown(tokens, tok); md != "" {
+		return md
 	}
 	if kw := keywordHover(tok); kw != "" {
 		return kw
@@ -333,6 +336,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if s := mapIndexLBracketHoverMarkdown(tc, tokens, tok); s != "" {
 			return s
 		}
+	}
+	if md := ampersandHoverMarkdown(tokens, tok); md != "" {
+		return md
 	}
 	if tok.Type == ast.TokenStringLiteral {
 		if s := goHoverFromImportString(tc, tokens, tok); s != "" {
@@ -889,12 +895,31 @@ func literalHover(tok *ast.Token) bool {
 }
 
 // keywordHover returns markdown for documented keywords and built-in type tokens (see
-// internal/hoverdoc).
+// internal/hoverdoc). Ampersand (`&`) is handled by ampersandHoverMarkdown instead.
 func keywordHover(tok *ast.Token) string {
 	if tok == nil {
 		return ""
 	}
+	if tok.Type == ast.TokenBitwiseAnd {
+		return ""
+	}
 	return hoverdoc.MarkdownForKeywordToken(tok.Type)
+}
+
+// ampersandHoverMarkdown disambiguates unary address-of vs binary bitwise AND for `&`.
+func ampersandHoverMarkdown(tokens []ast.Token, tok *ast.Token) string {
+	if tok == nil || tok.Type != ast.TokenBitwiseAnd {
+		return ""
+	}
+	idx := tokenSliceIndex(tokens, tok)
+	if idx >= 0 && ast.IsUnaryAmpersandAt(tokens, idx) {
+		return hoverdoc.AddressOfAmpersandMarkdown()
+	}
+	if idx < 0 {
+		// No token context: prefer address-of (common bug: &T{} shown as bitwise AND).
+		return hoverdoc.AddressOfAmpersandMarkdown()
+	}
+	return hoverdoc.BitwiseAndAmpersandMarkdown()
 }
 
 // subjectExprStringBeforeIs returns the variable or field path immediately before `is` (e.g. `n` in

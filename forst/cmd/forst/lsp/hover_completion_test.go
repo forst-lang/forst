@@ -329,14 +329,14 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 
 func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
 	t.Parallel()
-	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); !strings.Contains(s, "**`func`**") {
+	if s := lexicalHoverMarkdown(nil, &ast.Token{Type: ast.TokenFunc, Value: "func"}); !strings.Contains(s, "**`func`**") {
 		t.Fatalf("keyword: got %q", s)
 	}
 	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
-	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "```ft") || !strings.Contains(s, "foo") || !strings.Contains(s, "parses") {
+	if s := lexicalHoverMarkdown(nil, id); !strings.Contains(s, "```ft") || !strings.Contains(s, "foo") || !strings.Contains(s, "parses") {
 		t.Fatalf("identifier: got %q", s)
 	}
-	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenIntLiteral, Value: "1"}); s != "" {
+	if s := lexicalHoverMarkdown(nil, &ast.Token{Type: ast.TokenIntLiteral, Value: "1"}); s != "" {
 		t.Fatalf("literal: got %q", s)
 	}
 }
@@ -857,7 +857,7 @@ func TestLexicalHoverMarkdown_trueFalseNil(t *testing.T) {
 	}
 	for _, tc := range cases {
 		tok := ast.Token{Type: tc.tok, Value: tc.want}
-		s := lexicalHoverMarkdown(&tok)
+		s := lexicalHoverMarkdown(nil, &tok)
 		if s == "" || !strings.Contains(s, tc.want) {
 			t.Fatalf("%v: got %q", tc.tok, s)
 		}
@@ -1318,6 +1318,99 @@ func main() {
 	val := h.Contents.Value
 	if !strings.Contains(val, "Result(V, Error)") || !strings.Contains(val, "ensure") {
 		t.Fatalf("expected map index hover, got %q", val)
+	}
+}
+
+func TestFindHoverForPosition_addressOfAmpersand(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func main() {
+	n := 1
+	p := &n
+}
+`
+	_, uri := importTestModuleFile(t, "addr_of_hover.ft", src)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	var amp *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenBitwiseAnd {
+			amp = tok
+			break
+		}
+	}
+	if amp == nil {
+		t.Fatal("no & token")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: amp.Line - 1, Character: amp.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on &")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Address-of") {
+		t.Fatalf("expected address-of hover, got %q", val)
+	}
+	if strings.Contains(val, "Bitwise AND") {
+		t.Fatalf("unary & must not show Bitwise AND: %q", val)
+	}
+}
+
+func TestFindHoverForPosition_bitwiseAndAmpersand(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func main() {
+	a := 1
+	b := 2
+	x := a & b
+}
+`
+	_, uri := importTestModuleFile(t, "bitwise_and_hover.ft", src)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	var amp *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenBitwiseAnd {
+			amp = tok
+			break
+		}
+	}
+	if amp == nil {
+		t.Fatal("no & token")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: amp.Line - 1, Character: amp.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on &")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Bitwise AND") {
+		t.Fatalf("expected bitwise AND hover, got %q", val)
+	}
+	if strings.Contains(val, "Address-of") {
+		t.Fatalf("binary & must not show Address-of: %q", val)
 	}
 }
 

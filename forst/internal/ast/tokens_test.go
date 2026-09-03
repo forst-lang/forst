@@ -24,6 +24,12 @@ func TestTokenIdent_predicates(t *testing.T) {
 	if TokenImport.IsLiteral() || TokenImport.IsBinaryOperator() {
 		t.Fatal("TokenImport should not be literal/binary")
 	}
+	if !TokenIdentifier.CanEndOperand() || !TokenRParen.CanEndOperand() || !TokenIntLiteral.CanEndOperand() {
+		t.Fatal("CanEndOperand should be true for identifiers, ), literals")
+	}
+	if TokenColonEquals.CanEndOperand() || TokenLParen.CanEndOperand() || TokenBitwiseAnd.CanEndOperand() {
+		t.Fatal("CanEndOperand should be false for :=, (, &")
+	}
 }
 
 func TestTokenIdent_String_default_branch(t *testing.T) {
