@@ -144,7 +144,7 @@ func transformConstraintArg(arg ast.ConstraintArgumentNode) (goast.Expr, error) 
 	if arg.Value != nil {
 		switch v := (*arg.Value).(type) {
 		case ast.IntLiteralNode:
-			return &goast.BasicLit{Kind: gotoken.INT, Value: strconv.FormatInt(v.Value, 10)}, nil
+			return &goast.BasicLit{Kind: gotoken.INT, Value: v.Source()}, nil
 		case ast.StringLiteralNode:
 			return &goast.BasicLit{Kind: gotoken.STRING, Value: strconv.Quote(v.Value)}, nil
 		case ast.BoolLiteralNode:

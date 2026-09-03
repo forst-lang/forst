@@ -79,6 +79,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		return ast.IntLiteralNode{
 			Value: intVal,
+			Raw:   token.Value,
 		}
 
 	case ast.TokenFloatLiteral:

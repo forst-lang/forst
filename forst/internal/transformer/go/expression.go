@@ -14,9 +14,13 @@ import (
 func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, error) {
 	switch e := expr.(type) {
 	case ast.IntLiteralNode:
+		lit := e.Source()
+		if lit == "" {
+			lit = strconv.FormatInt(e.Value, 10)
+		}
 		return &goast.BasicLit{
 			Kind:  token.INT,
-			Value: strconv.FormatInt(e.Value, 10),
+			Value: lit,
 		}, nil
 	case ast.FloatLiteralNode:
 		return &goast.BasicLit{

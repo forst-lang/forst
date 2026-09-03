@@ -936,7 +936,7 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 	case ast.VariableNode:
 		return string(x.Ident.ID), nil
 	case ast.IntLiteralNode:
-		return fmt.Sprintf("%d", x.Value), nil
+		return x.Source(), nil
 	case ast.FloatLiteralNode:
 		return fmt.Sprintf("%g", x.Value), nil
 	case ast.StringLiteralNode:

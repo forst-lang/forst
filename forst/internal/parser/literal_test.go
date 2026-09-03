@@ -174,6 +174,9 @@ func TestParseLiteral_primitives_and_nil(t *testing.T) {
 		if !ok || n.Value != 0x36 {
 			t.Fatalf("got %#v", n)
 		}
+		if n.Raw != "0x36" {
+			t.Fatalf("Raw = %q, want 0x36", n.Raw)
+		}
 	})
 
 	t.Run("octal_0o77", func(t *testing.T) {
