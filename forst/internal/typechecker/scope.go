@@ -189,13 +189,17 @@ const (
 	SymbolTypeGuard
 )
 
-// IsFunction checks if the scope is a function
+// IsFunction checks if the scope is a named function or function literal.
 func (s *Scope) IsFunction() bool {
 	if s.Node == nil {
 		panic("Cannot call IsFunction on global scope")
 	}
-	_, ok := (*s.Node).(ast.FunctionNode)
-	return ok
+	switch (*s.Node).(type) {
+	case ast.FunctionNode, *ast.FunctionNode, ast.FunctionLiteralNode, *ast.FunctionLiteralNode:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsTypeGuard checks if the scope is a type guard

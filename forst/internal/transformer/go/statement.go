@@ -3,7 +3,6 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 
@@ -32,12 +31,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not find enclosing function for ReturnNode: %w", err)
 		}
-		fn, ok := fnNode.(ast.FunctionNode)
-		if !ok {
-			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		if fn, ok := fnNode.(ast.FunctionNode); ok {
+			functionName = string(fn.Ident.ID)
+			hasEnsure = t.functionsWithEnsure[functionName]
+		} else if _, ok := fnNode.(ast.FunctionLiteralNode); ok {
+			functionName = "_lit"
+		} else if fn, ok := fnNode.(*ast.FunctionNode); ok && fn != nil {
+			functionName = string(fn.Ident.ID)
+			hasEnsure = t.functionsWithEnsure[functionName]
+		} else if _, ok := fnNode.(*ast.FunctionLiteralNode); ok {
+			functionName = "_lit"
+		} else {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode or FunctionLiteralNode: %T", fnNode)
 		}
-		functionName = string(fn.Ident.ID)
-		hasEnsure = t.functionsWithEnsure[functionName]
 		if hasEnsure && t.log != nil {
 			t.log.WithFields(logrus.Fields{
 				"function": "transformStatement",
@@ -82,37 +88,16 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not find enclosing function for transformReturnStatement: %w", err)
 		}
-		fn, ok = fnNode.(ast.FunctionNode)
-		if !ok {
-			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		expectedReturnTypes, functionName, err = t.enclosingReturnTypes(fnNode)
+		if err != nil {
+			return nil, err
 		}
-		functionName = string(fn.Ident.ID)
-		// DEBUG: Log function lookup
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
-				"function":      "transformReturnStatement",
-				"functionName":  fn.Ident.ID,
-				"functionFound": true,
-			}).Debug("Function node found")
-		}
-
-		// Always get the inferred return type from the typechecker
-		if retTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn); err == nil && !typechecker.IsVoidReturnTypes(retTypes) {
-			expectedReturnTypes = retTypes
-
-			// DEBUG: Log function signature
-			if t.log != nil {
-				t.log.WithFields(logrus.Fields{
-					"function":     "transformReturnStatement",
-					"functionName": fn.Ident.ID,
-					"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
-				}).Debug("Function signature for return statement")
-			}
-		} else if t.log != nil {
-			t.log.WithFields(logrus.Fields{
 				"function":     "transformReturnStatement",
-				"functionName": fn.Ident.ID,
-			}).Debug("No function return type found for return statement")
+				"functionName": functionName,
+				"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
+			}).Debug("Function signature for return statement")
 		}
 
 		if len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsTupleType() && len(s.Values) > 1 {

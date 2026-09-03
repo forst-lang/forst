@@ -181,6 +181,13 @@ func CheckParamAssignability(host Host, diag Diagnose, p ParamAssignability) err
 	if len(p.ArgType) != 1 {
 		return diag(sp, "go-call", "%s argument %d must have a single type, got %d", p.Qual, p.Index+1, len(p.ArgType))
 	}
+	if p.ArgIdx >= 0 && p.ArgIdx < len(p.Call.Arguments) {
+		if argGo := host.GoTypeForExpression(p.Call.Arguments[p.ArgIdx]); argGo != nil {
+			if types.AssignableTo(argGo, p.GoParam) {
+				return nil
+			}
+		}
+	}
 	if !ForstAssignableToGoType(host, p.ArgType[0], p.GoParam) {
 		return diag(sp, "go-call", "%s argument %d: Forst type %s not assignable to Go parameter %s",
 			p.Qual, p.Index+1, p.ArgType[0].Ident, strings.TrimSpace(p.GoParam.String()))

@@ -295,7 +295,7 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 			forstBlock("func sum(xs ...Int): Int { }"),
 		}, "\n"))
 	case ast.TokenBitwiseAnd:
-		return keywordDoc("&", "Bitwise AND on integers.")
+		return BitwiseAndAmpersandMarkdown()
 	case ast.TokenBitwiseOr:
 		return keywordDoc("|", "Bitwise OR on integers.")
 	case ast.TokenXor:
@@ -372,6 +372,26 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 	default:
 		return ""
 	}
+}
+
+// BitwiseAndAmpersandMarkdown is hover text for binary `&` (integer bitwise AND).
+func BitwiseAndAmpersandMarkdown() string {
+	return keywordDoc("&", "Bitwise AND on integers.")
+}
+
+// AddressOfAmpersandMarkdown is hover text for unary `&` (address-of / take pointer).
+func AddressOfAmpersandMarkdown() string {
+	return keywordDoc("&", strings.Join([]string{
+		"Address-of: takes a pointer to a value (Go `&expr`).",
+		"",
+		"**Example**",
+		"",
+		forstBlock(
+			"n := 1",
+			"p := &n",
+			"srv := &http.Server{}",
+		),
+	}, "\n"))
 }
 
 func keywordDoc(title, body string) string {

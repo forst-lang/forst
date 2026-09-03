@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func printHi() {
+	fmt.Println("hi")
+}
+
+func main() {
+	go printHi()
+	fmt.Println("done")
+}

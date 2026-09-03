@@ -25,6 +25,7 @@ export {
 export function readForstConfig(): ForstExtensionConfig {
   const cfg = vscode.workspace.getConfiguration("forst");
   const pathRaw = cfg.get<string>("compiler.path") ?? "";
+  const goPathRaw = cfg.get<string>("go.path") ?? "";
   const port = cfg.get<number>("lsp.port") ?? 8081;
   const logLevel = cfg.get<string>("lsp.logLevel") ?? "info";
   const autoStart = cfg.get<boolean>("lsp.autoStart") ?? true;
@@ -33,6 +34,7 @@ export function readForstConfig(): ForstExtensionConfig {
     cfg.get<boolean>("compiler.preferLatestRelease") ?? true;
   return {
     forstPath: pathRaw.trim() || "forst",
+    goPath: goPathRaw.trim(),
     port,
     logLevel,
     autoStart,

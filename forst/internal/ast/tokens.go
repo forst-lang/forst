@@ -239,6 +239,41 @@ func (t TokenIdent) IsBitwiseBinaryOperator() bool {
 		t == TokenAndNot
 }
 
+// CanEndOperand reports whether a token of this type can finish a primary/postfix
+// expression operand. Used to disambiguate unary vs binary `&` (and later `*`) in hover.
+func (t TokenIdent) CanEndOperand() bool {
+	switch t {
+	case TokenIdentifier, TokenRParen, TokenRBracket, TokenRBrace,
+		TokenPlusPlus, TokenMinusMinus, TokenIota:
+		return true
+	}
+	return t.IsLiteral()
+}
+
+// PreviousNonCommentTokenIndex returns the index of the nearest non-comment token
+// before idx, or -1 if none.
+func PreviousNonCommentTokenIndex(tokens []Token, idx int) int {
+	for i := idx - 1; i >= 0; i-- {
+		if tokens[i].Type != TokenComment {
+			return i
+		}
+	}
+	return -1
+}
+
+// IsUnaryAmpersandAt reports whether tokens[idx] (expected `&`) is unary address-of
+// rather than binary bitwise AND, based on the previous non-comment token.
+func IsUnaryAmpersandAt(tokens []Token, idx int) bool {
+	if idx < 0 || idx >= len(tokens) || tokens[idx].Type != TokenBitwiseAnd {
+		return false
+	}
+	prev := PreviousNonCommentTokenIndex(tokens, idx)
+	if prev < 0 {
+		return true
+	}
+	return !tokens[prev].Type.CanEndOperand()
+}
+
 func (t TokenIdent) String() string {
 	switch t {
 	case TokenBitwiseAnd:

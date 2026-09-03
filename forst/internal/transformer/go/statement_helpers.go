@@ -4,8 +4,41 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 )
+
+// enclosingReturnTypes returns the Forst return types of the closest function or function literal.
+func (t *Transformer) enclosingReturnTypes(fnNode ast.Node) ([]ast.TypeNode, string, error) {
+	switch fn := fnNode.(type) {
+	case ast.FunctionNode:
+		name := string(fn.Ident.ID)
+		if retTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn); err == nil && !typechecker.IsVoidReturnTypes(retTypes) {
+			return retTypes, name, nil
+		}
+		if !typechecker.IsVoidReturnTypes(fn.ReturnTypes) {
+			return fn.ReturnTypes, name, nil
+		}
+		return nil, name, nil
+	case *ast.FunctionNode:
+		if fn == nil {
+			return nil, "", fmt.Errorf("enclosing FunctionNode is nil")
+		}
+		return t.enclosingReturnTypes(*fn)
+	case ast.FunctionLiteralNode:
+		if typechecker.IsVoidReturnTypes(fn.ReturnTypes) {
+			return nil, "_lit", nil
+		}
+		return fn.ReturnTypes, "_lit", nil
+	case *ast.FunctionLiteralNode:
+		if fn == nil {
+			return nil, "", fmt.Errorf("enclosing FunctionLiteralNode is nil")
+		}
+		return t.enclosingReturnTypes(*fn)
+	default:
+		return nil, "", fmt.Errorf("enclosing node is not a FunctionNode or FunctionLiteralNode: %T", fnNode)
+	}
+}
 
 // transformEnsureErrorFallback lowers `ensure … or Bad("msg")` / `or errVar` to a Go expression.
 func (t *Transformer) transformEnsureErrorFallback(errorNode ast.EnsureErrorNode) (goast.Expr, error) {

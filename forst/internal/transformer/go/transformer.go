@@ -295,7 +295,7 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 					"scope":    scope,
 					"function": "closestFunction",
 				}).Debug("Found function in scope stack")
-				return (*scope.Node).(ast.FunctionNode), nil
+				return *scope.Node, nil
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -15,12 +16,10 @@ import (
 )
 
 // BuildNativeProgram transpiles, links, and writes manifest.json under outputDir.
+// Without server.embedded, it emits plain Go into the entry package and wraps `go build`.
 func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 	if err := programbuild.ValidateOutputPath(outputDir); err != nil {
 		return err
-	}
-	if !c.embedInvokeEnabled() {
-		return fmt.Errorf("forst build requires server.embedded: true in ftconfig.json (or enable embedded invoke in config)")
 	}
 	if goos == "" {
 		goos = runtime.GOOS
@@ -28,7 +27,87 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 	if goarch == "" {
 		goarch = runtime.GOARCH
 	}
+	if !c.embedInvokeEnabled() {
+		return c.buildPlainGoPackage(outputDir, goos, goarch)
+	}
+	return c.buildEmbeddedInvokeProgram(outputDir, goos, goarch)
+}
 
+func (c *Compiler) buildPlainGoPackage(outputDir, goos, goarch string) error {
+	if c.Args.OutputPath == "" {
+		if out := c.defaultPackageGoOut(); out != "" {
+			c.Args.OutputPath = out
+		}
+	}
+	if c.Args.OutputPath == "" {
+		return fmt.Errorf("forst build: cannot resolve package Go output path")
+	}
+	mainCode, _, _, _, _, err := c.CompileWithBridgeRuntime()
+	if err != nil {
+		return err
+	}
+	if dir := filepath.Dir(c.Args.OutputPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create Go output directory: %w", err)
+		}
+	}
+	if err := os.WriteFile(c.Args.OutputPath, []byte(mainCode), 0o644); err != nil {
+		return fmt.Errorf("write Go sources: %w", err)
+	}
+	pkgDir := filepath.Dir(c.Args.OutputPath)
+	absOut, err := filepath.Abs(outputDir)
+	if err != nil {
+		return fmt.Errorf("resolve output dir: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(absOut, programbuild.BinDir), 0o755); err != nil {
+		return fmt.Errorf("create output bin dir: %w", err)
+	}
+	binName, err := programbuild.BinaryFileName(c.Args.FilePath, goos)
+	if err != nil {
+		return err
+	}
+	binRel := filepath.Join(programbuild.BinDir, binName)
+	binPath := filepath.Join(absOut, binRel)
+
+	cmd := exec.Command("go", "build", "-o", binPath, ".")
+	cmd.Dir = pkgDir
+	cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch)
+	if goos != runtime.GOOS || goarch != runtime.GOARCH {
+		cmd.Env = append(cmd.Env, "CGO_ENABLED=0")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go build in %s: %w", pkgDir, err)
+	}
+
+	boundaryRoot := RunBoundaryRoot(c.Args)
+	entryRel, err := relativeToBoundary(boundaryRoot, c.Args.FilePath)
+	if err != nil {
+		entryRel = c.Args.FilePath
+	}
+	manifest := programbuild.ProgramManifest{
+		SchemaVersion:    programbuild.SchemaVersion,
+		Kind:             programbuild.KindProgram,
+		CompilerVersion:  CompilerVersion(),
+		ContractVersion:  programbuild.ContractVersion,
+		Entry:            entryRel,
+		BoundaryRoot:     boundaryRoot,
+		GOOS:             goos,
+		GOARCH:           goarch,
+		EmbeddedInvoke:   false,
+		Packages:         manifestPackages(c, nil),
+		Binary:           filepath.ToSlash(binRel),
+		BuiltAt:          time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := programbuild.Write(absOut, manifest); err != nil {
+		return err
+	}
+	c.log.Infof("Built package binary at %s", binPath)
+	return nil
+}
+
+func (c *Compiler) buildEmbeddedInvokeProgram(outputDir, goos, goarch string) error {
 	sandboxMain, boundaryRoot, bridgeRuntime, extraPkgs, err := c.compileProgramSandbox()
 	if err != nil {
 		return err
@@ -77,23 +156,23 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 	}
 
 	manifest := programbuild.ProgramManifest{
-		SchemaVersion:     programbuild.SchemaVersion,
-		Kind:              programbuild.KindProgram,
-		CompilerVersion:   CompilerVersion(),
-		ContractVersion:   programbuild.ContractVersion,
-		Entry:             entryRel,
-		BoundaryRoot:      boundaryRoot,
-		GOOS:              goos,
-		GOARCH:            goarch,
-		EmbeddedInvoke:    true,
+		SchemaVersion:       programbuild.SchemaVersion,
+		Kind:                programbuild.KindProgram,
+		CompilerVersion:     CompilerVersion(),
+		ContractVersion:     programbuild.ContractVersion,
+		Entry:               entryRel,
+		BoundaryRoot:        boundaryRoot,
+		GOOS:                goos,
+		GOARCH:              goarch,
+		EmbeddedInvoke:      true,
 		HostMode:            c.bridgeHostModeEnabled(),
 		SkipNodeHostDefault: false,
 		NeedsBridgeRuntime:  needsBridge,
 		CompiledModulesDir:  compiledModulesDir,
 		LegacyModuleFormat:  legacyModuleFormat,
 		Packages:            manifestPackages(c, extraPkgs),
-		Binary:            filepath.ToSlash(binRel),
-		BuiltAt:           time.Now().UTC().Format(time.RFC3339),
+		Binary:              filepath.ToSlash(binRel),
+		BuiltAt:             time.Now().UTC().Format(time.RFC3339),
 	}
 	if err := programbuild.Write(absOut, manifest); err != nil {
 		return err

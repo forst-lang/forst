@@ -177,7 +177,7 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 
 func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modResult *modulecheck.ModuleResult, forstNodes []ast.Node) (compileGoOutput, error) {
 	transformer := transformer_go.New(checker, c.log, c.Args.ExportStructFields)
-	transformer.EmbedInvokeServer = c.embedInvokeEnabled()
+	transformer.EmbedInvokeServer = c.useEmbeddedInvokeRuntime()
 	transformer.EmbedBridgeHostMode = c.bridgeHostModeEnabled()
 	if c.Args.PackageRoot != "" {
 		transformer.SandboxModulePath = "forst.run.temp"
@@ -214,7 +214,7 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 		return compileGoOutput{}, err
 	}
 
-	if invokeServerCode == "" && c.embedInvokeEnabled() {
+	if invokeServerCode == "" && c.useEmbeddedInvokeRuntime() {
 		if diag := c.embeddedInvokeMisconfigDiagnostic(transformer, forstNodes, moduleInvokeFns); diag != "" {
 			return compileGoOutput{}, fmt.Errorf("%s", diag)
 		}
@@ -271,7 +271,7 @@ func canonicalForstPackageImportPath(modResult *modulecheck.ModuleResult, forstP
 }
 
 func (c *Compiler) resolveModuleInvokeFunctions(modResult *modulecheck.ModuleResult) ([]discovery.FunctionInfo, error) {
-	if !c.embedInvokeEnabled() || RunBoundaryRoot(c.Args) == "" || c.Args.PackageRoot == "" {
+	if !c.useEmbeddedInvokeRuntime() || RunBoundaryRoot(c.Args) == "" || c.Args.PackageRoot == "" {
 		return nil, nil
 	}
 	if modResult != nil {
@@ -470,7 +470,7 @@ func WriteExtraPackagesForOutput(outputPath string, extraPackages map[string]str
 }
 
 func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node, moduleFns []discovery.FunctionInfo) (string, error) {
-	if transformer == nil || !c.embedInvokeEnabled() {
+	if transformer == nil || !c.useEmbeddedInvokeRuntime() {
 		return "", nil
 	}
 	boundary := RunBoundaryRoot(c.Args)
@@ -479,7 +479,7 @@ func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transfor
 			return transformer.InvokeServerSourceFromFunctions(true, moduleFns)
 		}
 	}
-	return transformer.InvokeServerSource(c.embedInvokeEnabled(), nodes)
+	return transformer.InvokeServerSource(c.useEmbeddedInvokeRuntime(), nodes)
 }
 
 func (c *Compiler) embedInvokeEnabled() bool {
@@ -490,12 +490,74 @@ func (c *Compiler) embedInvokeEnabled() bool {
 	return cfg.Server.Embedded
 }
 
+// useEmbeddedInvokeRuntime reports whether this compile should emit invoke companions
+// and ForstInvokeWaitForShutdown. generate/--go-out always emits plain Go; invoke glue
+// is only for run/build/dev when server.embedded is on.
+func (c *Compiler) useEmbeddedInvokeRuntime() bool {
+	if !c.embedInvokeEnabled() {
+		return false
+	}
+	switch c.Args.Command {
+	case "run", "build", "dev":
+		return true
+	default:
+		return false
+	}
+}
+
 func (c *Compiler) bridgeHostModeEnabled() bool {
 	cfg, err := c.loadFtconfig()
 	if err != nil || cfg == nil {
 		return false
 	}
 	return cfg.Bridge.HostMode
+}
+
+// PreferPackageDirRunEmit sets OutputPath beside the entry only when `generate.go` is
+// configured in ftconfig (or the caller already set -o). Otherwise OutputPath stays empty
+// so `forst run` uses the temp sandbox and does not litter `*.gen.go` next to source.
+// Embedded invoke / bridge host mode always keep the isolated sandbox.
+func (c *Compiler) PreferPackageDirRunEmit() {
+	if c.Args.Command != "run" || c.Args.OutputPath != "" {
+		return
+	}
+	if c.useEmbeddedInvokeRuntime() || c.bridgeHostModeEnabled() {
+		return
+	}
+	if out := c.configuredPackageGoOut(); out != "" {
+		c.Args.OutputPath = out
+	}
+}
+
+// configuredPackageGoOut returns generate.go.out when ftconfig configures Go emit.
+func (c *Compiler) configuredPackageGoOut() string {
+	boundary := RunBoundaryRoot(c.Args)
+	if boundary == "" {
+		return ""
+	}
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil || !cfg.Generate.Go.IsConfigured() {
+		return ""
+	}
+	return cfg.Generate.Go.EffectiveGoOut(boundary)
+}
+
+// defaultPackageGoOut resolves the Go emit path for plain `forst build`: configured
+// generate.go.out first, else stem.gen.go beside the entry (needed for `go build .`).
+func (c *Compiler) defaultPackageGoOut() string {
+	if out := c.configuredPackageGoOut(); out != "" {
+		return out
+	}
+	entry := c.Args.FilePath
+	if entry == "" {
+		return ""
+	}
+	dir := filepath.Dir(entry)
+	stem := strings.TrimSuffix(filepath.Base(entry), filepath.Ext(entry))
+	if stem == "" {
+		stem = "main"
+	}
+	return filepath.Join(dir, stem+".gen.go")
 }
 
 func checkRequireNoBridge(args Args, checker *typechecker.TypeChecker) error {

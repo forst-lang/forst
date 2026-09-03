@@ -14,7 +14,21 @@ type LiteralNode interface {
 // IntLiteralNode represents an integer literal
 type IntLiteralNode struct {
 	Value int64
-	Type  TypeNode
+	// Raw is the source lexeme when parsed (e.g. "0x36", "0o77", "42").
+	// Empty for synthetically constructed nodes; printers fall back to decimal Value.
+	Raw  string
+	Type TypeNode
+}
+
+// Source returns the preferred source spelling for this literal.
+func (i IntLiteralNode) Source() string {
+	if i.Raw != "" {
+		if i.Value < 0 && !strings.HasPrefix(i.Raw, "-") {
+			return "-" + i.Raw
+		}
+		return i.Raw
+	}
+	return fmt.Sprintf("%d", i.Value)
 }
 
 // FloatLiteralNode represents a float literal
@@ -134,7 +148,7 @@ func (m MapLiteralNode) isExpression()    { _ = m }
 func (n NilLiteralNode) isExpression()    { _ = n }
 
 func (i IntLiteralNode) String() string {
-	return fmt.Sprintf("%d", i.Value)
+	return i.Source()
 }
 
 func (f FloatLiteralNode) String() string {

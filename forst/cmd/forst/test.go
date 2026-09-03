@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	runTestCommandGetwd    = os.Getwd
-	runTestCommandPathAbs  = filepath.Abs
-	runTestCommandPathRel  = filepath.Rel
-	runTestCommandRunner   = testrunner.Run
+	runTestCommandGetwd   = os.Getwd
+	runTestCommandPathAbs = filepath.Abs
+	runTestCommandPathRel = filepath.Rel
+	runTestCommandRunner  = testrunner.Run
 )
 
 func runTestCommand(args []string, log *logrus.Logger) int {
@@ -39,6 +39,8 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 		boundary = cwd
 	}
 	moduleRoot := boundary
+	normalized := make([]string, 0, len(paths))
+	sawModuleRootPath := false
 	for _, p := range paths {
 		if p == "" {
 			continue
@@ -52,27 +54,54 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 			log.Error(err)
 			return 2
 		}
-		if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
-			modRoot, err := goload.ModuleRootWithGoMod(abs)
+		fi, err := os.Stat(abs)
+		if err != nil {
+			// Keep non-dir paths (e.g. specific *_test.ft) for discovery.
+			normalized = append(normalized, filepath.ToSlash(p))
+			continue
+		}
+		if !fi.IsDir() {
+			modRoot, err := goload.ModuleRootWithGoMod(filepath.Dir(abs))
 			if err != nil {
 				log.Error(err)
 				return 2
 			}
-			moduleRoot = modRoot
+			if moduleRoot == boundary {
+				moduleRoot = modRoot
+			}
 			rel, err := runTestCommandPathRel(modRoot, abs)
 			if err != nil {
 				log.Error(err)
 				return 2
 			}
-			if rel == "." {
-				// Strict layout puts packages in subdirectories. A module-root
-				// path is "run every package", same as `forst test` with no args.
-				paths = nil
-			} else {
-				paths = []string{filepath.ToSlash(rel)}
-			}
-			break
+			normalized = append(normalized, filepath.ToSlash(rel))
+			continue
 		}
+		modRoot, err := goload.ModuleRootWithGoMod(abs)
+		if err != nil {
+			log.Error(err)
+			return 2
+		}
+		if moduleRoot == boundary {
+			moduleRoot = modRoot
+		}
+		rel, err := runTestCommandPathRel(modRoot, abs)
+		if err != nil {
+			log.Error(err)
+			return 2
+		}
+		if rel == "." {
+			// Strict layout puts packages in subdirectories. A module-root
+			// path is "run every package", same as `forst test` with no args.
+			sawModuleRootPath = true
+			continue
+		}
+		normalized = append(normalized, filepath.ToSlash(rel))
+	}
+	if sawModuleRootPath && len(normalized) == 0 {
+		paths = nil
+	} else {
+		paths = normalized
 	}
 	moduleRoot = goload.FindModuleRoot(moduleRoot)
 	if *root != "" {

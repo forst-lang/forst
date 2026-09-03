@@ -44,7 +44,7 @@
 | ------ | ------ |
 | **One narrowing pipeline** | **`if` / `is` / `ensure`** + **unions** + **refinements** use **one** **join** / **narrow** implementation ([09](./09-ensure-is-narrowing-and-binary-types.md)). **Optionals** become **another** **sum**, not a **second** analyzer. |
 | **Composable** guards on ** unions** | **User-defined** **`is (x: T \| U) CaseA`** (future)—**same** **composition** rules as **password** **Strong** / **VeryStrong** ([guard RFC](../guard/guard.md)). |
-| **`Result`** **ergonomics** | **`if r is Ok()`** / **`ensure r is Ok() or err`** with **narrowed** **payload** types—**matches** the **generics** RFC’s **`Result[Int, AppError]`**-style **example** once **`Result`** and **generics** exist ([generics RFC §10](../generics/00-user-generics-and-type-parameters.md#result-types-generics-and-narrowing-ok-and-err)). |
+| **`Result`** **ergonomics** | **`if r is Ok()`** / **`ensure r is Ok() else err`** with **narrowed** **payload** types—**matches** the **generics** RFC’s **`Result[Int, AppError]`**-style **example** once **`Result`** and **generics** exist ([generics RFC §10](../generics/00-user-generics-and-type-parameters.md#result-types-generics-and-narrowing-ok-and-err)). |
 | **LSP / UX** | **Hover** shows **narrowed** **union** after **`is`**; **optional**/`Result` **discriminants** are **first-class** in **IDE** **messages** ([04](./04-tooling-migration-lsp-and-testing.md)). |
 | **TS / Go emit** | **Guards** already aim to affect **`.d.ts`** and **Go** ([guard RFC Summary](../guard/guard.md)); **nilable** unions give **emit** a **clear** **target** ([03](./03-typescript-emission-optionals-and-result.md)). |
 | **Documentation** | **One** **vocabulary** for **“narrowing”** — **beginners** learn **`is`** **once**, apply to **values**, **shapes**, **optionals**, and **`Result`**. |
@@ -65,6 +65,8 @@
 
 ---
 
+**See also:** [analyzable refinements](../refinements/README.md) — assertion `or` vs typed `else`, `|` for types, literal unions rather than type guards, fail-closed guard `if`, no SMT. That RFC is the decision record for disjunctive `ensure` and guard `if`.
+
 ## 5. Suggested direction
 
 1. **Unify** **union** / **optional** / **refinement** **AST** and **narrowing** **before** **promising** **user-defined** **guards** on **every** **combinator**.
@@ -78,6 +80,7 @@
 - [guard RFC](../guard/guard.md), [anonymous_objects.md](../guard/anonymous_objects.md), [interop.md](../guard/interop.md) (if present)
 - [00](./00-crystal-inspired-optionals.md), [09](./09-ensure-is-narrowing-and-binary-types.md)
 - [SEMANTICS_NARROWING.md](../../../../forst/internal/typechecker/SEMANTICS_NARROWING.md)
+- [refinements RFC](../refinements/README.md)
 
 ---
 

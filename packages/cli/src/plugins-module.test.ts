@@ -56,3 +56,50 @@ describe("getPluginsDirForVersion", () => {
     }
   });
 });
+
+describe("ensurePluginsForVersion", () => {
+  test("required 404 fails with clear message", async () => {
+    const { ensurePluginsForVersion } = await import("./plugins-module.js");
+    const { CompilerBinaryDownloadFailed } = await import("./errors.js");
+    const root = mkdtempSync(join(tmpdir(), "forst-plugins-404-"));
+    try {
+      await expect(
+        ensurePluginsForVersion({
+          version: "0.0.0-missing",
+          env: { FORST_CACHE_DIR: root },
+          required: true,
+          fetchFn: async () =>
+            new Response(null, { status: 404, statusText: "Not Found" }),
+        })
+      ).rejects.toBeInstanceOf(CompilerBinaryDownloadFailed);
+      await expect(
+        ensurePluginsForVersion({
+          version: "0.0.0-missing",
+          env: { FORST_CACHE_DIR: root },
+          required: true,
+          fetchFn: async () =>
+            new Response(null, { status: 404, statusText: "Not Found" }),
+        })
+      ).rejects.toThrow(/not published|Plugin not available/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("optional 404 soft-ignores", async () => {
+    const { ensurePluginsForVersion } = await import("./plugins-module.js");
+    const root = mkdtempSync(join(tmpdir(), "forst-plugins-soft-"));
+    try {
+      const dir = await ensurePluginsForVersion({
+        version: "0.0.0-soft",
+        env: { FORST_CACHE_DIR: root },
+        required: false,
+        fetchFn: async () =>
+          new Response(null, { status: 404, statusText: "Not Found" }),
+      });
+      expect(dir).toBe(join(root, "0.0.0-soft"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

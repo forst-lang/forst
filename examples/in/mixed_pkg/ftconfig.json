@@ -1,0 +1,9 @@
+{
+  "generate": {
+    "skipClient": true,
+    "go": {
+      "entry": "./main.ft",
+      "out": "./main.gen.go"
+    }
+  }
+}

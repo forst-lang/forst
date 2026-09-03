@@ -14,6 +14,7 @@ test("formatForstDebugInfo includes key fields and compiler output", () => {
     vscodeVersion: "1.99.0",
     platform: "darwin",
     forstPathSetting: "forst",
+    goPathSetting: "/opt/homebrew/bin/go",
     resolvedCompilerPath: "/x/bin/forst",
     compilerVersionOutput: "forst 1.0.0 (abc) 2026-01-01",
     compilerDownload: true,
@@ -27,6 +28,8 @@ test("formatForstDebugInfo includes key fields and compiler output", () => {
   assert.ok(text.includes("forst 1.0.0"));
   assert.ok(text.includes("/x/bin/forst"));
   assert.ok(text.includes("forst.compiler.path"));
+  assert.ok(text.includes("forst.go.path"));
+  assert.ok(text.includes("/opt/homebrew/bin/go"));
   assert.ok(text.includes("forst.compiler.download"));
   assert.ok(text.includes("forst.compiler.preferLatestRelease"));
 });

@@ -1,0 +1,11 @@
+package config
+
+type Config = {
+	Port: String
+}
+
+func Load(): Config {
+	return {
+		Port: "8080"
+	}
+}

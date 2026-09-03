@@ -12,5 +12,6 @@ This folder resolves the open design question flagged in [ROADMAP.md](../../../.
 
 - [ROADMAP.md](../../../../ROADMAP.md#control-flow--statements) — `switch` row, ✅ done; `match` deferred to a future RFC.
 - [guard.md](../guard/guard.md) — type guards, `is`, `ensure`; the narrowing substrate `match` would reuse.
+- [refinements RFC](../refinements/README.md) — `|` as Join, literal unions, restricted guard `if`; the algebra `match` would sit on. Do not block that work on `match` syntax.
 - [SEMANTICS_NARROWING.md](../../../../forst/internal/typechecker/SEMANTICS_NARROWING.md) — soundness/join rules for narrowing that any `match` design must respect.
 - [union_error_narrowing.ft](../../../union_error_narrowing.ft) — today's `if x is Err(ParseError)` narrowing over a closed nominal-error union; the running example used throughout the RFC.

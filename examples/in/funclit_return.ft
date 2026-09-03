@@ -1,0 +1,24 @@
+package main
+
+import (
+	"fmt"
+	"regexp"
+)
+
+type RedactOut = { Text: String }
+
+// Closure return type must stay String even when the outer function returns a shape/Result.
+func Redact(text String): Result(RedactOut, Error) {
+	re := regexp.MustCompile("a+")
+	out := text
+	out = re.ReplaceAllStringFunc(out, func(m String): String {
+		return "x"
+	})
+	return { Text: out }
+}
+
+func main() {
+	r := Redact("baa")
+	ensure r is Ok()
+	fmt.Println(r.Text)
+}

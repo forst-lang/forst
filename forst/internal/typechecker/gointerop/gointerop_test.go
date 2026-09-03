@@ -71,3 +71,7 @@ func (stubHost) GoTypeForForstType(_ ast.TypeNode) types.Type {
 func (stubHost) InferExpressionType(_ ast.ExpressionNode) ([]ast.TypeNode, error) {
 	return nil, nil
 }
+
+func (stubHost) GoTypeForExpression(_ ast.ExpressionNode) types.Type {
+	return nil
+}

@@ -2,6 +2,7 @@ import * as cp from "child_process";
 import type { LogOutputChannel } from "vscode";
 import type { ForstExtensionConfig } from "../config";
 import { lspBaseUrl, resolveForstExecutableWithCli } from "../config";
+import { envWithToolchainPath } from "../toolchainPath";
 import { waitForLspHealth } from "./health";
 import type { LspSessionState } from "./session";
 
@@ -103,7 +104,8 @@ async function ensureForstLspProcessUnlocked(
     ["lsp", "-port", String(cfg.port), "-log-level", cfg.logLevel],
     {
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      // Cursor/VS Code GUI often omit Homebrew/Go from PATH; packages.Load needs `go`.
+      env: envWithToolchainPath(process.env, { goPath: cfg.goPath }),
     }
   );
   state.process.stdout?.on("data", (b: Buffer) => {

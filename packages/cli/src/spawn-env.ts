@@ -60,6 +60,7 @@ export async function buildForstSpawnEnv(
       fetchFn: options.fetchImpl,
       fs: options.fs,
       homedirFn: options.homedirFn,
+      required: true,
     });
   }
 

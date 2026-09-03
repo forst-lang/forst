@@ -1,0 +1,9 @@
+{
+  "server": { "embedded": true },
+  "generate": {
+    "go": {
+      "entry": "./main.ft",
+      "out": "./main.gen.go"
+    }
+  }
+}

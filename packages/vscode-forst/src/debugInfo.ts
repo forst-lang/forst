@@ -11,6 +11,7 @@ export interface ForstDebugInfoFields {
   vscodeVersion: string;
   platform: string;
   forstPathSetting: string;
+  goPathSetting: string;
   resolvedCompilerPath: string;
   compilerVersionOutput: string;
   compilerDownload: boolean;
@@ -33,6 +34,7 @@ export function formatForstDebugInfo(f: ForstDebugInfoFields): string {
     `| VS Code | \`${f.vscodeVersion}\` |`,
     `| Platform | \`${f.platform}\` |`,
     `| \`forst.compiler.path\` | \`${f.forstPathSetting}\` |`,
+    `| \`forst.go.path\` | \`${f.goPathSetting}\` |`,
     `| Resolved compiler | \`${f.resolvedCompilerPath}\` |`,
     `| \`forst.compiler.download\` | \`${f.compilerDownload}\` |`,
     `| \`forst.compiler.preferLatestRelease\` | \`${f.preferLatestCompilerRelease}\` |`,
@@ -76,6 +78,7 @@ export async function gatherForstDebugInfo(
     vscodeVersion,
     platform: process.platform,
     forstPathSetting: cfg.forstPath || "(empty — PATH or workspace bin/forst)",
+    goPathSetting: cfg.goPath || "(empty — auto-detect)",
     resolvedCompilerPath,
     compilerVersionOutput,
     compilerDownload: cfg.downloadCompiler,

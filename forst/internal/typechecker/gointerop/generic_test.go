@@ -72,6 +72,10 @@ func (sliceContainsHost) InferExpressionType(_ ast.ExpressionNode) ([]ast.TypeNo
 	return nil, nil
 }
 
+func (sliceContainsHost) GoTypeForExpression(_ ast.ExpressionNode) types.Type {
+	return nil
+}
+
 func TestCheckFuncCall_unexportedSymbol_rejected(t *testing.T) {
 	t.Parallel()
 	pkg := types.NewPackage("p", "p")

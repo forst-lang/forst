@@ -13,7 +13,10 @@ Shows two ways Forst calls Go:
 
 ## CLI
 
-`forst run` emits transpiled Go into a temp sandbox (`.forst/run/`); **hand-written `.go` is not included**. For same-package Go stubs, configure `generate.go` in `ftconfig.json` (see `ftconfig.json` in this directory) or pass matching CLI flags:
+When `ftconfig.json` configures `generate.go` (or you pass `-o`), `forst run` emits
+beside the package and wraps `go run .`, so **same-package hand-written `.go` participates**.
+Without that, `forst run` uses a temp sandbox (no `*.gen.go` next to source). Embedded
+invoke / bridge host mode always use an isolated sandbox.
 
 ```bash
 task example:go-interop
@@ -22,6 +25,8 @@ task example:go-interop
 Or manually from `forst/`:
 
 ```bash
+go run ./cmd/forst run ../examples/in/go_interop/cli.ft
+# or: generate then go run .
 go run ./cmd/forst generate ../examples/in/go_interop
 cd ../examples/in/go_interop && go run .
 ```
