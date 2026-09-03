@@ -33,6 +33,7 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 ### Troubleshooting
 
 - **`bun` not found** when the preLaunch task runs: the task prepends **`~/.bun/bin`**, **Homebrew**, and **`/usr/local/bin`** to **`PATH`**. If it still fails, add Bun to **`~/.zprofile`** (login PATH) or **VS Code → Settings → `terminal.integrated.env.osx`** so GUI-spawned tasks see `bun`. Install from [bun.sh](https://bun.sh). The compile runs from the **monorepo root** via **`bun run --filter forst compile`**.
+- **`go command required, not found`** / failed to load `crypto/…` in Problems: Cursor/VS Code often launch without Homebrew/Go on **`PATH`**. When spawning **`forst lsp`**, the extension prepends common toolchain dirs (Homebrew, `/usr/local/go`, Scoop/Chocolatey/`Program Files\Go` on Windows, `~/sdk/go*`, asdf/mise shims, `GOROOT`/`GOPATH`). Set **`forst.go.path`** to your `go` binary or its directory if detection misses. Restart the language server (**Forst: Restart language server**) after updating the extension or this setting; install Go if needed ([go.dev/dl](https://go.dev/dl/)).
 - No **Forst** channel: the dev host did not load this extension; fix `extensionDevelopmentPath` as above.
 - Language mode **Plain Text** on `.ft`: extension not loaded, or another extension stole the association; confirm the dev host and try **Change Language Mode** → Forst.
 - **Cursor:** extension debugging may differ; try VS Code if F5 does nothing.
@@ -40,13 +41,14 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 
 ## Settings
 
-Settings use two prefixes: **`forst.compiler.*`** (executable resolution and downloads) and **`forst.lsp.*`** (HTTP language server).
+Settings use three prefixes: **`forst.compiler.*`** (executable resolution and downloads), **`forst.go.*`** (Go toolchain for package loading), and **`forst.lsp.*`** (HTTP language server).
 
 | Setting | Default | Description |
 | --- | --- | --- |
 | `forst.compiler.path` | _(empty)_ | Path to `forst`; empty uses `PATH`, then walks workspace folders for `bin/forst`. |
 | `forst.compiler.download` | `true` | When no explicit path/workspace binary is found, use **`@forst/cli`** to resolve **`FORST_BINARY`**, the cache, or download the native compiler. Set `false` to only use `PATH` / `bin/forst`. |
 | `forst.compiler.preferLatestRelease` | `true` | When compiler downloads are enabled, compare the bundled **`@forst/cli`** semver with [GitHub’s latest release](https://github.com/forst-lang/forst/releases/latest) and use the **newer** (semantic version) for the cache path—so the language server can run a newer compiler than the one pinned by an older VSIX. Set `false` to always use the bundled CLI semver only (same as a plain `resolveForstBinary()` without `preferLatestRelease`). |
+| `forst.go.path` | _(empty)_ | Optional path to the **`go`** binary or its directory. Prepended on PATH when starting **`forst lsp`** (before auto-detected locations). Leave empty to rely on detection only. |
 | `forst.lsp.autoStart` | `true` | Spawn `forst lsp` locally; set `false` if you start the server yourself. |
 | `forst.lsp.logLevel` | `info` | Passed to `-log-level`. |
 | `forst.lsp.port` | `8081` | Port for `forst lsp`. |

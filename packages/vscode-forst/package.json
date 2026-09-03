@@ -107,6 +107,11 @@
           "default": true,
           "description": "When true (and compiler downloads are enabled), compare the bundled @forst/cli version with the latest GitHub release using semantic versioning and use the newer compiler (may download). When false, only the bundled @forst/cli version is used for the cache path."
         },
+        "forst.go.path": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to the go binary or the directory containing it. Prepended on PATH when starting forst lsp (before auto-detected Homebrew/Program Files/etc. locations) so Go package loading works when the editor GUI has a thin PATH. Leave empty to rely on detection only."
+        },
         "forst.lsp.autoStart": {
           "type": "boolean",
           "default": true,
