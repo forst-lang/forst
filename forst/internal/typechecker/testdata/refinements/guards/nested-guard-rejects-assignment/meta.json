@@ -1,0 +1,5 @@
+{
+  "id": "guards/nested-guard-rejects-assignment",
+  "expect": "typecheck-error",
+  "title": "nested if in guard rejects assignment"
+}

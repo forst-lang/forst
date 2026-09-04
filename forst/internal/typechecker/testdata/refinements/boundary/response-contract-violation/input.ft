@@ -1,0 +1,6 @@
+// MATRIX stub: ResponseContractViolation
+// TODO(phase-3d): response-boundary validation raises ResponseContractViolation
+// (Promise throw / Effect typed error channel).
+package main
+
+func main() {}

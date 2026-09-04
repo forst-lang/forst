@@ -1,0 +1,7 @@
+func loadMinimum(): Int {
+    return 8
+}
+func testMain(password String) {
+    n := loadMinimum()
+    ensure password is Min(n) {}
+}

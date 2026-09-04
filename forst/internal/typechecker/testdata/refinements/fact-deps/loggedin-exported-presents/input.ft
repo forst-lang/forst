@@ -1,0 +1,18 @@
+package main
+
+type User = { name: String }
+type AppContext = {
+	session: *String
+	user: *User
+}
+
+is (ctx AppContext) LoggedIn {
+	ensure ctx.session is Present()
+	ensure ctx.user is Present()
+}
+
+func check(ctx AppContext) {
+	ensure ctx is LoggedIn()
+}
+
+func main() {}

@@ -347,7 +347,7 @@ func TestFormatSource_ensureOr_putsOrOnNextLineIndentedFour(t *testing.T) {
 	const src = `package main
 
 func f(name String) {
-	ensure name is Min(1) or TooShort("msg")
+	ensure name is Min(1) else TooShort("msg")
 }
 `
 	log := logrus.New()
@@ -356,11 +356,11 @@ func f(name String) {
 	if err != nil {
 		t.Fatalf("FormatSource: %v", err)
 	}
-	if !strings.Contains(out, "\n\t    or TooShort") {
-		t.Fatalf("expected `or` on the line after `ensure` with +4 column indent, got:\n%s", out)
+	if !strings.Contains(out, "\n\t    else TooShort") {
+		t.Fatalf("expected `else` on the line after `ensure` with +4 column indent, got:\n%s", out)
 	}
-	if strings.Contains(out, "Min(1) or ") {
-		t.Fatalf("did not expect `ensure` and `or` on one line, got:\n%s", out)
+	if strings.Contains(out, "Min(1) else TooShort") && !strings.Contains(out, "\n\t    else TooShort") {
+		t.Fatalf("did not expect `ensure` and `else` jammed on one line without indent break, got:\n%s", out)
 	}
 	l := lexer.New([]byte(out), "ensure-or.ft", log)
 	tokens := l.Lex()

@@ -61,7 +61,7 @@ func TestParseEnsure_okIsTrueOrNamedError(t *testing.T) {
 error Fail { msg: String }
 
 func check(ok Bool): Result(String, Error) {
-	ensure ok is True() or Fail("no")
+	ensure ok is True() else Fail("no")
 	return "ok"
 }
 `
@@ -85,7 +85,7 @@ func TransitionAllowed(from String, to String): Bool {
 }
 
 func check(from String, to String): Result(Bool, Error) {
-	ensure TransitionAllowed(from, to) is True() or Fail("no")
+	ensure TransitionAllowed(from, to) is True() else Fail("no")
 	return true
 }
 `
@@ -94,7 +94,7 @@ func check(from String, to String): Result(Bool, Error) {
 		t.Fatal("expected parse error for ensure call subject")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "ensure subject must be an identifier") {
+	if !strings.Contains(msg, "ensure subject must be an identifier") && !strings.Contains(msg, "refinement-non-place-subject") {
 		t.Fatalf("expected identifier-only diagnostic, got: %v", err)
 	}
 }

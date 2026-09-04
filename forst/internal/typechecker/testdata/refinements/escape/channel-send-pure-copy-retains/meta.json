@@ -1,0 +1,5 @@
+{
+  "id": "escape/channel-send-pure-copy-retains",
+  "expect": "typecheck-ok",
+  "title": "channel send of copied scalar retains"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "collection/items-alias-element-write",
+  "expect": "typecheck-error",
+  "title": "items = order.items then element write"
+}

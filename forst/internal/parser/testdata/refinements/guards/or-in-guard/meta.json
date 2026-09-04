@@ -1,0 +1,5 @@
+{
+  "id": "guards/or-in-guard",
+  "expect": "parse-ok",
+  "title": "or inside type guard"
+}

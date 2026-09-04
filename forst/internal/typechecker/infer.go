@@ -261,6 +261,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		if _, err := tc.inferExpressionType(n.Call); err != nil {
 			return nil, err
 		}
+		tc.invalidateAfterSpawn(fc)
 		return nil, nil
 
 	case *ast.ElseBlockNode:

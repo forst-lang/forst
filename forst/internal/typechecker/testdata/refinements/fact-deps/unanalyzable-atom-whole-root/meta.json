@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/unanalyzable-atom-whole-root",
+  "expect": "deps",
+  "title": "unanalyzable atom depends on root"
+}

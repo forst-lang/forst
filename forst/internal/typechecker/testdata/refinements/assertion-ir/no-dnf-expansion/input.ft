@@ -1,0 +1,9 @@
+type X = String
+type Name = String
+is (s Name) A {}
+is (s Name) B {}
+is (s Name) C {}
+is (x X) Valid {
+    ensure x is A() or B()
+    ensure x is C()
+}

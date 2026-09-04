@@ -1,6 +1,6 @@
 # 14 — Type targets in `ensure`
 
-**Status:** **Accepted.** Normative for the RHS of `ensure … is` / `if … is`: a **refinement target** is a **type** or an **assertion**. Types and assertions stay distinct.
+**Status:** **Accepted, amended.** Normative for the RHS of `ensure … is` / `if … is`: a **refinement target** is a **type** or an **assertion**. Types and assertions stay distinct. “Place” in source grammar is represented by compiler `AccessPath`; runtime targets also include analyzable nominal scalar constraints. See [the locked technical design](../../../../.plans/analyzable-refinements/TECHNICAL-DESIGN.md).
 
 **Scope:** Type-target syntax (no parentheses), runtime membership for closed enum/literal subset types, narrowing to that type. Assertion `or`, `else`, guards: [12](./12-accepted-decision.md). Mutation of type-target facts: [13](./13-refinement-stability.md).
 

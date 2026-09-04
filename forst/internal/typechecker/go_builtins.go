@@ -36,15 +36,9 @@ func (tc *TypeChecker) isTypeCompatibleImpl(actual ast.TypeNode, expected ast.Ty
 			}
 			return tc.IsTypeCompatible(actual.TypeParams[0], expected.TypeParams[0])
 		case ast.TypeUnion, ast.TypeIntersection:
-			if len(actual.TypeParams) != len(expected.TypeParams) {
-				return false
-			}
-			for i := range actual.TypeParams {
-				if !tc.IsTypeCompatible(actual.TypeParams[i], expected.TypeParams[i]) {
-					return false
-				}
-			}
-			return true
+			// Subtyping uses union/intersection covariance rules below (not pairwise identity).
+		case ast.TypeAssertion:
+			return assertionTypesCompatible(actual.Assertion, expected.Assertion)
 		case ast.TypeFunc:
 			return tc.checkFunctionTypeCompatible(actual, expected)
 		default:

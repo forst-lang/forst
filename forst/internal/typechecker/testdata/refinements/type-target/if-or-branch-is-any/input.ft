@@ -1,0 +1,21 @@
+package main
+
+type X = String
+
+is (x X) A {
+	ensure x is Min(1)
+}
+
+is (x X) B {
+	ensure x is Min(2)
+}
+
+func needA(x X) {}
+
+func check(x X) {
+	if x is A() or B() {
+		needA(x)
+	}
+}
+
+func main() {}

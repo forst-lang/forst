@@ -1,0 +1,6 @@
+{
+  "id": "identity/access-path-field-index-deref",
+  "expect": "typecheck-ok",
+  "title": "AccessPath field/index/deref",
+  "matrix": true
+}

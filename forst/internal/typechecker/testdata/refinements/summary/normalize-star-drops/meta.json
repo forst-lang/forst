@@ -1,0 +1,5 @@
+{
+  "id": "summary/normalize-star-drops",
+  "expect": "typecheck-error",
+  "title": "writes user.* drops Adult"
+}

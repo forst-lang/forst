@@ -1,0 +1,5 @@
+{
+  "id": "summary/no-mutates-syntax",
+  "expect": "typecheck-ok",
+  "title": "no mutates syntax required"
+}

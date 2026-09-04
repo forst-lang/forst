@@ -1,0 +1,6 @@
+{
+  "id": "boundary/fail-fast-redaction",
+  "expect": "typecheck-ok",
+  "title": "fail-fast redacted path",
+  "matrix": true
+}

@@ -27,7 +27,7 @@ func operatorSpan(line []byte, start int) int {
 	}
 	if start+1 < len(line) {
 		switch string(line[start : start+2]) {
-		case "->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//",
+		case "->", "<-", "==", "!=", ">=", "<=", "&&", "||", ":=", "//",
 			"++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=",
 			"<<", ">>", "&^", "^=":
 			return 2

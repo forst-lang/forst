@@ -98,21 +98,21 @@ func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	ensure req.state is ValidBoard()
 	playing := req.state.status == "playing"
 	ensure playing is True()
-	    or invalidMove("game already finished")
+	    else invalidMove("game already finished")
 	row := req.row
 	ensure row is GreaterThan(-1)
-	    or invalidMove("row must be >= 0")
+	    else invalidMove("row must be >= 0")
 	ensure row is LessThan(3)
-	    or invalidMove("row must be <= 2")
+	    else invalidMove("row must be <= 2")
 	col := req.col
 	ensure col is GreaterThan(-1)
-	    or invalidMove("col must be >= 0")
+	    else invalidMove("col must be >= 0")
 	ensure col is LessThan(3)
-	    or invalidMove("col must be <= 2")
+	    else invalidMove("col must be <= 2")
 	idx := cellIndex(row, col)
 	cellEmpty := req.state.cells[idx] == ""
 	ensure cellEmpty is True()
-	    or CellTaken({row: row, col: col})
+	    else CellTaken({row: row, col: col})
 	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
 	np := opponent(req.state.nextPlayer)
 	w := winnerOrEmpty(next)

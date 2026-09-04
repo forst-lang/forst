@@ -282,7 +282,9 @@ func main() {
 func TestEmitValidation_ensureTypeGuardCall(t *testing.T) {
 	src := `package main
 
-is (n Int) Positive {
+type Score = Int
+
+is (n Score) Positive {
 	ensure n is GreaterThan(0)
 }
 

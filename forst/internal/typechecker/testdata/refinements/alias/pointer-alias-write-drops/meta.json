@@ -1,0 +1,5 @@
+{
+  "id": "alias/pointer-alias-write-drops",
+  "expect": "typecheck-error",
+  "title": "alias through pointer drops Adult"
+}

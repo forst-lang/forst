@@ -1,0 +1,12 @@
+package main
+
+type TaskStatus = "todo" | "in_progress" | "success" | "failed"
+
+func useTaskStatus(s TaskStatus) {}
+
+func check(raw String) {
+	ensure raw is TaskStatus
+	useTaskStatus(raw)
+}
+
+func main() {}

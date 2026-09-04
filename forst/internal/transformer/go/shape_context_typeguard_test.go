@@ -402,9 +402,9 @@ type Password = String
 
 is (password Password) Strong(min Int) {
 	if password is Min(min) {
-		println("ok")
+		ensure password is Min(min)
 	} else {
-		println("no")
+		ensure password is Min(0)
 	}
 }
 `

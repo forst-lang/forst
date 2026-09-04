@@ -1,0 +1,6 @@
+{
+  "id": "type-target/app-guard-on-builtin-string-rejected",
+  "expect": "typecheck-error",
+  "title": "application guard on builtin String rejected",
+  "code": "refinement-guard-receiver-mismatch"
+}

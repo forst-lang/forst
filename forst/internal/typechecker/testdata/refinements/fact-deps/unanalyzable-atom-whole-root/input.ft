@@ -1,0 +1,16 @@
+package main
+
+type User = {
+	name: String
+	age: Int
+}
+
+// OpaqueBuiltin is intentionally empty — fail-closed deps = whole root.
+is (user User) OpaqueBuiltin {
+}
+
+func check(user User) {
+	ensure user is OpaqueBuiltin()
+}
+
+func main() {}

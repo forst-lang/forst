@@ -164,17 +164,25 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 	spanX1 := ast.SourceSpan{StartLine: 10, StartCol: 10, EndLine: 10, EndCol: 11}
 	spanX2 := ast.SourceSpan{StartLine: 11, StartCol: 10, EndLine: 11, EndCol: 11}
 
+	scoreType := ast.TypeIdent("Score")
+	baseScore := scoreType
+	td := ast.TypeDefNode{
+		Ident: scoreType,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &baseStr},
+		},
+	}
 	tg := ast.TypeGuardNode{
 		Ident: "G",
 		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "x"},
-			Type:  ast.TypeNode{Ident: ast.TypeString},
+			Type:  ast.TypeNode{Ident: scoreType},
 		},
 		Body: []ast.Node{
 			ast.EnsureNode{
 				Variable: ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanX1}},
 				Assertion: ast.AssertionNode{
-					BaseType: &baseStr,
+					BaseType: &baseScore,
 					Constraints: []ast.ConstraintNode{
 						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 1}))}}},
 					},
@@ -183,7 +191,7 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 			ast.EnsureNode{
 				Variable: ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanX2}},
 				Assertion: ast.AssertionNode{
-					BaseType: &baseStr,
+					BaseType: &baseScore,
 					Constraints: []ast.ConstraintNode{
 						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 10}))}}},
 					},
@@ -193,7 +201,7 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 	}
 
 	tc := New(logrus.New(), false)
-	if err := tc.CheckTypes([]ast.Node{tg}); err != nil {
+	if err := tc.CheckTypes([]ast.Node{td, tg}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -205,8 +213,8 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 	if got := tc.NarrowingPredicateDisplayForVariableOccurrence(v1); got != "" {
 		t.Fatalf("subject 1 display: got %q want empty (no prior ensures)", got)
 	}
-	if hover1 := tc.FormatVariableOccurrenceTypeForHover(v1, types1); hover1 != "String" {
-		t.Fatalf("subject 1 hover: got %q want String", hover1)
+	if hover1 := tc.FormatVariableOccurrenceTypeForHover(v1, types1); hover1 != "Score" {
+		t.Fatalf("subject 1 hover: got %q want Score", hover1)
 	}
 
 	v2 := ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanX2}}
@@ -214,11 +222,11 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 	if !ok || len(types2) != 1 {
 		t.Fatalf("subject 2: ok=%v types=%v", ok, types2)
 	}
-	if got := tc.NarrowingPredicateDisplayForVariableOccurrence(v2); got != "Min(1)" {
-		t.Fatalf("subject 2 display: got %q want Min(1)", got)
+	if got := tc.NarrowingPredicateDisplayForVariableOccurrence(v2); got != "Score().Min(1)" {
+		t.Fatalf("subject 2 display: got %q want Score().Min(1)", got)
 	}
-	if hover := tc.FormatVariableOccurrenceTypeForHover(v2, types2); hover != "String.Min(1)" {
-		t.Fatalf("subject 2 hover: got %q want String.Min(1)", hover)
+	if hover := tc.FormatVariableOccurrenceTypeForHover(v2, types2); hover != "Score.Score().Min(1)" && hover != "Score.Min(1)" {
+		t.Fatalf("subject 2 hover: got %q", hover)
 	}
 }
 

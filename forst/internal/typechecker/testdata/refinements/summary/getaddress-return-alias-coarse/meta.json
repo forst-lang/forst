@@ -1,0 +1,5 @@
+{
+  "id": "summary/getaddress-return-alias-coarse",
+  "expect": "typecheck-error",
+  "title": "returned field may alias arg"
+}

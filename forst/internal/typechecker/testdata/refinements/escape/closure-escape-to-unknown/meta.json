@@ -1,0 +1,5 @@
+{
+  "id": "escape/closure-escape-to-unknown",
+  "expect": "typecheck-error",
+  "title": "passing closure to unknown drops"
+}

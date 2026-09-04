@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"bytes"
 	"testing"
 
 	"forst/internal/ast"
@@ -9,13 +8,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TestLogger returns a logger suitable for tests: ast.SetupTestLogger with output
-// discarded unless testing.Verbose().
+// TestLogger returns a quiet compiler logger for tests (see ast.SetupTestLoggerFor).
+//
+//	FORST_TEST_LOG=1     → Debug on stderr
+//	FORST_TEST_LOG=fail  → buffer Debug; print via t.Log only if the test fails
 func TestLogger(tb testing.TB, opts *ast.TestLoggerOptions) *logrus.Logger {
 	tb.Helper()
-	log := ast.SetupTestLogger(opts)
-	if !testing.Verbose() {
-		log.SetOutput(bytes.NewBuffer(nil))
-	}
-	return log
+	return ast.SetupTestLoggerFor(tb, opts)
 }

@@ -1,0 +1,5 @@
+{
+  "id": "or/if-or-non-constraint-rejected",
+  "expect": "parse-error",
+  "title": "if or of boolean rejected"
+}

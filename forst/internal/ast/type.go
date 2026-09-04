@@ -515,5 +515,16 @@ func typeNodesShallowEqualAST(a, b TypeNode) bool {
 			return false
 		}
 	}
+	// Value("todo") vs Value("done") share Ident=TYPE_ASSERTION; compare assertion payload.
+	if a.Ident == TypeAssertion {
+		as, bs := "", ""
+		if a.Assertion != nil {
+			as = a.Assertion.String()
+		}
+		if b.Assertion != nil {
+			bs = b.Assertion.String()
+		}
+		return as == bs
+	}
 	return true
 }

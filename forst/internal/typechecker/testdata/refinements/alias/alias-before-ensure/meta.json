@@ -1,0 +1,5 @@
+{
+  "id": "alias/alias-before-ensure",
+  "expect": "typecheck-error",
+  "title": "alias assigned before ensure"
+}

@@ -1,0 +1,5 @@
+is (x X) Valid {
+    if canLogin(x) {
+        ensure x is Login()
+    }
+}

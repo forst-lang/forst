@@ -8,7 +8,7 @@
     func open() {
     	var slot: *Int = nil
     	err := claim(slot)
-    	ensure !err or err
+    	ensure !err else err
     }
     ```
   </Tab>

@@ -58,7 +58,7 @@ func TestParseFile_WithFunctions(t *testing.T) {
 				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 22},
 				{Type: ast.TokenIntLiteral, Value: "0", Line: 2, Column: 23},
 				{Type: ast.TokenRParen, Value: ")", Line: 2, Column: 24},
-				{Type: ast.TokenOr, Value: "or", Line: 2, Column: 26},
+				{Type: ast.TokenElse, Value: "else", Line: 2, Column: 26},
 				{Type: ast.TokenIdentifier, Value: "TooSmall", Line: 2, Column: 28},
 				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 36},
 				{Type: ast.TokenStringLiteral, Value: "x must be at least 0", Line: 2, Column: 37},

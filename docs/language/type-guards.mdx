@@ -88,20 +88,23 @@ See the [roadmap](/resources/roadmap).
 A guard checks the value once at an `ensure` or `if`. Later changes do not run
 the guard again.
 
-Changing a field after the check can make the earlier result outdated.
+Changing a field after the check can make the earlier result outdated. The
+compiler drops refinement facts whose dependency paths overlap the write.
+Later uses that need those facts are errors; the write itself stays legal.
 
 ```ft
 ensure ctx is LoggedIn()
-ctx.sessionId = nil   // runtime: no longer logged in
-// compiler may still treat ctx as LoggedIn here
+ctx.sessionId = nil
+useSession(ctx.sessionId) // error: Present(sessionId) was invalidated by the write
 ```
 
-Pointer fields such as `sessionId: *String` need particular care. Clearing the
-pointer does not undo the narrowing. Scoped immutability for `ensure` may
-address this later.
+Pointer fields such as `sessionId: *String` need particular care. Assigning
+`nil` to the pointer slot drops `Present`; writing through `*sessionId` does
+not.
 
 <Warning>
-  Narrowing reflects a single check at compile time. It does **not lock** the value at runtime.
+  Narrowing is a compile-time fact about storage. A write that may change a
+  dependency drops the fact; re-`ensure` to restore it.
 </Warning>
 
 ### Prefer simple variables

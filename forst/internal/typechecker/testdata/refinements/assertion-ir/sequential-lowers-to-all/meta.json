@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/sequential-lowers-to-all",
+  "expect": "ir",
+  "title": "sequential ensure lowers to All"
+}

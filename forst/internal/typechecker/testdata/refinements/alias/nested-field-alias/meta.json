@@ -1,0 +1,5 @@
+{
+  "id": "alias/nested-field-alias",
+  "expect": "typecheck-error",
+  "title": "address = user.address then country write"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "clobber/reassignment-drops",
+  "expect": "typecheck-error",
+  "title": "reassignment drops Adult"
+}

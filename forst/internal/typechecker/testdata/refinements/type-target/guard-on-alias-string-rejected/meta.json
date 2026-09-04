@@ -1,0 +1,5 @@
+{
+  "id": "type-target/guard-on-alias-string-rejected",
+  "expect": "typecheck-ok",
+  "title": "named scalar owns its guard"
+}

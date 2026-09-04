@@ -134,10 +134,16 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 
 		// Push a new scope for the type guard's body
 		var guardNode ast.TypeGuardNode
-		if ptr, ok := guardDef.(*ast.TypeGuardNode); ok {
-			guardNode = *ptr
-		} else {
-			guardNode = guardDef.(ast.TypeGuardNode)
+		switch g := guardDef.(type) {
+		case *ast.TypeGuardNode:
+			guardNode = *g
+		case ast.TypeGuardNode:
+			guardNode = g
+		default:
+			if isBuiltinAssertionConstraintName(constraint.Name) {
+				continue
+			}
+			return nil, fmt.Errorf("type guard %s not found (defs has %T)", constraint.Name, guardDef)
 		}
 
 		tc.log.WithFields(logrus.Fields{

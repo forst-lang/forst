@@ -1,0 +1,16 @@
+package main
+
+type Error = String
+
+func f(x String, value String, status ActiveStatus): Error {
+    ensure x is A() {
+    println("failed")
+}
+    return ""
+}
+
+type ActiveStatus = String
+type InvalidStatus = String
+type A = String
+type B = String
+type X = { kind: String }

@@ -63,7 +63,7 @@ pointers, `Map`, `Array`, and `Error`.
 <EnsureNil />
 
 `claim` continues only when `slot` is nil. `open` then uses
-`ensure !err or err`, the short form of `ensure err is Nil() or err`. Both
+`ensure !err else err`, the short form of `ensure err is Nil() else err`. Both
 lower to the same Go `if err != nil` check.
 
 Pointer fields also support

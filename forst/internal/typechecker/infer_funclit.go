@@ -10,6 +10,19 @@ func (tc *TypeChecker) inferFunctionLiteral(lit ast.FunctionLiteralNode, scopeNo
 	restoreLabels := tc.pushLoopLabelScope()
 	defer restoreLabels()
 
+	prevCapturing := tc.capturingClosure
+	prevPending := tc.pendingClosureWrites
+	tc.capturingClosure = true
+	tc.pendingClosureWrites = nil
+	defer func() {
+		tc.capturingClosure = prevCapturing
+		if !prevCapturing {
+			// Leave pending writes for bindClosureCaptures on assignment.
+		} else {
+			tc.pendingClosureWrites = append(prevPending, tc.pendingClosureWrites...)
+		}
+	}()
+
 	for _, param := range lit.Params {
 		switch typedParam := param.(type) {
 		case ast.SimpleParamNode:
@@ -78,6 +91,13 @@ func (tc *TypeChecker) inferCalleeCall(
 	fnType := calleeTypes[0]
 	if err := tc.checkFunctionTypeCall(fnType, args, argSpans, callSpan); err != nil {
 		return nil, err
+	}
+	if vn, ok := callee.(ast.VariableNode); ok {
+		sp := callSpan
+		if !sp.IsSet() {
+			sp = vn.Ident.Span
+		}
+		tc.applyClosureCallInvalidation(vn.Ident.ID, sp)
 	}
 	return append([]ast.TypeNode(nil), fnType.FuncReturns...), nil
 }

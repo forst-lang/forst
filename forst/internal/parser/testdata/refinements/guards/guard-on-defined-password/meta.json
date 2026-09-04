@@ -1,0 +1,5 @@
+{
+  "id": "guards/guard-on-defined-password",
+  "expect": "parse-error",
+  "title": "Go-style declaration without equals rejected"
+}

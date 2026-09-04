@@ -1,0 +1,5 @@
+{
+  "id": "clobber/loop-name-retains",
+  "expect": "typecheck-ok",
+  "title": "loop writing name retains Adult"
+}

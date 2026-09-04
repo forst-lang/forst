@@ -1,0 +1,24 @@
+package main
+
+type Item = {
+    price: Int
+}
+
+type Order = {
+    items: []Item
+}
+
+is (order Order) Priced {
+    ensure order.items is Min(1)
+}
+
+func needPriced(order Order) {}
+
+func check(order Order, zero Item) {
+    items := order.items
+    ensure order is Priced()
+    items[0] = zero
+    needPriced(order)
+}
+
+func main() {}

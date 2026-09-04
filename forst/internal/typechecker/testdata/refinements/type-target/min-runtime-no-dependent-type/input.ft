@@ -1,0 +1,12 @@
+package main
+
+func loadMinimum(): Int {
+	return 8
+}
+
+func check(password String) {
+	n := loadMinimum()
+	ensure password is Min(n) {}
+}
+
+func main() {}

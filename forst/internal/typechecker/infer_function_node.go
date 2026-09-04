@@ -25,9 +25,21 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 	prevErrBranchDepth := tc.resultErrIfBranchDepth
 	tc.resultErrIfBranchDepth = 0
 	restoreLabels := tc.pushLoopLabelScope()
+	prevInferFn := tc.currentInferFn
+	prevInferParams := tc.currentInferParams
+	tc.currentInferFn = functionNode.Ident.ID
+	tc.currentInferParams = nil
+	for _, param := range functionNode.Params {
+		if sp, ok := param.(ast.SimpleParamNode); ok {
+			tc.currentInferParams = append(tc.currentInferParams, sp.Ident.ID)
+		}
+	}
+	tc.setFunctionSummary(functionNode.Ident.ID, &FunctionSummary{})
 	defer func() {
 		tc.currentFunction = prevFn
 		tc.resultErrIfBranchDepth = prevErrBranchDepth
+		tc.currentInferFn = prevInferFn
+		tc.currentInferParams = prevInferParams
 		restoreLabels()
 	}()
 
@@ -141,6 +153,7 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 			return nil, err
 		}
 	}
+	tc.finalizeFunctionSummaryReturns(functionNode)
 	if err := tc.checkFunctionLabels(functionNode.Body); err != nil {
 		return nil, err
 	}

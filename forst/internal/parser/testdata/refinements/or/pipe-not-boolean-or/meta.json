@@ -1,0 +1,6 @@
+{
+  "id": "or/pipe-not-boolean-or",
+  "expect": "parse-error",
+  "title": "pipe is not boolean OR",
+  "code": "refinement-pipe-in-assertion"
+}

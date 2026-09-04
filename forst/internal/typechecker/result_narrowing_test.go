@@ -145,7 +145,7 @@ import "strconv"
 
 func f(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -387,7 +387,7 @@ import "strconv"
 
 func f(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -553,7 +553,7 @@ import "strconv"
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -636,7 +636,7 @@ type WrapErr = {
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -785,7 +785,7 @@ import "strconv"
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("x")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -830,7 +830,7 @@ type WrapErr = {
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 

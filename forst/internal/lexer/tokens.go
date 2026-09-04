@@ -88,6 +88,7 @@ var Operators = map[string]ast.TokenIdent{
 	">>": ast.TokenRShift,
 	"&^": ast.TokenAndNot,
 	"->": ast.TokenArrow,
+	"<-": ast.TokenArrow,
 	"+=": ast.TokenPlusEq,
 	"-=": ast.TokenMinusEq,
 	"*=": ast.TokenStarEq,

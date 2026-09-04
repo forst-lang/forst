@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/unsafe-drops",
+  "expect": "typecheck-error",
+  "title": "unsafe on user drops"
+}

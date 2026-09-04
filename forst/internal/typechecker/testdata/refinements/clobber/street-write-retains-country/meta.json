@@ -1,0 +1,5 @@
+{
+  "id": "clobber/street-write-retains-country",
+  "expect": "typecheck-ok",
+  "title": "street write retains country dep"
+}

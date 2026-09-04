@@ -74,6 +74,22 @@ func printType(t ast.TypeNode) string {
 }
 
 func (p *printer) formatAssertion(a ast.AssertionNode) string {
+	head := p.formatAssertionMeet(a)
+	for _, alt := range a.OrChains {
+		head += " or " + p.formatAssertionMeet(alt)
+	}
+	return head
+}
+
+func (p *printer) formatAssertionMeet(a ast.AssertionNode) string {
+	// Shape target: Match({…}) prints as `{…}`
+	if a.BaseType == nil && len(a.Constraints) == 1 && a.Constraints[0].Name == "Match" &&
+		len(a.Constraints[0].Args) == 1 && a.Constraints[0].Args[0].Shape != nil {
+		s, err := p.printShape(*a.Constraints[0].Args[0].Shape)
+		if err == nil {
+			return s
+		}
+	}
 	if a.BaseType == nil {
 		return p.formatAssertionChainOnly(a)
 	}

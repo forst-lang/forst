@@ -1,0 +1,6 @@
+// MATRIX stub: nested request ContractViolation
+// TODO(phase-3d): emit recursive request validation that raises ContractViolation
+// with stable code, JSON path, expected rule, and redacted actual kind.
+package main
+
+func main() {}

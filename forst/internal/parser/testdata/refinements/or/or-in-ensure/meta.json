@@ -1,0 +1,5 @@
+{
+  "id": "or/or-in-ensure",
+  "expect": "parse-ok",
+  "title": "or in ensure assertion"
+}

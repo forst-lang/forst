@@ -1,0 +1,6 @@
+{
+  "id": "identity/symbolref-remap",
+  "expect": "typecheck-ok",
+  "title": "SymbolRef remaps on load",
+  "matrix": true
+}

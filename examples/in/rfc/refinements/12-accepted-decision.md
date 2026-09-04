@@ -1,6 +1,12 @@
 # 12 — Accepted decision: analyzable refinements and the role of `ensure`
 
-**Status:** **Accepted.** Normative for `ensure`, type guards, assertion `or`, typed `else`, `|` in types, and `must()`. Type targets (`ensure place is Type`) are [14](./14-type-targets.md). Mutation, aliasing, and Go interop are [13](./13-refinement-stability.md).
+**Status:** **Accepted, amended.** Normative except where [the locked technical design](../../../../.plans/analyzable-refinements/TECHNICAL-DESIGN.md) overrides historical alternatives. Type targets are [14](./14-type-targets.md); stability is [13](./13-refinement-stability.md).
+
+> **Amendment:** Forst has no source aliases. `type Name = TypeExpression` always
+> declares a named type; `=` is the declaration separator. This work ships named
+> homogeneous finite string/integer/boolean unions and enum subsets only. Mixed,
+> float, inline, shape, tagged, and general unions are deferred. Contrary examples
+> below are historical rationale, not implementable semantics.
 
 **Scope:** `ensure`, type guards, assertion disjunction, failure handling, refinement propagation. Mutation, aliasing, and Go interop are specified in [13](./13-refinement-stability.md), not here.
 

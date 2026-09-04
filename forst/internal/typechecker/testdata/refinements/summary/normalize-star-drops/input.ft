@@ -1,0 +1,32 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+    role: String
+    address: Address
+}
+
+type Address = {
+    street: String
+    country: *String
+}
+
+is (user User) Adult {
+    ensure user.age is Min(18)
+}
+
+func acceptAdult(user User) {}
+
+func normalize(user User) {
+    user.age = 0
+    user.name = ""
+}
+
+func check(user User) {
+    ensure user is Adult()
+    normalize(user)
+    acceptAdult(user)
+}
+
+func main() {}

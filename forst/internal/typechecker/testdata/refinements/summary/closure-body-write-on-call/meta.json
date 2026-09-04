@@ -1,0 +1,5 @@
+{
+  "id": "summary/closure-body-write-on-call",
+  "expect": "typecheck-error",
+  "title": "calling a writing closure drops"
+}

@@ -152,6 +152,16 @@ func typeNodesShallowEqual(a, b InternalType) bool {
 			return false
 		}
 	}
+	if a.Ident == ast.TypeAssertion {
+		as, bs := "", ""
+		if a.Assertion != nil {
+			as = a.Assertion.String()
+		}
+		if b.Assertion != nil {
+			bs = b.Assertion.String()
+		}
+		return as == bs
+	}
 	return true
 }
 

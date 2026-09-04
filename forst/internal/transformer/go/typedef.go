@@ -17,6 +17,13 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 	}
 	hashTypeName := hash.ToTypeIdent()
 
+	// Named homogeneous literal unions: named carrier + constants + membership helper.
+	if lit, err := t.tryEmitLiteralUnionNamedType(node); err != nil {
+		return nil, err
+	} else if lit != nil {
+		return lit, nil
+	}
+
 	// Closed union of nominal errors: emit a sealed interface + marker methods instead of `type T error`.
 	if bin, ok := node.Expr.(ast.TypeDefBinaryExpr); ok && bin.IsDisjunction() {
 		if sealed, err := t.tryEmitNominalErrorUnionSealedInterface(node, bin); err != nil {

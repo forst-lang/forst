@@ -65,9 +65,9 @@ Each directory holds one Forst package name. Same-package `.ft` files in **one d
 | **Records at call sites** | `placeOrder({ stockKeepingUnit: "A", quantity: 2 })`. |
 | **Constraints on fields** | `String.Min(1).Max(64)`, `Int.Min(1).Max(99)`, `Array(String).NotEmpty()`. Compiler emits boundary checks. |
 | **Runtime checks** | `ensure speed is LessThan(100) or TooFast({ ... })`. |
-| **Optional / errors** | `ensure err is Nil() or err`. No `try`/`catch`, no `panic`/`recover`. |
+| **Optional / errors** | `ensure err is Nil() else err`. No `try`/`catch`, no `panic`/`recover`. |
 | **Map lookup** | Returns `Result(V, Error)`. **No comma-ok.** `ensure avail is Ok()` then use `avail`. |
-| **Nominal errors** | `error InsufficientStock { stockKeepingUnit: String, ... }`. Use with `ensure ... or InsufficientStock({...})`. |
+| **Nominal errors** | `error InsufficientStock { stockKeepingUnit: String, ... }`. Use with `ensure … else InsufficientStock({...})`. |
 | **Result returns** | `func f(): Result(String, Error) { return Ok("done") }`. Narrow with `ensure x is Ok()`. |
 | **Providers** | `use logger: Logger` inside body. Wire at entry with `with { Logger: prodLogger {} } { handler(input) }`. Params = request data. Providers = host services. |
 

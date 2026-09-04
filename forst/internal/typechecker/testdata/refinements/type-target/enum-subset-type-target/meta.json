@@ -1,0 +1,5 @@
+{
+  "id": "type-target/enum-subset-type-target",
+  "expect": "typecheck-ok",
+  "title": "ensure named enum subset type"
+}

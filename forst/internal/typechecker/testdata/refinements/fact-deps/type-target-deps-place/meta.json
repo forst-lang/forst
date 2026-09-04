@@ -1,0 +1,6 @@
+{
+  "id": "fact-deps/type-target-deps-place",
+  "expect": "deps",
+  "title": "type target depends on the place",
+  "code": "refinement-pipe-in-assertion"
+}

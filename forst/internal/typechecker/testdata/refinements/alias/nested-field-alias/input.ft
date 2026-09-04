@@ -1,0 +1,27 @@
+package main
+
+type Address = {
+    street: String
+    country: String
+}
+
+type User = {
+    name: String
+    age: Int
+    address: Address
+}
+
+is (user User) ValidUser {
+    ensure user.address.country is Min(1)
+}
+
+func needValid(user User) {}
+
+func check(user User) {
+    address := user.address
+    ensure user is ValidUser()
+    address.country = "XX"
+    needValid(user)
+}
+
+func main() {}

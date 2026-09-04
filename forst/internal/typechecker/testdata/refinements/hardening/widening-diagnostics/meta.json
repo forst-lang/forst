@@ -1,0 +1,6 @@
+{
+  "id": "hardening/widening-diagnostics",
+  "expect": "typecheck-ok",
+  "title": "widening diagnostics",
+  "matrix": true
+}

@@ -1,0 +1,6 @@
+{
+  "id": "e2e/task-status",
+  "expect": "emit-ok",
+  "title": "TaskStatus literal union e2e",
+  "matrix": true
+}

@@ -1,0 +1,5 @@
+{
+  "id": "literal-union/literal-union-type",
+  "expect": "typecheck-ok",
+  "title": "literal union is a type"
+}

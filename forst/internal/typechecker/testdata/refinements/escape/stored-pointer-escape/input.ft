@@ -1,0 +1,21 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+    role: String
+}
+
+is (user User) Adult {
+    ensure user.age is Min(18)
+}
+
+func acceptAdult(user User) {}
+
+func check(user User) {
+    ensure user is Adult()
+    stash := &user
+    acceptAdult(user)
+}
+
+func main() {}

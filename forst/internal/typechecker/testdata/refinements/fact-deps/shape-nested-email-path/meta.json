@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/shape-nested-email-path",
+  "expect": "deps",
+  "title": "shape nested email path"
+}

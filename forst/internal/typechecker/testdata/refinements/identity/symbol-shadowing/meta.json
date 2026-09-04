@@ -1,0 +1,6 @@
+{
+  "id": "identity/symbol-shadowing",
+  "expect": "typecheck-ok",
+  "title": "SymbolID distinct across shadowing",
+  "matrix": true
+}

@@ -13,8 +13,8 @@ func ensureMissingIsMessage(subject string, found ast.Token) string {
 	case ast.TokenOr:
 		return fmt.Sprintf("ensure requires 'is' before 'or'; %s", hint)
 	case ast.TokenGreater, ast.TokenLess, ast.TokenGreaterEqual, ast.TokenLessEqual,
-		ast.TokenEquals, ast.TokenNotEquals:
-		return fmt.Sprintf("ensure requires 'is' with a constraint (not a comparison); %s", hint)
+		ast.TokenEquals, ast.TokenNotEquals, ast.TokenLogicalOr, ast.TokenLogicalAnd:
+		return fmt.Sprintf("refinement-boolean-ensure: ensure requires 'is' with a constraint (not a comparison); %s", hint)
 	case ast.TokenLParen:
 		return fmt.Sprintf("ensure subject must be an identifier (bind the call first); %s (found %s)", hint, found.Type)
 	default:
@@ -35,11 +35,34 @@ func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
 	return &ast.EnsureBlockNode{Body: body}
 }
 
+// parseEnsureError parses the typed failure after `else` (Error() call or error variable).
+func (p *Parser) parseEnsureError() *ast.EnsureErrorNode {
+	errorTok := p.expect(ast.TokenIdentifier)
+	errorType := errorTok.Value
+	var err ast.EnsureErrorNode
+	if p.current().Type == ast.TokenLParen {
+		p.advance() // Consume left paren
+		var args []ast.ExpressionNode
+		for p.current().Type != ast.TokenRParen {
+			args = append(args, p.parseExpression())
+			if p.current().Type == ast.TokenComma {
+				p.advance()
+			}
+		}
+		p.expect(ast.TokenRParen)
+		err = ast.EnsureErrorCall{ErrorType: errorType, ErrorArgs: args}
+	} else {
+		err = ast.EnsureErrorVar(errorType)
+	}
+	return &err
+}
+
 func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	p.advance() // Move past `ensure`
 
 	var variable ast.VariableNode
 	var assertion ast.AssertionNode
+	var target ast.RefinementTarget
 
 	// Handle special case for negated variable check
 	if p.current().Type == ast.TokenLogicalNot && p.peek().Type == ast.TokenIdentifier {
@@ -66,27 +89,55 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 				},
 			},
 		}
+		target = ast.AssertionTarget{Chains: []ast.AssertionNode{assertion}}
 	} else {
+		// Reject non-place subjects early (calls, literals, arithmetic).
+		switch p.current().Type {
+		case ast.TokenStringLiteral, ast.TokenIntLiteral, ast.TokenFloatLiteral,
+			ast.TokenRuneLiteral, ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
+			p.FailWithParseError(p.current(),
+				"refinement-non-place-subject: ensure subject must be an identifier or field path, not a literal")
+		case ast.TokenLParen:
+			p.FailWithParseError(p.current(),
+				"refinement-non-place-subject: ensure subject must be an identifier or field path")
+		}
+
+		if p.current().Type != ast.TokenIdentifier {
+			p.FailWithParseError(p.current(), ensureMissingIsMessage("?", p.current()))
+		}
+
 		// Parse the left side as a variable or field access (identifiers only — no call subjects).
 		firstTok := p.expect(ast.TokenIdentifier)
+		// Call subject: ident(
+		if p.current().Type == ast.TokenLParen {
+			p.FailWithParseError(firstTok,
+				"refinement-non-place-subject: ensure subject must be an identifier (bind the call first)")
+		}
 		curIdent := ast.Identifier(firstTok.Value)
 		lastTok := firstTok
 
-		// Allow field access with dots
+		// Allow field access with dots (but not method calls)
 		for p.current().Type == ast.TokenDot {
 			p.advance() // Consume dot
 			nextTok := p.expect(ast.TokenIdentifier)
+			if p.current().Type == ast.TokenLParen {
+				p.FailWithParseError(nextTok,
+					"refinement-non-place-subject: ensure subject must be an identifier or field path, not a call")
+			}
 			curIdent = ast.Identifier(string(curIdent) + "." + nextTok.Value)
 			lastTok = nextTok
 		}
 
-		subjectSpan := ast.SpanBetweenTokens(firstTok, lastTok)
-		variable = ast.VariableNode{
-			Ident: ast.Ident{ID: curIdent, Span: subjectSpan},
-		}
-
+		// Reject arithmetic / comparison subjects: `a + b is …` never starts with two idents.
+		// `ensure a + b` hits `+` before `is`.
 		if p.current().Type != ast.TokenIs {
-			p.FailWithParseError(p.current(), ensureMissingIsMessage(string(curIdent), p.current()))
+			tok := p.current()
+			if tok.Type.IsArithmeticBinaryOperator() || tok.Type.IsComparisonBinaryOperator() ||
+				tok.Type == ast.TokenLogicalOr || tok.Type == ast.TokenLogicalAnd {
+				p.FailWithParseError(tok,
+					fmt.Sprintf("refinement-non-place-subject: ensure subject must be a place, not an expression (%s)", tok.Type))
+			}
+			p.FailWithParseError(tok, ensureMissingIsMessage(string(curIdent), tok))
 		}
 		p.expect(ast.TokenIs)
 		if tok := p.current(); tok.Type == ast.TokenTrue || tok.Type == ast.TokenFalse {
@@ -99,12 +150,15 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 				curIdent, want,
 			))
 		}
-		assertion = p.parseAssertionChain(false)
+
+		subjectSpan := ast.SpanBetweenTokens(firstTok, lastTok)
+		variable = ast.VariableNode{
+			Ident: ast.Ident{ID: curIdent, Span: subjectSpan},
+		}
+
+		target, assertion = p.parseRefinementTarget()
 
 		// Try to set the base type from the current scope if not set (simple subject only).
-		// For compound paths (e.g. ensure req.state is ValidBoard()), the subject's static type is
-		// the field type (GameState), not the root variable's type (MoveRequest). Setting BaseType to
-		// the latter breaks InferAssertionType and ensure-successor narrowing / hover.
 		if assertion.BaseType == nil && p.context != nil && p.context.ScopeStack != nil {
 			scope := p.context.ScopeStack.CurrentScope()
 			if scope != nil {
@@ -118,57 +172,68 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		}
 	}
 
-	block := p.parseEnsureBlock()
+	inGuard := p.context != nil && p.context.IsTypeGuard()
+	inMain := p.context != nil && p.context.IsMainFunction()
 
-	if p.context.IsTypeGuard() {
-		if p.current().Type == ast.TokenOr {
-			p.FailWithParseError(p.current(), "Ensure statement not allowed in type guards")
-		}
-		return ast.EnsureNode{
-			Variable:  variable,
-			Assertion: assertion,
-			Block:     block,
-		}
-	}
+	var errNode *ast.EnsureErrorNode
+	var block *ast.EnsureBlockNode
 
-	if p.context.IsMainFunction() {
-		if p.current().Type == ast.TokenOr {
-			p.FailWithParseError(p.current(), "\"or\" block in ensure statements is not allowed in main function")
-		}
-	}
-
-	// Only require 'or' clause if not in main function and not in a type guard context
-	if !p.context.IsMainFunction() && p.current().Type == ast.TokenOr {
-		p.expect(ast.TokenOr) // Expect `or`
-
-		errorTok := p.expect(ast.TokenIdentifier)
-		errorType := errorTok.Value
-		var err ast.EnsureErrorNode
-		if p.current().Type == ast.TokenLParen {
-			p.advance() // Consume left paren
-			var args []ast.ExpressionNode
-			for p.current().Type != ast.TokenRParen {
-				args = append(args, p.parseExpression())
-				if p.current().Type == ast.TokenComma {
-					p.advance()
-				}
-			}
-			p.expect(ast.TokenRParen)
-			err = ast.EnsureErrorCall{ErrorType: errorType, ErrorArgs: args}
+	// Optional typed failure: `else <Error()|errVar>`
+	if p.current().Type == ast.TokenElse {
+		elseTok := p.current()
+		// `else if` / `else {` belong to surrounding if — but after ensure, `else {` is invalid
+		// (failure blocks use bare `{`; typed else takes Error()/var).
+		if p.peek().Type == ast.TokenIf {
+			// Not an ensure else; leave for outer parse (shouldn't appear mid-ensure).
 		} else {
-			err = ast.EnsureErrorVar(errorType)
+			p.advance() // consume else
+			if inGuard {
+				p.FailWithParseError(elseTok,
+					"refinement-else-in-guard: typed `else` is not allowed inside type guards")
+			}
+			if inMain {
+				p.FailWithParseError(elseTok,
+					`"else" typed failure in ensure statements is not allowed in main function`)
+			}
+			if p.current().Type == ast.TokenLBrace {
+				p.FailWithParseError(elseTok,
+					"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
+			}
+			errNode = p.parseEnsureError()
 		}
-		return ast.EnsureNode{
-			Variable:  variable,
-			Assertion: assertion,
-			Block:     block,
-			Error:     &err,
+	}
+
+	// Optional failure block `{ … }` (XOR with else)
+	if p.current().Type == ast.TokenLBrace {
+		if errNode != nil {
+			p.FailWithParseError(p.current(),
+				"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
 		}
+		if inGuard {
+			p.FailWithParseError(p.current(),
+				"refinement-failure-block-in-guard: failure blocks are not allowed inside type guards")
+		}
+		block = p.parseEnsureBlock()
+	}
+
+	// `else` after block
+	if p.current().Type == ast.TokenElse && block != nil {
+		p.FailWithParseError(p.current(),
+			"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
+	}
+
+	// Legacy `or` as typed failure: if somehow still present after a complete target
+	// without having been consumed as Join (e.g. orphaned), suggest else.
+	if p.current().Type == ast.TokenOr && errNode == nil && block == nil {
+		p.FailWithParseError(p.current(),
+			"refinement-legacy-failure-or: typed failure uses `else`, not `or`; `or` joins assertion alternatives")
 	}
 
 	return ast.EnsureNode{
 		Variable:  variable,
+		Target:    target,
 		Assertion: assertion,
 		Block:     block,
+		Error:     errNode,
 	}
 }

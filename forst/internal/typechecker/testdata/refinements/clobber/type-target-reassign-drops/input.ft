@@ -1,0 +1,15 @@
+package main
+
+type ActiveStatus = "pending" | "processing"
+
+error InvalidStatus {}
+
+func consumeActiveStatus(s ActiveStatus) {}
+
+func check(status String) {
+    ensure status is ActiveStatus else InvalidStatus()
+    status = "done"
+    consumeActiveStatus(status)
+}
+
+func main() {}

@@ -1,0 +1,21 @@
+package main
+
+type UUID = String
+type Email = String
+type Response = {
+	user: {
+		id: UUID
+		email: Email
+	}
+}
+
+func check(response Response) {
+	ensure response is {
+		user: {
+			id: UUID
+			email: Email
+		}
+	}
+}
+
+func main() {}

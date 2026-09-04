@@ -544,7 +544,8 @@ func TestFindHoverForPosition_typeGuardSuccessiveEnsureAccumulatesPredicateDispl
 	ft := filepath.Join(dir, "tg_two_ensure_hover.ft")
 	const src = `package main
 
-is (x: String) G {
+type GStr = String
+is (x: GStr) G {
 	ensure x is Min(1)
 	ensure x is Max(10)
 }

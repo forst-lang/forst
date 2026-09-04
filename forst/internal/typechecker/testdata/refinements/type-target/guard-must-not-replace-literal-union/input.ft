@@ -1,0 +1,3 @@
+is (s String) TaskStatus {
+    ensure s is Value("todo") or Value("done")
+}

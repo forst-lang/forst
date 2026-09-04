@@ -1,0 +1,6 @@
+{
+  "id": "or/or-of-two-type-targets-rejected",
+  "expect": "parse-error",
+  "title": "or of two type names rejected (parse rejection)",
+  "code": "refinement-or-mixed-target"
+}

@@ -56,7 +56,7 @@ uses `ensure x is Ok()` before using the successful value.
 
 ## Return a specific error with ensure
 
-Use `ensure condition or error` when a failed check should return a known error.
+Use `ensure … else error` when a failed check should return a known error.
 The function stops at that point and gives the error to its caller.
 
 <ErrorsEnsureStock />
@@ -93,7 +93,7 @@ Split the values and check the error when your Forst function should return a
 
 ```ft
 n, err := pkg.F()
-ensure !err or err
+ensure !err else err
 return n
 ```
 
@@ -134,7 +134,7 @@ that there is no error. `Err()` always means that there is no success value.
 - Conversion between `Tuple` and `Result` is unavailable. `Ok()` and `Err()`
   only apply to `Result`.
 - When you know a call has exclusive outcomes, split its values and use
-  `ensure !err or err` before returning the success value.
+  `ensure !err else err` before returning the success value.
 - The rule applies to every package. It needs no catalog or project setting.
 
 This preserves all possible states of a return with several values. It also keeps

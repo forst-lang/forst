@@ -172,7 +172,8 @@ func TestNavigationLocalHelpers_definingTokenForTypeGuardParams(t *testing.T) {
 	t.Parallel()
 	src := `package main
 
-is (x Int) Pair(y Int) {
+type PairInt = Int
+is (x PairInt) Pair(y Int) {
 	ensure x is GreaterThan(0)
 }
 `

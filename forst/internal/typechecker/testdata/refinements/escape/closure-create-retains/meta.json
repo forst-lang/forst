@@ -1,0 +1,5 @@
+{
+  "id": "escape/closure-create-retains",
+  "expect": "typecheck-ok",
+  "title": "creating writing closure does not drop"
+}

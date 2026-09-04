@@ -1,0 +1,4 @@
+// MATRIX stub: SymbolID distinct across shadowing
+package main
+
+func main() {}

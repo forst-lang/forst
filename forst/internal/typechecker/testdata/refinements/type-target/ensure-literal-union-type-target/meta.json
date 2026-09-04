@@ -1,0 +1,5 @@
+{
+  "id": "type-target/ensure-literal-union-type-target",
+  "expect": "typecheck-ok",
+  "title": "ensure type target on literal union"
+}

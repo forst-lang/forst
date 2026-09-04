@@ -1,0 +1,6 @@
+{
+  "id": "transfer/simultaneous-assignment",
+  "expect": "typecheck-ok",
+  "title": "simultaneous assignment order",
+  "matrix": true
+}

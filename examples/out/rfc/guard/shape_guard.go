@@ -18,18 +18,25 @@ type T_488eVThFocF struct {
 	ctx   AppContext
 	input User
 }
+type T_5ksn1adCDmh string
 // T_8XMnUftkRoa: TypeDefShapeExpr({sessionId: Pointer(String), user: Pointer(User)})
 type T_8XMnUftkRoa struct {
 	sessionId *string
 	user      *User
+}
+// T_BDvMhNEUYH5: TypeDefShapeExpr({ctx: ctx})
+type T_BDvMhNEUYH5 struct {
+	ctx T_5ksn1adCDmh
 }
 // T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
 type T_F1jpghi8Uyp struct {
 	input User
 }
 type T_PBoS2ej5ec7 string
-// T_WLVwGpNp6sG: TypeDefShapeExpr({})
-type T_WLVwGpNp6sG struct {
+type T_PFzGCZEtwX2 string
+// T_U2aboJvjLFx: TypeDefShapeExpr({input: input})
+type T_U2aboJvjLFx struct {
+	input T_PFzGCZEtwX2
 }
 // T_bTwM5AcoxRu: TypeDefShapeExpr({})
 type T_bTwM5AcoxRu struct {
@@ -41,12 +48,8 @@ type T_bWZeLfb2t2d struct {
 type User struct {
 	name string
 }
-// Type-level shape guard stub; `ensure m is { field }` is not lowered to runtime checks yet.
-func G_3pdR3GAa1n5(m MutationArg, ctx T_PBoS2ej5ec7) bool {
-	return true
-}
-// Type-level shape guard stub; `ensure m is { field }` is not lowered to runtime checks yet.
-func G_7gkSUCcbRH3(m MutationArg, input T_PBoS2ej5ec7) bool {
+
+func G_8WSqBTASJ33(m MutationArg, input T_PBoS2ej5ec7) bool {
 	return true
 }
 func G_PP94eAdBHT9(ctx AppContext) bool {
@@ -56,6 +59,9 @@ func G_PP94eAdBHT9(ctx AppContext) bool {
 	if ctx.user == nil {
 		return false
 	}
+	return true
+}
+func G_diQsBE2Y1SW(m MutationArg, ctx T_PBoS2ej5ec7) bool {
 	return true
 }
 func createTask(op T_488eVThFocF) (string, error) {

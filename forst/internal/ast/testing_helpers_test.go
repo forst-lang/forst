@@ -18,34 +18,57 @@ func TestSetupTestLogger_forceLevel(t *testing.T) {
 }
 
 func TestSetupTestLogger_nil_opts(t *testing.T) {
+	t.Setenv("FORST_TEST_LOG", "") // parent/package env must not leak into quiet default
 	l := SetupTestLogger(nil)
 	if l == nil {
 		t.Fatal("nil logger")
 	}
 }
 
-func TestSetupTestLogger_verbose_branch(t *testing.T) {
-	if !testing.Verbose() {
-		t.Skip("run with -v to cover debug level branch in SetupTestLogger")
-	}
+func TestSetupTestLogger_quiet_by_default(t *testing.T) {
+	t.Setenv("FORST_TEST_LOG", "")
 	l := SetupTestLogger(nil)
-	if l.GetLevel() != logrus.DebugLevel {
-		t.Fatalf("verbose run: got level %v", l.GetLevel())
+	if l.GetLevel() != logrus.PanicLevel {
+		t.Fatalf("quiet default: got level %v, want PanicLevel", l.GetLevel())
 	}
 }
 
-func TestSetupTestLogger_injected_verbose(t *testing.T) {
+func TestSetupTestLogger_injected_enable(t *testing.T) {
 	l := setupTestLogger(nil, func() bool { return true })
 	if l.GetLevel() != logrus.DebugLevel {
-		t.Fatalf("expected Debug when verbose returns true, got %v", l.GetLevel())
+		t.Fatalf("expected Debug when enable returns true, got %v", l.GetLevel())
 	}
 	l2 := setupTestLogger(nil, func() bool { return false })
-	if l2.GetLevel() != logrus.InfoLevel {
-		t.Fatalf("expected default Info when verbose false and no opts, got %v", l2.GetLevel())
+	if l2.GetLevel() != logrus.PanicLevel {
+		t.Fatalf("expected Panic when enable false and no opts, got %v", l2.GetLevel())
 	}
 	l3 := setupTestLogger(&TestLoggerOptions{ForceLevel: logrus.WarnLevel}, func() bool { return true })
 	if l3.GetLevel() != logrus.WarnLevel {
-		t.Fatalf("opts should override verbose level, got %v", l3.GetLevel())
+		t.Fatalf("opts should override enable level, got %v", l3.GetLevel())
+	}
+}
+
+func TestSetupTestLoggerFor_fail_mode_buffers_debug(t *testing.T) {
+	t.Setenv("FORST_TEST_LOG", "fail")
+	log := SetupTestLoggerFor(t, nil)
+	if log.GetLevel() != logrus.DebugLevel {
+		t.Fatalf("fail mode: got level %v, want DebugLevel", log.GetLevel())
+	}
+	log.Debug("buffered for potential failure dump")
+}
+
+func TestCompilerTestLogsEnv(t *testing.T) {
+	t.Setenv("FORST_TEST_LOG", "1")
+	if !compilerTestLogsEnabled() {
+		t.Fatal("FORST_TEST_LOG=1 should enable")
+	}
+	t.Setenv("FORST_TEST_LOG", "fail")
+	if compilerTestLogsEnabled() || !compilerTestLogsOnFail() {
+		t.Fatal("FORST_TEST_LOG=fail should be on-fail only")
+	}
+	t.Setenv("FORST_TEST_LOG", "")
+	if compilerTestLogsEnabled() || compilerTestLogsOnFail() {
+		t.Fatal("empty env should disable both")
 	}
 }
 

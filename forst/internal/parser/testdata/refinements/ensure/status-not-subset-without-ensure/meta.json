@@ -1,0 +1,5 @@
+{
+  "id": "ensure/status-not-subset-without-ensure",
+  "expect": "parse-error",
+  "title": "status is not ActiveStatus without ensure (parse rejection)"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "guards/guard-side-effect-rejected",
+  "expect": "typecheck-error",
+  "title": "side effect in guard rejected"
+}

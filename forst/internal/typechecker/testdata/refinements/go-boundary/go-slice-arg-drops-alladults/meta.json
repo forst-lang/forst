@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-slice-arg-drops-alladults",
+  "expect": "typecheck-error",
+  "title": "Go receiving slice drops element facts"
+}

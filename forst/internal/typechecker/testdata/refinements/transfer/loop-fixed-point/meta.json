@@ -1,0 +1,6 @@
+{
+  "id": "transfer/loop-fixed-point",
+  "expect": "typecheck-ok",
+  "title": "loop zero/backedge fixed point",
+  "matrix": true
+}

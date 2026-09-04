@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/compound-or-union-deps",
+  "expect": "deps",
+  "title": "compound or unions deps"
+}

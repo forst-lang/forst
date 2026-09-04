@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Covers transformEnsureCondition when the assertion is only a type-guard name (no Strong() call):
-// BaseType set, Constraints empty — see ensure.go "type guard call" branch.
+// Covers that a bare type-guard name after `is` is a TypeTarget, not an assertion:
+// use Strong() for the guard; bare Strong is rejected (refinement-bare-guard-needs-parens).
 func TestPipeline_ensureTypeGuardNameOnly_emitsHashGuardCall(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -19,7 +19,7 @@ is (password Password) Strong {
 
 func main() {
 	password: Password = "123456789012345"
-	ensure password is Strong {
+	ensure password is Strong() {
 		println("weak")
 	}
 	println("done")
@@ -50,7 +50,7 @@ error NotOk {
 
 func check() {
 	n := 0
-	ensure n is GreaterThan(0) or NotOk({ msg: "bad" })
+	ensure n is GreaterThan(0) else NotOk({ msg: "bad" })
 }
 
 func main() {

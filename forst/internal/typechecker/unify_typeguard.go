@@ -149,6 +149,11 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 	if err := tc.rejectNominalErrorAsBareIsGuard(&assertionNode); err != nil {
 		return err
 	}
+	if len(assertionNode.OrChains) > 0 {
+		if err := tc.validateAssertionOrChains(assertionNode, varLeftType); err != nil {
+			return err
+		}
+	}
 	if len(assertionNode.Constraints) == 1 && assertionNode.BaseType == nil {
 		c := assertionNode.Constraints[0]
 		if c.Name == "Ok" || c.Name == "Err" {
@@ -184,6 +189,40 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		}
 	}
 	return nil
+}
+
+// validateAssertionOrChains checks Join alternatives; error constructors after `or` need `else`.
+func (tc *TypeChecker) validateAssertionOrChains(assertion ast.AssertionNode, varLeftType ast.TypeNode) error {
+	for _, chain := range assertion.OrChains {
+		if tc.assertionChainLooksLikeErrorConstructor(chain) {
+			return diagnosticf(ast.SourceSpan{}, "refinement-legacy-failure-or",
+				"refinement-legacy-failure-or: `or` starts another constraint chain; use `else` for typed failure")
+		}
+		if err := tc.validateAssertionNode(chain, varLeftType); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (tc *TypeChecker) assertionChainLooksLikeErrorConstructor(chain ast.AssertionNode) bool {
+	if chain.BaseType != nil || len(chain.Constraints) != 1 {
+		return false
+	}
+	name := chain.Constraints[0].Name
+	if name == "Error" {
+		return true
+	}
+	def, ok := tc.Defs[ast.TypeIdent(name)]
+	if !ok {
+		return false
+	}
+	td, ok := def.(ast.TypeDefNode)
+	if !ok {
+		return false
+	}
+	_, isErr := td.Expr.(ast.TypeDefErrorExpr)
+	return isErr
 }
 
 // validateResultDiscriminatorAssertion validates `x is Ok(...)` / `Err(...)` when the subject is Result(S,F).

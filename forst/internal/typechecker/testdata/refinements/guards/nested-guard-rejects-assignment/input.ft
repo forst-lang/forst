@@ -1,0 +1,5 @@
+is (x X) Valid {
+    if x.kind is A() {
+        x.flag = 1
+    }
+}

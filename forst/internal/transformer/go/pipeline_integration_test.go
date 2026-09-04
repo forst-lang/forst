@@ -312,7 +312,7 @@ func Bad(msg String): Error {
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or Bad("x")
+	ensure row is GreaterThan(-1) else Bad("x")
 	return "ok"
 }
 

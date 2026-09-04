@@ -1,0 +1,6 @@
+{
+  "id": "hardening/deterministic-output",
+  "expect": "typecheck-ok",
+  "title": "deterministic output",
+  "matrix": true
+}

@@ -14,6 +14,7 @@
       ],
       "typeIds": [
         "catalog.EmailLine",
+        "catalog.EmailStr",
         "catalog.Username"
       ],
       "functionIds": []
@@ -45,6 +46,11 @@
           "applies": "length"
         }
       ],
+      "visibility": "exported"
+    },
+    "catalog.EmailStr": {
+      "id": "catalog.EmailStr",
+      "kind": "string",
       "visibility": "exported"
     },
     "catalog.Username": {

@@ -1,0 +1,6 @@
+{
+  "id": "hardening/incremental-invalidation",
+  "expect": "typecheck-ok",
+  "title": "summary-level incremental invalidation",
+  "matrix": true
+}

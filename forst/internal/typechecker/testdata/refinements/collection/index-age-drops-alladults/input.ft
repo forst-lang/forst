@@ -1,0 +1,20 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+}
+
+is (users []User) AllAdults {
+    ensure users is Min(1)
+}
+
+func acceptAdultUsers(users []User) {}
+
+func check(users []User, child User) {
+    ensure users is AllAdults()
+    users[0] = child
+    acceptAdultUsers(users)
+}
+
+func main() {}

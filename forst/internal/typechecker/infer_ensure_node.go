@@ -32,6 +32,11 @@ func (tc *TypeChecker) inferEnsureNode(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		if tc.ensureUsesBuiltinResultOkErrDiscriminator(ensureNode) {
 			tc.applyEnsureSuccessorNarrowing(ensureNode)
+		} else if _, isTT := ensureNode.Target.(ast.TypeTarget); isTT {
+			// TypeTarget success continuation is after the failure block.
+			tc.applyEnsureSuccessorNarrowing(ensureNode)
+		} else if p, ok := ensureNode.Target.(*ast.TypeTarget); ok && p != nil {
+			tc.applyEnsureSuccessorNarrowing(ensureNode)
 		}
 	} else {
 		if _, err := tc.inferExpressionType(ensureNode.Variable); err != nil {

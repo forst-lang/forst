@@ -1,0 +1,4 @@
+// MATRIX stub: loop zero/backedge fixed point
+package main
+
+func main() {}
