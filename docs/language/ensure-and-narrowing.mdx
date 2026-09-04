@@ -47,8 +47,7 @@ ensure speed is LessThan(100) else TooFast()
 ```
 
 The expression after `else` runs only when the check fails. It can return a
-named error constructor or an error variable. `else` marks the failure path,
-so `or` is not used for failure.
+named error constructor or an error variable. `else` marks the failure path.
 
 ## Offer several acceptable checks with `or`
 
@@ -59,8 +58,7 @@ ensure password is Strong() or Passkey() else InvalidCredential()
 ```
 
 This check passes when `password` satisfies either `Strong()` or `Passkey()`.
-`or` joins alternative conditions on one value; it is not boolean `||` and not
-a failure keyword.
+`or` joins alternative conditions on one value. It is not boolean `||`.
 
 ## Check against a named type
 
@@ -103,9 +101,17 @@ pointers, `Map`, `Array`, and `Error`.
 
 <EnsureNil />
 
-`claim` continues only when `slot` is nil. `open` then uses
-`ensure !err else err`, the short form of `ensure err is Nil() else err`. Both
-lower to the same Go `if err != nil` check.
+`claim` continues only when `slot` is nil, then stores `value` there. `open`
+then uses `ensure !err`, the short form of `ensure err is Nil()`, and returns
+the occupied value. When the checked value
+has type `Error`, a failed check implicitly returns that error from a non-`main`
+function. In other words, both forms behave like `ensure !err else err` and
+lower to the same Go `if err != nil { return err }` check.
+
+This propagation is specific to errors. A bare `Nil()` check on a pointer, map,
+or array still produces the normal assertion error because the checked value is
+not itself returnable as an error. Add an explicit `else` whenever you want a
+different failure value.
 
 Pointer fields also support
 [`.Present()` and `.Nil()`](/language/shapes-and-constraints). Full optional

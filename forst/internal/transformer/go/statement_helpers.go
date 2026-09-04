@@ -93,7 +93,40 @@ func (t *Transformer) ensureFailureErrorExpr(stmt ast.EnsureNode) (goast.Expr, e
 	if stmt.Error != nil {
 		return t.transformEnsureErrorFallback(*stmt.Error)
 	}
+	if t.ensureImplicitlyPropagatesError(stmt) {
+		return t.transformExpression(stmt.Variable)
+	}
 	return t.defaultAssertionErrorExpr(stmt), nil
+}
+
+// ensureImplicitlyPropagatesError reports whether a bare absence check can use
+// its subject as the failure value. This makes both `ensure !err` and
+// `ensure err is Nil()` shorthand for `ensure !err else err`, while leaving
+// Nil() checks on other nilable values with the normal assertion error.
+func (t *Transformer) ensureImplicitlyPropagatesError(stmt ast.EnsureNode) bool {
+	if stmt.Error != nil || !ensureIsOnlyNilAssertion(stmt) {
+		return false
+	}
+
+	variableType, err := t.TypeChecker.LookupVariableType(&stmt.Variable, t.currentScope())
+	if err != nil {
+		return false
+	}
+	return t.TypeChecker.IsTypeCompatible(variableType, ast.TypeNode{Ident: ast.TypeError})
+}
+
+func ensureIsOnlyNilAssertion(stmt ast.EnsureNode) bool {
+	target, ok := stmt.Target.(ast.AssertionTarget)
+	if !ok {
+		if ptr, ptrOK := stmt.Target.(*ast.AssertionTarget); ptrOK && ptr != nil {
+			target, ok = *ptr, true
+		}
+	}
+	if !ok || len(target.Chains) != 1 {
+		return false
+	}
+	chain := target.Chains[0]
+	return len(chain.Constraints) == 1 && chain.Constraints[0].Name == "Nil" && len(chain.Constraints[0].Args) == 0
 }
 
 // getAssertionStringForError returns a properly qualified assertion string for error messages

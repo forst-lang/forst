@@ -175,6 +175,47 @@ func main() {
 	}
 }
 
+func TestPipeline_ensureBareErrorNil_implicitlyPropagatesError(t *testing.T) {
+	t.Parallel()
+	for _, ensureStmt := range []string{`ensure !err`, `ensure err is Nil()`} {
+		src := `package main
+
+import "fmt"
+
+func check() {
+	err := fmt.Errorf("bad")
+	` + ensureStmt + `
+}
+
+func main() {}
+`
+		out := compileForstPipeline(t, src)
+		if !strings.Contains(out, `return err`) {
+			t.Fatalf("%s should propagate err\n----\n%s\n----", ensureStmt, out)
+		}
+		if strings.Contains(out, `errors.New("ensure err`) {
+			t.Fatalf("%s should not synthesize an assertion error\n----\n%s\n----", ensureStmt, out)
+		}
+	}
+}
+
+func TestPipeline_ensurePointerNil_withoutElseKeepsAssertionError(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+func check() {
+	var p: *Int = nil
+	ensure p is Nil()
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `return errors.New("ensure p is`) {
+		t.Fatalf("pointer Nil() should retain the synthesized assertion error\n----\n%s\n----", out)
+	}
+}
+
 func TestPipeline_ensureFieldAccessInTest_emitsTestingFatalf(t *testing.T) {
 	t.Parallel()
 	src := `package demo
