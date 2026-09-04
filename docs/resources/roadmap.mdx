@@ -20,13 +20,14 @@ Forst is under active development. This page is a **simplified** view. The canon
 | Status | Feature | Notes |
 | --- | --- | --- |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Shapes and constraints](/language/shapes-and-constraints) | Structural types and built-in constraints; compile-time checks where values are static, runtime validation via `ensure` in the body. Parameter prologue emission is future work. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`ensure`, `is`, and shape guards](/language/ensure-and-narrowing) | Runtime checks tied to types; shape refinement on records. Successor narrowing after `ensure` works for simple identifiers; compound paths still open. Bare bool subjects get an `is True()` hint. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`ensure`, `is`, and shape guards](/language/ensure-and-narrowing) | Runtime checks tied to types; static refinements persist until dependency write; typed failure via `else`, assertion `or`, and bare name type targets. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Refinement stability under mutation](/language/ensure-and-narrowing#how-refinements-survive-mutation) | Analyzable refinements reuse facts across statements; writes to dependency fields or pointer slots invalidate facts; unrelated writes keep facts. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Nil and presence checks](/language/ensure-and-narrowing) | `ensure x is Nil()`, `ensure !x`, and `*T` `.Present()` / `.Nil()` on pointers. Not full optional value types yet. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Type guards](/language/type-guards) | Domain predicates with `is (subject T) Name { … }`; narrowing polish still open. Design locked in the [refinements RFC series](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/refinements) (accepted decision, stability, type targets). |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Result and nominal errors](/language/errors-and-result) | `Result(S, F)`, `error X { … }`, and `ensure` / `if x is Ok()` narrowing. Closed nominal error unions (`ParseError \| IoError`) emit sealed Go interfaces. Failure keyword is `else` (not `or`). Failure-type and export rules still maturing. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Control-flow narrowing | If-branch refinement works; ensure-successor narrowing for simple identifiers works; compound paths and join across branches still open. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Type aliases | Simple `type Name = BaseType` works end-to-end; same-package aliases can match sibling Go structs. Broader alias semantics still evolving. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Binary types (`A \| B`, `A & B`) | Union and intersection typedefs type-check; closed nominal error unions emit to Go and TS. General unions, intersections, and narrowing still incomplete. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Type guards](/language/type-guards) | Domain predicates attached to declared domain types (`is (p Password) Strong { … }`); fail-closed logic and assertion `or` support. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Result and nominal errors](/language/errors-and-result) | `Result(S, F)`, `error X { … }`, and `ensure` / `if x is Ok()` narrowing. Closed nominal error unions (`ParseError \| IoError`) emit sealed Go interfaces. Failure keyword is `else`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Control-flow narrowing | Sequential narrowing, if-else branch merging, and field path tracking work end-to-end. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Type aliases | Nominal type declarations (`type Password = String`) own guards and type targets. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Binary types (`A \| B`, `A & B`) | Named homogeneous literal unions (`"todo" \| "done"`, `1 \| 2`) and error unions done with exhaustive switch checks; general unions and intersections remain experimental. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Optional types (`T \| Nil`) | Planned: Crystal-style `T \| Nil` / `T?` unions, narrowing, and Go lowering. See [optionals RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/optionals). |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | User-defined generics | Type parameters on types and functions. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Postfix `++` / `--` and compound assignment | `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=` as standalone statements and in `for` post clauses (`lang_probe/59_inc_compound`). |
@@ -41,15 +42,15 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Transpile to Go](/interop/go) | Packages, types, and functions emit as readable Go for `go build`. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Validation from constraints](/language/shapes-and-constraints) | Compiler emits runtime checks from type constraints. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Providers (`use` / `with`)](/language/providers) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common stdlib paths work. Forst `func` literals assign to concrete Go `func` parameters. Interface fields accept concrete handlers (e.g. `ServeMux` into `http.Server.Handler`). Crypto hash / HMAC constructors type-check as function values. Forst sibling imports resolve from `.ft` in the same module. Failed loads surface as `go-import` diagnostics. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Transpile to Go | Packages, types, and functions emit as readable Go for `go build`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Validation from constraints | Compiler emits runtime checks from type constraints. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Providers (`use` / `with`) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Import and type-check Go packages | `go/packages` loading and Forst↔Go call checking; common stdlib paths work. Forst `func` literals assign to concrete Go `func` parameters. Interface fields accept concrete handlers (e.g. `ServeMux` into `http.Server.Handler`). Crypto hash / HMAC constructors type-check as function values. Forst sibling imports resolve from `.ft` in the same module. Failed loads surface as `go-import` diagnostics. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Named Go types in Forst signatures | Imported Go named types (e.g. `os.File`, `exec.Cmd`) map to qualified Forst type names and emit as Go selectors. `new(imported.T)`, `&imported.T{…}`, and methods after construction work. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Go composite types (maps, channels, arrays, funcs) | `map[K]V`, `[N]T`, `chan T`, and `func` types map at the boundary. Exported-field anonymous structs map to Forst shapes. Some Go type-alias identity gaps remain. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Variadic spread into Go calls](/interop/go#variadic-spread-into-go-calls) | `argv[1:]...` at Go call sites. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Fields and methods on Go values](/interop/go#fields-and-methods-on-go-values) | Dotted chains on Go-typed bindings (e.g. `cmd.ProcessState.ExitCode()`). |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. Same-package unexported symbols resolve when `.go` is co-located. `forst test` includes sibling Go; `forst run`/`watch` can emit beside the package when `generate.go` is set. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Variadic spread into Go calls | `argv[1:]...` at Go call sites. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Fields and methods on Go values | Dotted chains on Go-typed bindings (e.g. `cmd.ProcessState.ExitCode()`). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Mixed `.ft` and `.go` modules | Adopt beside hand-written Go in one module tree. Same-package unexported symbols resolve when `.go` is co-located. `forst test` includes sibling Go; `forst run`/`watch` can emit beside the package when `generate.go` is set. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Generic Go API consumption | `slices.Contains`, `maps.Clone`, and similar APIs instantiate at call sites via type inference. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Selectable Go emit target version | Emit for `go` toolchains older than the compiler's own version. |
 
@@ -57,13 +58,13 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` → `@forst/gen`](/interop/invoke/generate-types) | Linked client package under `.forst/client`; subpath imports per Forst package; shared `ftconfig` discovery with `forst dev`. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/invoke/generate-types) | TS emit and invoke wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst dev` HTTP API](/workflow/dev-server) | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration; regenerate client on `.ft` save. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Tagged invoke failures](/interop/invoke/call-forst) | Stable JSON `POST /invoke` plus `_tag` failures, `.safe()`, and per-call options. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Built-in HTTP server + `@forst/gen`](/interop/invoke/call-forst) | In-process `/invoke` in compiled Go binaries; generated subpath exports. Pin in production. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`@forst/sidecar` and `@forst/cli`](/installation) | npm packages; watch reload, `watchGenerate`, and version checks. Pin in production. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Testing and Effect mode](/interop/invoke/testing) | `withForstTestScope`, optional `generate.effect` / `ForstClientLive`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | `forst generate` → `@forst/gen` | Linked client package under `.forst/client`; subpath imports per Forst package; shared `ftconfig` discovery with `forst dev`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Provider-free client surface | TS emit and invoke wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | `forst dev` HTTP API | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration; regenerate client on `.ft` save. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Tagged invoke failures | Stable JSON `POST /invoke` plus `_tag` failures, `.safe()`, and per-call options. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Built-in HTTP server + `@forst/gen` | In-process `/invoke` in compiled Go binaries; generated subpath exports. Pin in production. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | `@forst/sidecar` and `@forst/cli` | npm packages; watch reload, `watchGenerate`, and version checks. Pin in production. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Testing and Effect mode | `withForstTestScope`, optional `generate.effect` / `ForstClientLive`. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Protobuf sidecar wire | gRPC / Connect as a future high-throughput alternative to JSON. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Native ES modules / Node addon | Forst → Go → addon → ESM path; design exploration only. |
 
@@ -71,13 +72,13 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst lsp`](/workflow/editor) | Diagnostics, hover, completion, definition, references, rename, symbols, folding. Unary `&` hovers as address-of when disambiguated from bitwise AND. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [LSP Go interop hover](/workflow/editor) | Godoc and `go/types` signatures for qualified imports; module-level typecheck for cross-package Forst siblings. Go `pkg.` completion not yet. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [LSP formatting and code lens](/workflow/editor) | Format document advertised; code lens and some code actions still minimal. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [VS Code extension](/workflow/editor) | Marketplace + Open VSX publish on `vscode-forst-v*` releases. Finds `go` when the GUI PATH is thin (`forst.go.path` optional). |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`forst test`](/workflow/cli#forst-test) | Discover `Test*` in `*_test.ft`, emit Go tests and cross-package shims, run `go test`. Walks every package path; sandboxes include sibling `.go`. Primary use: Providers wiring, mixed packages, and cross-package integration. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [CLI (`run`, `build`, `generate`, `dev`, `lsp`, `test`, `fmt`)](/workflow/cli) | Core compiler commands via native binary or `@forst/cli`. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Generate plugins](/workflow/plugins) | `forst generate` runs configured emitters on a typechecked snapshot (JSON Schema, oRPC, file routes, React Router). Protocol and official binaries are usable; they may change. Pin the compiler. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | `forst lsp` | Diagnostics, hover, completion, definition, references, rename, symbols, folding. Unary `&` hovers as address-of when disambiguated from bitwise AND. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | LSP Go interop hover | Godoc and `go/types` signatures for qualified imports; module-level typecheck for cross-package Forst siblings. Go `pkg.` completion not yet. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | LSP formatting and code lens | Format document advertised; code lens and some code actions still minimal. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | VS Code extension | Marketplace + Open VSX publish on `vscode-forst-v*` releases. Finds `go` when the GUI PATH is thin (`forst.go.path` optional). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | `forst test` | Discover `Test*` in `*_test.ft`, emit Go tests and cross-package shims, run `go test`. Walks every package path; sandboxes include sibling `.go`. Primary use: Providers wiring, mixed packages, and cross-package integration. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | CLI (`run`, `build`, `generate`, `dev`, `lsp`, `test`, `fmt`) | Core compiler commands via native binary or `@forst/cli`. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Generate plugins | `forst generate` runs configured emitters on a typechecked snapshot (JSON Schema, oRPC, file routes, React Router). Protocol and official binaries are usable; they may change. Pin the compiler. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Error message quality | Incremental improvements; diagnostics still vary by code path. |
 
 ## Infrastructure
@@ -92,7 +93,7 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [This docs site (Mintlify)](/quickstart) | Quickstart, language guides, interop, and workflow pages. Broader tutorials and migration guides still open. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | This docs site (Mintlify) | Quickstart, language guides, interop, and workflow pages. Broader tutorials and migration guides still open. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Contributing guide | Doc contribution notes exist; full dev-setup `CONTRIBUTING.md` still planned. |
 
 ## What Forst omits

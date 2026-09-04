@@ -216,8 +216,8 @@
       }
     },
     "nominal-error-use": {
-      "comment": "ensure … or ErrorName( — constructor at failure site",
-      "match": "\\b(or)\\s+([A-Za-z_][\\w]*)\\s*(?=\\()",
+      "comment": "ensure … else ErrorName( — constructor at failure site",
+      "match": "\\b(else)\\s+([A-Za-z_][\\w]*)\\s*(?=\\()",
       "captures": {
         "1": {
           "name": "keyword.control"
