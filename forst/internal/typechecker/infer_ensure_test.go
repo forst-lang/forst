@@ -79,7 +79,7 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 		}
 	})
 
-	t.Run("Valid_reserved_placeholder", func(t *testing.T) {
+	t.Run("Valid_undeclared_guard", func(t *testing.T) {
 		tc := New(log, false)
 		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
 		tc.scopeStack.pushScope(fn)
@@ -95,10 +95,37 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 		}
 		_, err := tc.inferEnsureType(ensure)
 		if err == nil {
-			t.Fatal("expected error: Valid() is reserved")
+			t.Fatal("expected error: Valid type guard is undeclared")
 		}
-		if !strings.Contains(err.Error(), "Valid() is a reserved placeholder") {
+		if !strings.Contains(err.Error(), "type guard Valid not found") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("Valid_user_type_guard_allowed", func(t *testing.T) {
+		tc := New(log, false)
+		tc.Defs[ast.TypeIdent("Valid")] = ast.TypeGuardNode{
+			Ident: ast.Identifier("Valid"),
+			Subject: ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "s"},
+				Type:  ast.TypeNode{Ident: ast.TypeString},
+			},
+			Body: []ast.Node{},
+		}
+		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+		tc.scopeStack.pushScope(fn)
+		tc.CurrentScope().RegisterSymbol(ast.Identifier("s"), []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
+
+		ensure := ast.EnsureNode{
+			Variable: ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+			Assertion: ast.AssertionNode{
+				Constraints: []ast.ConstraintNode{
+					{Name: "Valid", Args: []ast.ConstraintArgumentNode{}},
+				},
+			},
+		}
+		if _, err := tc.inferEnsureType(ensure); err != nil {
+			t.Fatalf("user Valid() type guard should be allowed: %v", err)
 		}
 	})
 

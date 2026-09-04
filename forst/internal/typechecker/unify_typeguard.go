@@ -167,8 +167,10 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		}
 	}
 	for _, constraint := range assertionNode.Constraints {
-		if constraint.Name == "Valid" {
-			return fmt.Errorf("Valid() is a reserved placeholder; use explicit constraints or type guards")
+		if constraint.Name != ConstraintMatch &&
+			!isBuiltinAssertionConstraintName(constraint.Name) &&
+			!tc.IsTypeGuardConstraint(constraint.Name) {
+			return fmt.Errorf("type guard %s not found", constraint.Name)
 		}
 		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
