@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.18.1](https://github.com/forst-lang/forst/compare/v0.18.0...v0.18.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **ci:** skip npm publish when version already exists ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+* **ci:** upload only release files and clobber on re-run ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+
 ## [0.18.0](https://github.com/forst-lang/forst/compare/v0.17.1...v0.18.0) (2026-09-03)
 
 
