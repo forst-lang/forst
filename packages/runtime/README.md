@@ -209,13 +209,13 @@ bun test
 
 ## Publishing
 
-Release Please tags `forst-runtime-v*` bump `package.json` and `jsr.json`. CI publishes to npm and JSR via [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml).
+Release Please tags `runtime-v*` bump `package.json` and `jsr.json`. CI publishes to npm and JSR via [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml).
 
 Manual publish from `packages/runtime`:
 
 ```bash
 bun run build
-npm publish --access public
+npm publish --access public --workspaces=false
 npx jsr publish
 ```
 
@@ -225,6 +225,16 @@ Dry run:
 bun run pack:dry
 npx jsr publish --dry-run
 ```
+
+### npm trusted publishing (one-time)
+
+Before CI can publish, add a **trusted publisher** for `@forst/runtime` on [npmjs.com](https://www.npmjs.com/package/@forst/runtime) (same settings as `@forst/cli` — each package needs its own):
+
+- Repository: `forst-lang/forst`
+- Workflow: `publish-packages.yml`
+- Environment: (none, unless you use one for other packages)
+
+Without this, CI fails with `OIDC token exchange error - package not found` / `ENEEDAUTH`. Re-publishing an already-published version is a no-op in CI.
 
 ## License
 

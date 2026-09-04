@@ -109,7 +109,17 @@ jobs:
           ls -la dist/forst_*.deb
 
       - name: Upload binary to GitHub Release
-        run: gh release upload $GIT_TAG ./dist/*
+        run: |
+          set -euo pipefail
+          # Plugin staging dirs (plugins-*) stay in dist/ after packaging; gh only accepts files.
+          mapfile -t assets < <(find ./dist -maxdepth 1 -type f | sort)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No release assets in ./dist" >&2
+            exit 1
+          fi
+          printf 'Uploading %d asset(s):\n' "${#assets[@]}"
+          printf '  %s\n' "${assets[@]}"
+          gh release upload --clobber "$GIT_TAG" "${assets[@]}"
 
   docker:
     needs: [release-please, build]
