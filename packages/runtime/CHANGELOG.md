@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/forst-lang/forst/compare/runtime-v0.5.0...runtime-v0.5.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **ci:** skip npm publish when version already exists ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+* **ci:** upload only release files and clobber on re-run ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+
 ## [0.5.0](https://github.com/forst-lang/forst/compare/runtime-v0.4.2...runtime-v0.5.0) (2026-09-03)
 
 
