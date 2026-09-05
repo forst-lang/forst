@@ -44,16 +44,17 @@ func TestAssertionTransformer(t *testing.T) {
 					t.Errorf("expected BinaryExpr, got %T", expr)
 					return
 				}
-				if binExpr.Op != token.LSS {
-					t.Errorf("expected LSS operator, got %v", binExpr.Op)
+				if binExpr.Op != token.GEQ {
+					t.Errorf("expected GEQ operator, got %v", binExpr.Op)
 				}
 				callExpr, ok := binExpr.X.(*goast.CallExpr)
 				if !ok {
-					t.Errorf("expected CallExpr for len(), got %T", binExpr.X)
+					t.Errorf("expected CallExpr for RuneCountInString, got %T", binExpr.X)
 					return
 				}
-				if len(callExpr.Args) != 1 {
-					t.Errorf("expected 1 argument to len(), got %d", len(callExpr.Args))
+				sel, ok := callExpr.Fun.(*goast.SelectorExpr)
+				if !ok || sel.Sel.Name != "RuneCountInString" {
+					t.Errorf("expected utf8.RuneCountInString, got %#v", callExpr.Fun)
 				}
 			},
 		},
@@ -79,8 +80,8 @@ func TestAssertionTransformer(t *testing.T) {
 					t.Errorf("expected BinaryExpr, got %T", expr)
 					return
 				}
-				if binExpr.Op != token.LSS {
-					t.Errorf("expected LSS operator, got %v", binExpr.Op)
+				if binExpr.Op != token.GEQ {
+					t.Errorf("expected GEQ operator, got %v", binExpr.Op)
 				}
 				callExpr, ok := binExpr.X.(*goast.CallExpr)
 				if !ok {
@@ -114,8 +115,8 @@ func TestAssertionTransformer(t *testing.T) {
 					t.Errorf("expected BinaryExpr, got %T", expr)
 					return
 				}
-				if binExpr.Op != token.GEQ {
-					t.Errorf("expected GEQ operator, got %v", binExpr.Op)
+				if binExpr.Op != token.LSS {
+					t.Errorf("expected LSS operator, got %v", binExpr.Op)
 				}
 			},
 		},
@@ -141,8 +142,8 @@ func TestAssertionTransformer(t *testing.T) {
 					t.Errorf("expected BinaryExpr, got %T", expr)
 					return
 				}
-				if binExpr.Op != token.LEQ {
-					t.Errorf("expected LEQ operator, got %v", binExpr.Op)
+				if binExpr.Op != token.GTR {
+					t.Errorf("expected GTR operator, got %v", binExpr.Op)
 				}
 			},
 		},
@@ -160,17 +161,9 @@ func TestAssertionTransformer(t *testing.T) {
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeBool},
 			validate: func(t *testing.T, expr goast.Expr) {
-				unaryExpr, ok := expr.(*goast.UnaryExpr)
+				ident, ok := expr.(*goast.Ident)
 				if !ok {
-					t.Errorf("expected UnaryExpr, got %T", expr)
-					return
-				}
-				if unaryExpr.Op != token.NOT {
-					t.Errorf("expected NOT operator, got %v", unaryExpr.Op)
-				}
-				ident, ok := unaryExpr.X.(*goast.Ident)
-				if !ok {
-					t.Errorf("expected Ident for variable, got %T", unaryExpr.X)
+					t.Errorf("expected Ident, got %T", expr)
 					return
 				}
 				if ident.Name != "isValid" {
@@ -192,9 +185,17 @@ func TestAssertionTransformer(t *testing.T) {
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeBool},
 			validate: func(t *testing.T, expr goast.Expr) {
-				ident, ok := expr.(*goast.Ident)
+				unaryExpr, ok := expr.(*goast.UnaryExpr)
 				if !ok {
-					t.Errorf("expected Ident, got %T", expr)
+					t.Errorf("expected UnaryExpr, got %T", expr)
+					return
+				}
+				if unaryExpr.Op != token.NOT {
+					t.Errorf("expected NOT operator, got %v", unaryExpr.Op)
+				}
+				ident, ok := unaryExpr.X.(*goast.Ident)
+				if !ok {
+					t.Errorf("expected Ident for variable, got %T", unaryExpr.X)
 					return
 				}
 				if ident.Name != "isInvalid" {
@@ -221,8 +222,8 @@ func TestAssertionTransformer(t *testing.T) {
 					t.Errorf("expected BinaryExpr, got %T", expr)
 					return
 				}
-				if binExpr.Op != token.NEQ {
-					t.Errorf("expected NEQ operator, got %v", binExpr.Op)
+				if binExpr.Op != token.EQL {
+					t.Errorf("expected EQL operator, got %v", binExpr.Op)
 				}
 				ident, ok := binExpr.Y.(*goast.Ident)
 				if !ok {

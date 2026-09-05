@@ -421,7 +421,7 @@ func main() {
 	println("ok")
 }
 `,
-			needles: []string{`1.5`, `x <= 1`, `os.Exit`, `func main`},
+			needles: []string{`1.5`, `os.Exit`, `func main`},
 		},
 		{
 			name: "ensure_array_min_length_main",
@@ -433,7 +433,7 @@ func main() {
 	println("ok")
 }
 `,
-			needles: []string{`len(xs) < 1`, `os.Exit`, `func main`},
+			needles: []string{`len(xs)`, `os.Exit`, `func main`},
 		},
 	}
 
@@ -443,6 +443,11 @@ func main() {
 			for _, sub := range tt.needles {
 				if !strings.Contains(out, sub) {
 					t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+				}
+			}
+			if tt.name == "ensure_float_greater_than_main" {
+				if !strings.Contains(out, `!(x > 1`) && !strings.Contains(out, `x <= 1`) {
+					t.Fatalf("expected GreaterThan check\n----\n%s\n----", out)
 				}
 			}
 		})
@@ -509,7 +514,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func checkLen`, `len(`, `String.Min(1)`, `errors.New`, `package main`} {
+	for _, sub := range []string{`func checkLen`, `utf8.RuneCountInString`, `String.Min(1)`, `errors.New`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -532,7 +537,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func checkLen`, `len(`, `!`, `package main`} {
+	for _, sub := range []string{`func checkLen`, `utf8.RuneCountInString`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -577,7 +582,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func G_`, `len(string(password))`, `Password`, `os.Exit`, `package main`} {
+	for _, sub := range []string{`func G_`, `utf8.RuneCountInString`, `Password`, `os.Exit`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -625,8 +630,8 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	if !strings.Contains(out, `len(s) == 0`) {
-		t.Fatalf("expected empty check via len(s) == 0, got:\n%s", out)
+	if !strings.Contains(out, `len(s) != 0`) && !strings.Contains(out, `!(len(s) != 0)`) && !strings.Contains(out, `len(s) == 0`) {
+		t.Fatalf("expected NotEmpty length check, got:\n%s", out)
 	}
 }
 
@@ -825,8 +830,8 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	if !strings.Contains(out, "len(s)") {
-		t.Fatalf("expected ensure Min on string to use len(s), got:\n%s", out)
+	if !strings.Contains(out, "utf8.RuneCountInString") {
+		t.Fatalf("expected ensure Min on string to use utf8.RuneCountInString, got:\n%s", out)
 	}
 }
 

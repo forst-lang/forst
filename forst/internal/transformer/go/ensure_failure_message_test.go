@@ -148,8 +148,8 @@ func TestEnsureConstraintGotDiagnostic(t *testing.T) {
 					}},
 				},
 			},
-			wantFormat: "got len=%d (%q), want %s",
-			wantIn:     []string{"len(", "s"},
+			wantFormat: "got runes=%d (%q), want %s",
+			wantIn:     []string{"utf8.RuneCountInString", "s"},
 		},
 		{
 			name: "multi constraint falls back to default %v",
@@ -246,8 +246,8 @@ func TestEnsureConstraintGotDiagnostic(t *testing.T) {
 					}},
 				},
 			},
-			wantFormat: "got len=%d (%q), want %s",
-			wantIn:     []string{"len(", "s"},
+			wantFormat: "got runes=%d (%q), want %s",
+			wantIn:     []string{"utf8.RuneCountInString", "s"},
 		},
 		{
 			name: "int greater than uses default %v",

@@ -2,8 +2,8 @@ package typechecker
 
 import (
 	"forst/internal/ast"
-	"forst/internal/hasher"
 	"forst/internal/bridgeinterop"
+	"forst/internal/hasher"
 	"go/types"
 
 	"github.com/sirupsen/logrus"
@@ -79,7 +79,7 @@ type TypeChecker struct {
 	// loopLabelStack records labels of nested for-loops (innermost last) for labeled break/continue
 	loopLabelStack []ast.Identifier
 	// LabelScopes holds per-function label bindings after checkFunctionLabels (for LSP).
-	LabelScopes []LabelScope
+	LabelScopes   []LabelScope
 	labelScopeSeq int
 	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
 	ifChainNarrowingStack [][]narrowingEvent
@@ -119,7 +119,7 @@ type TypeChecker struct {
 	compatMemo map[compatKey]bool
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
 	goPackagesPreloaded bool
-	Warnings              []Diagnostic
+	Warnings            []Diagnostic
 	// scopeOwners maps declaration idents to the ScopeNode registered at collect (for transform restore).
 	scopeOwners scopeOwners
 	// typecheckNodes is the nodes slice from the last CheckTypes call (scope identity for transform).
@@ -156,12 +156,12 @@ type TypeChecker struct {
 	capturingClosure     bool
 	pendingClosureWrites []*AccessPath
 
-	ensureIR       map[string]ensureIRRecord
-	guardBodyIR    map[ast.Identifier]Assertion
-	ifIsIR         []Assertion
-	lastEnsureIR   ensureIRRecord
+	ensureIR        map[string]ensureIRRecord
+	guardBodyIR     map[ast.Identifier]Assertion
+	ifIsIR          []Assertion
+	lastEnsureIR    ensureIRRecord
 	lastGuardBodyIR Assertion
-	lastIfIsIR     Assertion
+	lastIfIsIR      Assertion
 }
 
 // New creates a new TypeChecker.

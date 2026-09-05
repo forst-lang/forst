@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,8 +22,14 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
 
 	var compileCount atomic.Int32
+	// Gate reloads: initial compile is allowed; further compiles wait until the test releases.
 	blockCompile := make(chan struct{}, 1)
 	blockCompile <- struct{}{}
+	releaseCompile := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() {
+		releaseOnce.Do(func() { close(releaseCompile) })
+	}
 
 	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
@@ -30,7 +37,10 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 		},
 		CreateOutput: func(_, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			compileCount.Add(1)
-			<-blockCompile
+			select {
+			case <-blockCompile:
+			case <-releaseCompile:
+			}
 			return filepath.Join(boundary, "out.go"), nil
 		},
 		StartProgram: func(string, string) (*runningChild, error) {
@@ -41,6 +51,9 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
+	// LIFO cleanups: release blocked CreateOutput before stop so the coalescer
+	// goroutine cannot keep writing into t.TempDir after the watch exits.
+	t.Cleanup(releaseAll)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for compileCount.Load() < 1 && time.Now().Before(deadline) {

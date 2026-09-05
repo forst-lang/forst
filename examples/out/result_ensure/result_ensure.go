@@ -9,7 +9,7 @@ type T_H4c2uQ34ZJV struct {
 
 func main() {
 	x, xErr := okInt()
-	if !(xErr == nil) {
+	if xErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", xErr)
 			os.Exit(1)

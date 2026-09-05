@@ -42,7 +42,7 @@ func NewIncrementalInvalidator() *IncrementalInvalidator {
 	}
 }
 
-func callerKey(pkg, fn string) string { return pkg + "\x00" + fn }
+func callerKey(pkg, fn string) string  { return pkg + "\x00" + fn }
 func summaryKey(pkg, fn string) string { return pkg + "\x00" + fn }
 
 // RecordCallerDependsOn registers that caller depends on callee summary.

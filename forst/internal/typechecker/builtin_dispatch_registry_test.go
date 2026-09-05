@@ -86,4 +86,3 @@ func TestEnsureMatching_mismatchMessage(t *testing.T) {
 		t.Fatalf("unexpected ensureMatching error: %v", err)
 	}
 }
-

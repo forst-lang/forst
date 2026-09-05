@@ -332,11 +332,28 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 			} else {
 				handled = false
 			}
+		case "HasSuffix":
+			if kind == "string" {
+				if suffix, ok := stringArg(c.Args); ok {
+					extra = append(extra, map[string]any{"pattern": quoteMeta(suffix) + "$"})
+				}
+			} else {
+				handled = false
+			}
 		case "Contains":
 			if kind == "string" {
 				if sub, ok := stringArg(c.Args); ok {
 					extra = append(extra, map[string]any{"pattern": ".*" + quoteMeta(sub) + ".*"})
 				}
+			} else {
+				handled = false
+			}
+		case "MinBytes", "MaxBytes":
+			// UTF-8 byte bounds do not map soundly to JSON Schema minLength/maxLength.
+			handled = false
+		case "Finite":
+			if kind == "float" {
+				// JSON numbers are finite; no schema keyword needed.
 			} else {
 				handled = false
 			}
@@ -346,6 +363,8 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 				schema["minLength"] = 1
 			case "array":
 				schema["minItems"] = 1
+			case "map":
+				schema["minProperties"] = 1
 			default:
 				handled = false
 			}
@@ -403,7 +422,11 @@ func applyBound(e *schemaEnc, schema map[string]any, kind string, c semantic.Con
 		}
 		return true
 	case "items":
-		if kind != "array" {
+		if kind != "array" && kind != "bytes" {
+			return false
+		}
+		if kind == "bytes" {
+			// []byte length — JSON Schema has no direct byte-length keyword for string encoding.
 			return false
 		}
 		if min {
@@ -412,6 +435,8 @@ func applyBound(e *schemaEnc, schema map[string]any, kind string, c semantic.Con
 			schema["maxItems"] = n
 		}
 		return true
+	case "bytes":
+		return false // warn via handled=false at call site when MinBytes/MaxBytes
 	case "value":
 		if kind == "map" {
 			if min {

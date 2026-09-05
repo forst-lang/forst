@@ -142,8 +142,7 @@ func TestValidateModuleProviders_satisfiedCrossPackageOk(t *testing.T) {
 		Scope:       map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
 	}}
 	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
-		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
-		},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}}},
 	}
 	importMap := map[string]string{"testmod/auth": "auth"}
 	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {
@@ -168,8 +167,7 @@ func TestValidateModuleProviders_callerForwardsCrossPackage(t *testing.T) {
 		},
 	}
 	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
-		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
-		},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}}},
 	}
 	importMap := map[string]string{"testmod/auth": "auth"}
 	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {

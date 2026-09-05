@@ -8,7 +8,7 @@ import (
 
 // ensureIRRecord stores lowered assertion IR for one ensure / if-is site.
 type ensureIRRecord struct {
-	Assertion Assertion
+	Assertion  Assertion
 	TypeTarget *ast.TypeTarget // non-nil when RHS is a type target (not an Atom)
 }
 

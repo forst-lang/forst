@@ -1224,4 +1224,3 @@ func exitCode(argv []String): Int {
 		t.Fatal("expected variableGoTypes[cmd] after exec.Command assignment")
 	}
 }
-

@@ -33,12 +33,22 @@ func (t *TransformerOutput) AddImport(imp *goast.GenDecl) {
 	t.imports = append(t.imports, imp)
 }
 
-// EnsureImport ensures that an import is added to the TransformerOutput
+// EnsureImport ensures that an import is added to the TransformerOutput.
+// name is the import path (e.g. "fmt" or "unicode/utf8"); the local identifier
+// is the last path segment so nested stdlib paths parse as valid Go.
 func (t *TransformerOutput) EnsureImport(name string) {
+	path := strings.Trim(name, `"`)
+	quoted := `"` + path + `"`
 	for _, imp := range t.imports {
-		if imp.Specs[0].(*goast.ImportSpec).Name.String() == name {
+		spec := imp.Specs[0].(*goast.ImportSpec)
+		if spec.Path != nil && spec.Path.Value == quoted {
 			return
 		}
+	}
+
+	local := path
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		local = path[i+1:]
 	}
 
 	t.imports = append(t.imports, &goast.GenDecl{
@@ -46,11 +56,11 @@ func (t *TransformerOutput) EnsureImport(name string) {
 		Specs: []goast.Spec{
 			&goast.ImportSpec{
 				Name: &goast.Ident{
-					Name: name,
+					Name: local,
 				},
 				Path: &goast.BasicLit{
 					Kind:  token.STRING,
-					Value: `"` + strings.Trim(name, `"`) + `"`,
+					Value: quoted,
 				},
 			},
 		},

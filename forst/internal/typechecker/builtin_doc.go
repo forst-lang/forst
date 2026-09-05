@@ -25,9 +25,9 @@ type builtinDocLoad struct {
 }
 
 var (
-	builtinGoDocOnce  sync.Once
-	builtinDocCache   builtinDocLoad
-	builtinGoDocErr   error
+	builtinGoDocOnce sync.Once
+	builtinDocCache  builtinDocLoad
+	builtinGoDocErr  error
 )
 
 // loadBuiltinGoDocPackage parses package builtin (Go's documented predeclared identifiers) via

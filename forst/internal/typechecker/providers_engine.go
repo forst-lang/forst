@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/bridgeinterop"
 	"forst/internal/forstpkg"
 	"forst/internal/ftconfig"
 	"forst/internal/goload"
-	"forst/internal/bridgeinterop"
 	"forst/internal/providersgraph"
 )
 
@@ -321,4 +321,3 @@ func (tc *TypeChecker) resolveForstSiblingQualifiedVar(importLocal, symbolName s
 	}
 	return nil, false
 }
-

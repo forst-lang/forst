@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"forst/internal/hoverdoc"
 	"forst/internal/bridgeinterop"
+	"forst/internal/hoverdoc"
 )
 
 // NodeHoverMarkdown returns hover text for a TypeScript export via JS import (e.g. payment.create).
