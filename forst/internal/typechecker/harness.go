@@ -8,7 +8,6 @@ import (
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
 	"forst/internal/ftconfig"
-	"forst/internal/goload"
 	"forst/internal/parser"
 	"forst/internal/testutil"
 
@@ -130,7 +129,6 @@ func MustTypecheckMerged(tb testing.TB, paths []string, opts testutil.TypecheckO
 // MustTypecheckMixedPackage typechecks src in a mixed Go/Forst module fixture.
 func MustTypecheckMixedPackage(tb testing.TB, root, importPath, src string) (*TypeChecker, []ast.Node) {
 	tb.Helper()
-	goload.ClearLoadCacheForTest()
 	tc, nodes := MustTypecheck(tb, src, testutil.TypecheckOpts{
 		FileID:              "mixed/main.ft",
 		GoWorkspaceDir:      root,
