@@ -8,7 +8,7 @@ func main() {
 		println("multipackage-dev skip-node-host")
 	} else {
 		ready, readyErr := forst_bridge_callsync_host_js_hostPing()
-		if !(readyErr == nil) {
+		if readyErr != nil {
 			{
 				fmt.Fprintf(os.Stderr, "ensure failed: %v\n", readyErr)
 				os.Exit(1)

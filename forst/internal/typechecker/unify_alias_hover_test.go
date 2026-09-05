@@ -94,4 +94,3 @@ func TestValidateTypeDefAssertion_andProcessTypeGuardFields(t *testing.T) {
 		t.Fatal("expected processTypeGuardFields to add field from guard parameter")
 	}
 }
-

@@ -3,6 +3,7 @@ package main
 import errors "errors"
 import fmt "fmt"
 import os "os"
+import utf8 "unicode/utf8"
 // Password: TypeDefAssertionExpr(String)
 type Password string
 // T_VzGjSGttgtP: TypeDefShapeExpr({})
@@ -13,7 +14,7 @@ type T_f4j3qrSNtqm struct {
 }
 
 func G_AAqSwpSKPZ9(password Password) bool {
-	if len(string(password)) < 12 {
+	if utf8.RuneCountInString(string(password)) < 12 {
 		return false
 	}
 	return true

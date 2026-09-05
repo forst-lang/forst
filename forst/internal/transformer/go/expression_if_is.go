@@ -34,11 +34,11 @@ func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion 
 				return nil, fmt.Errorf("if-is: %w", err)
 			}
 			if expr, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, vn, c); err == nil {
-				return &goast.UnaryExpr{Op: token.NOT, X: expr}, nil
+				return expr, nil
 			}
 			for _, baseType := range t.TypeChecker.GetTypeAliasChain(*varType)[1:] {
 				if result, err := t.assertionTransformer.TransformBuiltinConstraint(ast.TypeIdent(baseType.Ident), vn, c); err == nil {
-					return &goast.UnaryExpr{Op: token.NOT, X: result}, nil
+					return result, nil
 				}
 			}
 		}

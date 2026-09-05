@@ -2,6 +2,7 @@ package main
 
 import "fmt"
 import os "os"
+import utf8 "unicode/utf8"
 // T_EzZKiw9FNu2: TypeDefShapeExpr({})
 type T_EzZKiw9FNu2 struct {
 }
@@ -29,7 +30,7 @@ func checkConditions() (int, error) {
 }
 func main() {
 	result, resultErr := checkConditions()
-	if !(resultErr == nil) {
+	if resultErr != nil {
 		fmt.Printf("Conditions not met: %s", resultErr.Error())
 		fmt.Println()
 		{
@@ -41,7 +42,7 @@ func main() {
 	fmt.Println()
 }
 func mustBeARealName(name string) error {
-	if len(name) < 1 {
+	if utf8.RuneCountInString(name) < 1 {
 		return TooShort("Name must be at least 1 character long")
 	}
 	return nil

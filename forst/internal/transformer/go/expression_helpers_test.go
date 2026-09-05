@@ -16,7 +16,54 @@ func TestNegateDisjoinConjoin(t *testing.T) {
 
 	n := negateCondition(x)
 	if u, ok := n.(*goast.UnaryExpr); !ok || u.Op != token.NOT || u.X != x {
-		t.Fatalf("negateCondition: %#v", n)
+		t.Fatalf("negateCondition ident: %#v", n)
+	}
+
+	eq := &goast.BinaryExpr{X: x, Op: token.EQL, Y: goast.NewIdent("nil")}
+	neq := negateCondition(eq)
+	if be, ok := neq.(*goast.BinaryExpr); !ok || be.Op != token.NEQ || be.X != x {
+		t.Fatalf("negate == : %#v", neq)
+	}
+	if be, ok := negateCondition(neq).(*goast.BinaryExpr); !ok || be.Op != token.EQL {
+		t.Fatalf("negate != : %#v", negateCondition(neq))
+	}
+
+	lt := &goast.BinaryExpr{X: x, Op: token.LSS, Y: y}
+	if be, ok := negateCondition(lt).(*goast.BinaryExpr); !ok || be.Op != token.GEQ {
+		t.Fatalf("negate < : %#v", negateCondition(lt))
+	}
+	gt := &goast.BinaryExpr{X: x, Op: token.GTR, Y: y}
+	if be, ok := negateCondition(gt).(*goast.BinaryExpr); !ok || be.Op != token.LEQ {
+		t.Fatalf("negate > : %#v", negateCondition(gt))
+	}
+	le := &goast.BinaryExpr{X: x, Op: token.LEQ, Y: y}
+	if be, ok := negateCondition(le).(*goast.BinaryExpr); !ok || be.Op != token.GTR {
+		t.Fatalf("negate <= : %#v", negateCondition(le))
+	}
+	ge := &goast.BinaryExpr{X: x, Op: token.GEQ, Y: y}
+	if be, ok := negateCondition(ge).(*goast.BinaryExpr); !ok || be.Op != token.LSS {
+		t.Fatalf("negate >= : %#v", negateCondition(ge))
+	}
+
+	and := &goast.BinaryExpr{X: eq, Op: token.LAND, Y: lt}
+	orNeg := negateCondition(and)
+	be, ok := orNeg.(*goast.BinaryExpr)
+	if !ok || be.Op != token.LOR {
+		t.Fatalf("negate && : %#v", orNeg)
+	}
+	if l, ok := be.X.(*goast.BinaryExpr); !ok || l.Op != token.NEQ {
+		t.Fatalf("De Morgan left: %#v", be.X)
+	}
+	if r, ok := be.Y.(*goast.BinaryExpr); !ok || r.Op != token.GEQ {
+		t.Fatalf("De Morgan right: %#v", be.Y)
+	}
+
+	notX := &goast.UnaryExpr{Op: token.NOT, X: x}
+	if negateCondition(notX) != x {
+		t.Fatalf("cancel NOT: %#v", negateCondition(notX))
+	}
+	if got := negateCondition(&goast.ParenExpr{X: eq}); got.(*goast.BinaryExpr).Op != token.NEQ {
+		t.Fatalf("paren unwrap: %#v", got)
 	}
 
 	if d := disjoin(nil); d == nil {
@@ -31,7 +78,7 @@ func TestNegateDisjoinConjoin(t *testing.T) {
 		t.Fatalf("disjoin one: %#v", d1)
 	}
 	d2 := disjoin([]goast.Expr{x, y})
-	be, ok := d2.(*goast.BinaryExpr)
+	be, ok = d2.(*goast.BinaryExpr)
 	if !ok || be.Op != token.LOR || be.X != x || be.Y != y {
 		t.Fatalf("disjoin two: %#v", d2)
 	}

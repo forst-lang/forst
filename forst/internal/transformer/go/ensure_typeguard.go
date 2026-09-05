@@ -39,8 +39,8 @@ func (t *Transformer) transformTypeGuardEnsure(ensure *ast.EnsureNode) ([]goast.
 		chainExprs = append(chainExprs, meet)
 	}
 	if len(chainExprs) == 0 {
-		// Type-level / empty: never fail the guard ensure.
-		return []goast.Stmt{&goast.ExprStmt{X: goast.NewIdent("false")}}, nil
+		// Type-level / empty: success so `if !cond { return false }` is a no-op.
+		return []goast.Stmt{&goast.ExprStmt{X: goast.NewIdent("true")}}, nil
 	}
 	joined := chainExprs[0]
 	for i := 1; i < len(chainExprs); i++ {

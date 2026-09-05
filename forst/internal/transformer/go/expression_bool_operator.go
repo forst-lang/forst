@@ -8,11 +8,47 @@ import (
 	"go/token"
 )
 
-// negateCondition negates a condition
+// negateCondition negates a boolean expression in place when possible
+// (`err == nil` → `err != nil`, `speed < 100` → `speed >= 100`).
+// Falls back to a leading NOT only for calls and other non-relational forms.
 func negateCondition(condition goast.Expr) goast.Expr {
-	return &goast.UnaryExpr{
-		Op: token.NOT,
-		X:  condition,
+	switch e := condition.(type) {
+	case *goast.ParenExpr:
+		return negateCondition(e.X)
+	case *goast.UnaryExpr:
+		if e.Op == token.NOT {
+			return e.X
+		}
+	case *goast.BinaryExpr:
+		if inv, ok := invertRelOp(e.Op); ok {
+			return &goast.BinaryExpr{X: e.X, Op: inv, Y: e.Y}
+		}
+		if e.Op == token.LAND {
+			return &goast.BinaryExpr{X: negateCondition(e.X), Op: token.LOR, Y: negateCondition(e.Y)}
+		}
+		if e.Op == token.LOR {
+			return &goast.BinaryExpr{X: negateCondition(e.X), Op: token.LAND, Y: negateCondition(e.Y)}
+		}
+	}
+	return &goast.UnaryExpr{Op: token.NOT, X: condition}
+}
+
+func invertRelOp(op token.Token) (token.Token, bool) {
+	switch op {
+	case token.EQL:
+		return token.NEQ, true
+	case token.NEQ:
+		return token.EQL, true
+	case token.LSS:
+		return token.GEQ, true
+	case token.GTR:
+		return token.LEQ, true
+	case token.LEQ:
+		return token.GTR, true
+	case token.GEQ:
+		return token.LSS, true
+	default:
+		return 0, false
 	}
 }
 

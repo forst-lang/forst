@@ -17,7 +17,7 @@ func main() {
 		}
 		return v, nil
 	}()
-	if !(availErr == nil) {
+	if availErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", availErr)
 			os.Exit(1)

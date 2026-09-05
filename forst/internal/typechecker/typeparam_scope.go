@@ -176,10 +176,10 @@ func normalizeGenericSignature(fn ast.FunctionNode) FunctionSignature {
 		}
 	}
 	return FunctionSignature{
-		Ident:       fn.Ident,
-		TypeParams:  append([]ast.TypeParamDecl(nil), fn.TypeParams...),
-		Parameters:  params,
-		ReturnTypes: returnTypes,
+		Ident:          fn.Ident,
+		TypeParams:     append([]ast.TypeParamDecl(nil), fn.TypeParams...),
+		Parameters:     params,
+		ReturnTypes:    returnTypes,
 		TypeParamNames: tpSet,
 	}
 }

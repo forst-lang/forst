@@ -289,9 +289,25 @@ func applyZodConstraints(expr, kind string, chain []semantic.Constraint) string 
 			if prefix, ok := stringArg(c.Args); ok && kind == "string" {
 				expr += fmt.Sprintf(".regex(/^%s/)", quoteMeta(prefix))
 			}
+		case "HasSuffix":
+			if suffix, ok := stringArg(c.Args); ok && kind == "string" {
+				expr += fmt.Sprintf(".regex(/%s$/)", quoteMeta(suffix))
+			}
 		case "Contains":
 			if sub, ok := stringArg(c.Args); ok && kind == "string" {
 				expr += fmt.Sprintf(".regex(/.*%s.*/)", quoteMeta(sub))
+			}
+		case "MinBytes", "MaxBytes":
+			if n, ok := numericArg(c.Args); ok && kind == "string" {
+				op := ">="
+				if c.Name == "MaxBytes" {
+					op = "<="
+				}
+				expr += fmt.Sprintf(".refine((v) => new TextEncoder().encode(v).length %s %v)", op, int(n))
+			}
+		case "Finite":
+			if kind == "float" {
+				expr += ".finite()"
 			}
 		case "NotEmpty":
 			if kind == "string" || kind == "array" {

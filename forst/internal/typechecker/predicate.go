@@ -36,7 +36,7 @@ func (o Operand) Key() string {
 // Never distribute Any over All (no DNF).
 type Predicate struct {
 	Conn     PredicateConnective
-	Operand  *Operand   // when Conn == PredAtom
+	Operand  *Operand     // when Conn == PredAtom
 	Children []*Predicate // when Conn == PredAll or PredAny
 	key      string
 }

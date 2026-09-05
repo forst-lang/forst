@@ -10,10 +10,10 @@ import (
 func TestSplitQualifiedCallee(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		in          string
-		wantLocal   string
-		wantFn      string
-		wantOK      bool
+		in        string
+		wantLocal string
+		wantFn    string
+		wantOK    bool
 	}{
 		{"auth.LogEvent", "auth", "LogEvent", true},
 		{"LogEvent", "", "LogEvent", false},
@@ -184,5 +184,5 @@ type testModuleView struct {
 	pkgs      map[string]*TypeChecker
 }
 
-func (v *testModuleView) ImportPathToForstPkg() map[string]string { return v.importMap }
+func (v *testModuleView) ImportPathToForstPkg() map[string]string         { return v.importMap }
 func (v *testModuleView) ForstPackageTypeChecker(pkg string) *TypeChecker { return v.pkgs[pkg] }
