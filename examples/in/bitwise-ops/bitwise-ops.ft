@@ -10,7 +10,7 @@ func main() {
 	x := 7
 	x ^= 3
 	x <<= 1
-	x >>= 1
+	x >>= 1 < 23
 	x &^= 1
 	println(x)
 }

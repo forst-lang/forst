@@ -81,20 +81,37 @@ func TestSpanOfExpression_indexPrefersNodeSpan(t *testing.T) {
 
 func TestSpanOfExpression_typeShapeFuncLitPreferSpan(t *testing.T) {
 	t.Parallel()
-	te := ast.TypeExpressionNode{
-		Type: ast.TypeNode{Ident: ast.TypeInt},
-		Span: ast.SourceSpan{StartLine: 2, StartCol: 3, EndLine: 2, EndCol: 6},
+	cases := []struct {
+		name string
+		expr ast.ExpressionNode
+		want ast.SourceSpan
+	}{
+		{
+			name: "typeExpr",
+			expr: ast.TypeExpressionNode{
+				Type: ast.TypeNode{Ident: ast.TypeInt},
+				Span: ast.SourceSpan{StartLine: 2, StartCol: 3, EndLine: 2, EndCol: 6},
+			},
+			want: ast.SourceSpan{StartLine: 2, StartCol: 3, EndLine: 2, EndCol: 6},
+		},
+		{
+			name: "shape",
+			expr: ast.ShapeNode{Span: ast.SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 8}},
+			want: ast.SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 8},
+		},
+		{
+			name: "funcLit",
+			expr: ast.FunctionLiteralNode{Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 20}},
+			want: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 20},
+		},
 	}
-	if s := spanOfExpression(te); !s.IsSet() || s.StartLine != 2 {
-		t.Fatalf("type expr: %+v", s)
-	}
-	sh := ast.ShapeNode{Span: ast.SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 8}}
-	if s := spanOfExpression(sh); !s.IsSet() || s.StartLine != 3 {
-		t.Fatalf("shape: %+v", s)
-	}
-	fl := ast.FunctionLiteralNode{Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 20}}
-	if s := spanOfExpression(fl); !s.IsSet() || s.EndCol != 20 {
-		t.Fatalf("funclit: %+v", s)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := spanOfExpression(tc.expr)
+			if got != tc.want {
+				t.Fatalf("got %+v want %+v", got, tc.want)
+			}
+		})
 	}
 }
 

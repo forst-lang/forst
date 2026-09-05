@@ -115,6 +115,8 @@ type TypeChecker struct {
 	siblingImportTypeDefCache map[string]cachedSiblingTypeDef
 	// shapeAliasIndex lazily maps structural shape / assertion hashes to user type names.
 	shapeAliasIndex *shapeAliasIndex
+	// hashBasedIdents tracks types registered through hash-based provenance (not user T_ names).
+	hashBasedIdents map[ast.TypeIdent]struct{}
 	// compatMemo caches IsTypeCompatible results for a single CheckTypes pass.
 	compatMemo map[compatKey]bool
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
@@ -190,6 +192,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log:                                         log,
 		reportPhases:                                reportPhases,
 		scopeOwners:                                 newScopeOwners(),
+		hashBasedIdents:                             make(map[ast.TypeIdent]struct{}),
 		paths:                                       NewPathInterner(),
 		predicates:                                  NewPredicateInterner(),
 		refinementCtx:                               NewRefinementContext(),

@@ -44,6 +44,24 @@ func spanOfExpression(expr ast.ExpressionNode) ast.SourceSpan {
 		}
 	case ast.NilLiteralNode:
 		return e.Span
+	case ast.MapLiteralNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		for _, entry := range e.Entries {
+			if key, ok := entry.Key.(ast.ExpressionNode); ok {
+				if s := spanOfExpression(key); s.IsSet() {
+					return s
+				}
+			}
+			if val, ok := entry.Value.(ast.ExpressionNode); ok {
+				if s := spanOfExpression(val); s.IsSet() {
+					return s
+				}
+			}
+		}
+	case ast.IotaLiteralNode:
+		return e.Span
 	case ast.UnaryExpressionNode:
 		return spanOfExpression(e.Operand)
 	case ast.BinaryExpressionNode:

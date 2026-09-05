@@ -28,18 +28,23 @@ func ExpressionSpanStart(expr ExpressionNode) SourceSpan {
 	case VariableNode:
 		return e.Ident.Span
 	case FunctionCallNode:
-		if e.CallSpan.IsSet() {
-			return e.CallSpan
+		if e.Function.Span.IsSet() {
+			return e.Function.Span
 		}
-		return e.Function.Span
+		if e.Callee != nil {
+			if s := ExpressionSpanStart(e.Callee); s.IsSet() {
+				return s
+			}
+		}
+		return e.CallSpan
 	case MethodCallNode:
-		if e.CallSpan.IsSet() {
-			return e.CallSpan
+		if s := ExpressionSpanStart(e.Receiver); s.IsSet() {
+			return s
 		}
 		if e.Method.Span.IsSet() {
 			return e.Method.Span
 		}
-		return ExpressionSpanStart(e.Receiver)
+		return e.CallSpan
 	case FieldAccessNode:
 		return ExpressionSpanStart(e.Target)
 	case IndexExpressionNode:

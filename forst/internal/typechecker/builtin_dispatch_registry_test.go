@@ -46,6 +46,7 @@ func TestTypeRegistryStructuralLookups(t *testing.T) {
 		},
 	}
 	tc.Defs["User"] = ast.TypeDefNode{Ident: "User", Expr: ast.TypeDefShapeExpr{Shape: shape}}
+	tc.markHashBasedIdent("T_hash")
 	tc.Defs["T_hash"] = ast.TypeDefNode{Ident: "T_hash", Expr: ast.TypeDefShapeExpr{Shape: shape}}
 
 	if got := tc.FindStructurallyIdenticalNamedType(ast.TypeNode{Ident: "T_hash", TypeKind: ast.TypeKindHashBased}); got != "User" {

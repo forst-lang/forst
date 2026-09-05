@@ -123,15 +123,110 @@ func TestSpanFromTo_mergesEnds(t *testing.T) {
 func TestExpressionSpanStart_variableAndIndex(t *testing.T) {
 	t.Parallel()
 	v := VariableNode{Ident: Ident{ID: "xs", Span: SourceSpan{StartLine: 1, StartCol: 5, EndLine: 1, EndCol: 7}}}
-	if s := ExpressionSpanStart(v); !s.IsSet() || s.StartCol != 5 {
-		t.Fatalf("variable: %+v", s)
-	}
 	idx := IndexExpressionNode{
 		Target: v,
 		Index:  IntLiteralNode{Value: 1, Span: FakeSpan()},
 		Span:   SourceSpan{StartLine: 1, StartCol: 5, EndLine: 1, EndCol: 10},
 	}
-	if s := ExpressionSpanStart(idx); !s.IsSet() || s.EndCol != 10 {
-		t.Fatalf("index: %+v", s)
+	cases := []struct {
+		name string
+		expr ExpressionNode
+		want SourceSpan
+	}{
+		{name: "variable", expr: v, want: v.Ident.Span},
+		{name: "index", expr: idx, want: idx.Span},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ExpressionSpanStart(tc.expr)
+			if got != tc.want {
+				t.Fatalf("got %+v want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestExpressionSpanStart_callStartsAtCalleeNotCallSpan(t *testing.T) {
+	t.Parallel()
+	fnSpan := SourceSpan{StartLine: 1, StartCol: 2, EndLine: 1, EndCol: 3}
+	callSpan := SourceSpan{StartLine: 1, StartCol: 3, EndLine: 1, EndCol: 5}
+	call := FunctionCallNode{
+		Function: Ident{ID: "f", Span: fnSpan},
+		CallSpan: callSpan,
+	}
+	recvSpan := SourceSpan{StartLine: 2, StartCol: 4, EndLine: 2, EndCol: 7}
+	methodCall := MethodCallNode{
+		Receiver: VariableNode{Ident: Ident{ID: "recv", Span: recvSpan}},
+		Method:   Ident{ID: "m", Span: SourceSpan{StartLine: 2, StartCol: 8, EndLine: 2, EndCol: 9}},
+		CallSpan: SourceSpan{StartLine: 2, StartCol: 9, EndLine: 2, EndCol: 11},
+	}
+	okSpan := SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 7}
+	ok := OkExprNode{
+		Value: IntLiteralNode{Value: 1, Span: SourceSpan{StartLine: 3, StartCol: 4, EndLine: 3, EndCol: 5}},
+		Span:  okSpan,
+	}
+	errSpan := SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 10}
+	errn := ErrExprNode{
+		Value: StringLiteralNode{Value: "e", Span: SourceSpan{StartLine: 4, StartCol: 5, EndLine: 4, EndCol: 8}},
+		Span:  errSpan,
+	}
+
+	t.Run("functionCall", func(t *testing.T) {
+		if s := ExpressionSpanStart(call); s != fnSpan {
+			t.Fatalf("got %+v want function span %+v", s, fnSpan)
+		}
+	})
+	t.Run("methodCall", func(t *testing.T) {
+		if s := ExpressionSpanStart(methodCall); s != recvSpan {
+			t.Fatalf("got %+v want receiver span %+v", s, recvSpan)
+		}
+	})
+	t.Run("okExpr", func(t *testing.T) {
+		if s := ExpressionSpanStart(ok); s != okSpan {
+			t.Fatalf("got %+v want %+v", s, okSpan)
+		}
+	})
+	t.Run("errExpr", func(t *testing.T) {
+		if s := ExpressionSpanStart(errn); s != errSpan {
+			t.Fatalf("got %+v want %+v", s, errSpan)
+		}
+	})
+}
+
+func TestExpressionSpanStart_nestedIndexAndSliceSuffixes(t *testing.T) {
+	t.Parallel()
+	fnSpan := SourceSpan{StartLine: 1, StartCol: 2, EndLine: 1, EndCol: 3}
+	call := FunctionCallNode{
+		Function: Ident{ID: "f", Span: fnSpan},
+		CallSpan: SourceSpan{StartLine: 1, StartCol: 3, EndLine: 1, EndCol: 5},
+	}
+	idx := IndexExpressionNode{
+		Target: call,
+		Index:  IntLiteralNode{Value: 0, Span: SourceSpan{StartLine: 1, StartCol: 6, EndLine: 1, EndCol: 7}},
+	}
+	sl := SliceExpressionNode{
+		Target: call,
+		High:   IntLiteralNode{Value: 1, Span: SourceSpan{StartLine: 1, StartCol: 7, EndLine: 1, EndCol: 8}},
+	}
+	nestedIdx := IndexExpressionNode{
+		Target: idx,
+		Index:  IntLiteralNode{Value: 1, Span: FakeSpan()},
+	}
+
+	cases := []struct {
+		name string
+		expr ExpressionNode
+	}{
+		{name: "indexOfCall", expr: idx},
+		{name: "sliceOfCall", expr: sl},
+		{name: "nestedIndex", expr: nestedIdx},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ExpressionSpanStart(tc.expr)
+			if got != fnSpan {
+				t.Fatalf("got %+v want callee start %+v", got, fnSpan)
+			}
+		})
 	}
 }

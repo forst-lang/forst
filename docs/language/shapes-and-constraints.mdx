@@ -120,7 +120,11 @@ type Username = String.Min(3).Max(30).HasPrefix("u_")
 Name the refined type once, then enforce it at the boundary with that name:
 
 ```ft
-ensure username is Username else InvalidUsername()
+error InvalidUsername {}
+
+func signup(username String) {
+	ensure username is Username else InvalidUsername()
+}
 ```
 
 That is the same runtime check as writing `ensure username is Min(3).Max(30).HasPrefix("u_")`, and it narrows `username` to `Username`.

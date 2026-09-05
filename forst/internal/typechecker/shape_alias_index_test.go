@@ -21,6 +21,7 @@ func TestShapeAliasIndex_resolvesStructuralHash(t *testing.T) {
 		Ident: "User",
 		Expr:  ast.TypeDefShapeExpr{Shape: userShape},
 	})
+	tc.markHashBasedIdent(hashIdent)
 	tc.Defs[hashIdent] = ast.TypeDefNode{
 		Ident: hashIdent,
 		Expr:  ast.TypeDefShapeExpr{Shape: userShape},
@@ -110,6 +111,21 @@ func TestShapeAliasIndex_survivesHashTypeRegistration(t *testing.T) {
 	}
 	if got := tc.FindAnyStructurallyIdenticalNamedType(shape); got != "Point" {
 		t.Fatalf("alias lookup after T_ registration: got %q want Point", got)
+	}
+}
+
+func TestShapeAliasIndex_indexesUserDefinedTPrefixType(t *testing.T) {
+	t.Parallel()
+	tc := testTypeChecker(t)
+	shape := ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+		"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+	}}
+	tc.registerType(ast.TypeDefNode{Ident: "T_User", Expr: ast.TypeDefShapeExpr{Shape: shape}})
+	if tc.isHashBasedIdent("T_User") {
+		t.Fatal("user-defined T_User must not be marked hash-based")
+	}
+	if got := tc.FindAnyStructurallyIdenticalNamedType(shape); got != "T_User" {
+		t.Fatalf("user-defined T_ type must be indexed: got %q want T_User", got)
 	}
 }
 

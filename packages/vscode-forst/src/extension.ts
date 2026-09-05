@@ -139,6 +139,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (token !== restartToken) {
         return;
       }
+      if (!didChangeDebouncer.isCurrentGeneration(payload.uri, payload.generation)) {
+        output.debug(
+          `Dropped didChange diagnostics for closed ${payload.uri} v${payload.version}.`
+        );
+        return;
+      }
       if (!didChangeDebouncer.shouldApply(payload.uri, payload.version)) {
         output.debug(
           `Dropped stale didChange diagnostics for ${payload.uri} v${payload.version}.`

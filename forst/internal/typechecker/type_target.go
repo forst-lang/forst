@@ -6,23 +6,24 @@ import (
 	"forst/internal/ast"
 )
 
-// ensureScalarCarriers are builtins that may host analyzable Min/Max-style constraints
-// as named ensure type targets (not Shape/Array/Map/…).
-var ensureScalarCarriers = map[ast.TypeIdent]struct{}{
-	ast.TypeString: {},
-	ast.TypeInt:    {},
-	ast.TypeFloat:  {},
-	ast.TypeBool:   {},
+// isEnsureScalarCarrierIdent reports whether ident is a builtin scalar that may host
+// analyzable Min/Max-style constraints as named ensure type targets (not Shape/Array/Map/…).
+func isEnsureScalarCarrierIdent(ident ast.TypeIdent) bool {
+	switch ident {
+	case ast.TypeString, ast.TypeInt, ast.TypeFloat, ast.TypeBool:
+		return true
+	default:
+		return false
+	}
 }
 
 // isEnsureScalarCarrier reports whether base is String/Int/Float/Bool, or an alias of one.
 func (tc *TypeChecker) isEnsureScalarCarrier(base ast.TypeIdent) bool {
-	if _, ok := ensureScalarCarriers[base]; ok {
+	if isEnsureScalarCarrierIdent(base) {
 		return true
 	}
 	if u := tc.underlyingBuiltinTypeOfAliasAssertion(base); u != "" {
-		_, ok := ensureScalarCarriers[u]
-		return ok
+		return isEnsureScalarCarrierIdent(u)
 	}
 	return false
 }
@@ -85,12 +86,22 @@ func typeDefAssertionExprOf(def ast.TypeDefNode) *ast.TypeDefAssertionExpr {
 // ConstrainedScalarAliasAssertion returns the Meet assertion body for a named
 // refined scalar alias such as `type Sku = String.Min(1).Max(64)`.
 // The typedef must have a non-empty Meet constraint chain (no Join) over a
-// scalar builtin carrier (directly or via alias).
+// scalar builtin carrier (directly or via alias). Inherited Meet constraints
+// from scalar-alias bases are merged before lowering; recursive aliases fail closed.
 func (tc *TypeChecker) ConstrainedScalarAliasAssertion(name ast.TypeIdent) (*ast.AssertionNode, bool) {
 	return tc.constrainedScalarAliasAssertion(name)
 }
 
 func (tc *TypeChecker) constrainedScalarAliasAssertion(name ast.TypeIdent) (*ast.AssertionNode, bool) {
+	return tc.constrainedScalarAliasAssertionSeen(name, map[ast.TypeIdent]struct{}{})
+}
+
+func (tc *TypeChecker) constrainedScalarAliasAssertionSeen(name ast.TypeIdent, seen map[ast.TypeIdent]struct{}) (*ast.AssertionNode, bool) {
+	if _, dup := seen[name]; dup {
+		return nil, false
+	}
+	seen[name] = struct{}{}
+
 	def, ok := tc.Defs[name].(ast.TypeDefNode)
 	if !ok {
 		return nil, false
@@ -99,13 +110,32 @@ func (tc *TypeChecker) constrainedScalarAliasAssertion(name ast.TypeIdent) (*ast
 	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
 		return nil, false
 	}
-	if len(ade.Assertion.Constraints) == 0 || len(ade.Assertion.OrChains) > 0 {
+	if len(ade.Assertion.OrChains) > 0 {
 		return nil, false
 	}
-	if !tc.isEnsureScalarCarrier(*ade.Assertion.BaseType) {
+	base := *ade.Assertion.BaseType
+	own := ade.Assertion.Constraints
+
+	var inherited []ast.ConstraintNode
+	var carrier ast.TypeIdent
+	if tc.isBuiltinType(base) {
+		carrier = base
+	} else if _, cycling := seen[base]; cycling {
+		return nil, false
+	} else if inh, ok := tc.constrainedScalarAliasAssertionSeen(base, seen); ok && inh != nil && inh.BaseType != nil {
+		inherited = inh.Constraints
+		carrier = *inh.BaseType
+	} else if tc.isEnsureScalarCarrier(base) {
+		if u := tc.underlyingBuiltinTypeOfAliasAssertion(base); u != "" {
+			carrier = u
+		}
+	}
+
+	merged := append(append([]ast.ConstraintNode{}, inherited...), own...)
+	if len(merged) == 0 || !isEnsureScalarCarrierIdent(carrier) {
 		return nil, false
 	}
-	return ade.Assertion, true
+	return &ast.AssertionNode{BaseType: &carrier, Constraints: merged}, true
 }
 
 // isBareNominalScalarDomain reports type Password = String (builtin base, no constraints).

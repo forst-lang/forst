@@ -201,6 +201,7 @@ func (tc *TypeChecker) returnTypeMatchesInferredShape(actual ast.TypeNode, expec
 func RegisterHashBasedType(tc *TypeChecker, typeIdent ast.TypeIdent, fields map[string]ast.ShapeFieldNode) {
 	// Only register if not already present
 	if _, exists := tc.Defs[typeIdent]; !exists {
+		tc.markHashBasedIdent(typeIdent)
 		tc.setDef(typeIdent, ast.TypeDefNode{
 			Ident: typeIdent,
 			Expr: ast.TypeDefShapeExpr{

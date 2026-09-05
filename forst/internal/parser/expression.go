@@ -404,7 +404,7 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 					string(ident.ID)+" expects exactly one argument.",
 					fmt.Sprintf("write `%s(value)` with a single value", ident.ID))
 			}
-			callSpan := ast.SpanBetweenTokens(lparen, rparen)
+			callSpan := ast.SpanFromTo(ident.Span, ast.SpanBetweenTokens(lparen, rparen))
 			if ident.ID == "Ok" {
 				return ast.OkExprNode{Value: args[0], Span: callSpan}
 			}

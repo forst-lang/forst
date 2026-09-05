@@ -2,7 +2,7 @@
 
 **Status:** **Accepted, amended.** Normative for the RHS of `ensure … is` / `if … is`: a **refinement target** is a **type** or an **assertion**. Types and assertions stay distinct. “Place” in source grammar is represented by compiler `AccessPath`; runtime targets also include analyzable nominal scalar constraints. See [the locked technical design](../../../../.plans/analyzable-refinements/TECHNICAL-DESIGN.md).
 
-**Scope:** Type-target syntax (no parentheses), runtime membership for closed enum/literal subset types and analyzable constrained scalar aliases (`String.Min…`), narrowing to that type. Assertion `or`, `else`, guards: [12](./12-accepted-decision.md). Mutation of type-target facts: [13](./13-refinement-stability.md).
+**Scope:** Type-target syntax (no parentheses), runtime membership for closed enum/literal subset types, analyzable constrained scalar aliases (`String.Min…`), and bare nominal scalar domains, narrowing to that type. Assertion `or`, `else`, guards: [12](./12-accepted-decision.md). Mutation of type-target facts: [13](./13-refinement-stability.md).
 
 **Does not reopen:** [12](./12-accepted-decision.md), [13](./13-refinement-stability.md). Does not make every Forst type runtime-checkable. Does not turn enum variants into assertions.
 

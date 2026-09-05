@@ -3,7 +3,6 @@ package typechecker
 
 import (
 	"forst/internal/ast"
-	"strings"
 )
 
 // RegisterTypeIfMissing registers a type definition if not already present in Defs.
@@ -61,7 +60,7 @@ func (tc *TypeChecker) FindAnyStructurallyIdenticalNamedType(shape ast.ShapeNode
 
 // UserNamedTypeMatchesShape reports whether ident names a user type whose shape is structurally identical to shape.
 func (tc *TypeChecker) UserNamedTypeMatchesShape(ident ast.TypeIdent, shape ast.ShapeNode) bool {
-	if ident == "" || strings.HasPrefix(string(ident), "T_") {
+	if ident == "" || tc.isHashBasedIdent(ident) {
 		return false
 	}
 	def, ok := tc.Defs[ident]

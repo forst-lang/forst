@@ -52,7 +52,7 @@ test("DidChangeDebouncer sends latest payload after delay and drops superseded t
   await Promise.resolve();
 
   assert.deepStrictEqual(sent, [
-    { uri: "file:///a.ft", version: 2, text: "ab" },
+    { uri: "file:///a.ft", version: 2, text: "ab", generation: 0 },
   ]);
 });
 
@@ -85,4 +85,67 @@ test("DidChangeDebouncer.clear cancels pending and applied tracking", () => {
   debouncer.clear("file:///a.ft");
   assert.strictEqual(timers.size, 0);
   assert.strictEqual(debouncer.shouldApply("file:///a.ft", 1), true);
+});
+
+test("DidChangeDebouncer close-while-pending invalidates in-flight generation", async () => {
+  /** @type {Map<ReturnType<typeof setTimeout>, () => void>} */
+  const timers = new Map();
+  let nextId = 1;
+  const setTimer = (fn) => {
+    const id = nextId++;
+    timers.set(id, fn);
+    return id;
+  };
+  const clearTimer = (id) => {
+    timers.delete(id);
+  };
+
+  /** @type {(value?: unknown) => void} */
+  let releaseSend;
+  const sendGate = new Promise((resolve) => {
+    releaseSend = resolve;
+  });
+  /** @type {(value?: unknown) => void} */
+  let startedSend;
+  const sendStarted = new Promise((resolve) => {
+    startedSend = resolve;
+  });
+
+  /** @type {{ uri: string, version: number, text: string, generation: number } | undefined} */
+  let inFlight;
+  const applied = [];
+  const debouncer = new DidChangeDebouncer(
+    async (payload) => {
+      inFlight = { ...payload };
+      startedSend();
+      await sendGate;
+      if (!debouncer.isCurrentGeneration(payload.uri, payload.generation)) {
+        return;
+      }
+      applied.push(payload.uri);
+    },
+    200,
+    setTimer,
+    clearTimer
+  );
+
+  const uri = "file:///a.ft";
+  debouncer.schedule({ uri, version: 1, text: "a" });
+  const fns = [...timers.values()];
+  timers.clear();
+  for (const fn of fns) {
+    fn();
+  }
+  await sendStarted;
+  assert.ok(inFlight, "send should have started");
+  const scheduledGen = inFlight.generation;
+  assert.strictEqual(debouncer.isCurrentGeneration(uri, scheduledGen), true);
+
+  debouncer.clear(uri);
+  assert.strictEqual(debouncer.isCurrentGeneration(uri, scheduledGen), false);
+
+  releaseSend();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepStrictEqual(applied, []);
 });
