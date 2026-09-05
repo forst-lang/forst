@@ -245,7 +245,7 @@ tasks:
     dir: forst
     deps: [build:runtime]
     cmds:
-      - go test -v ./internal/typechecker/...
+      - go test ./internal/typechecker/...
 
   test:unit:transformer:
     desc: Run unit tests for transformer

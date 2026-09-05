@@ -75,6 +75,22 @@ func TestShapeAliasIndex_resolvesAssertionRefinementHash(t *testing.T) {
 	}
 }
 
+func TestShapeAliasIndex_invalidatesOnSetDef(t *testing.T) {
+	t.Parallel()
+	tc := testTypeChecker(t)
+	shape := ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+		"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+	}}
+	tc.registerType(ast.TypeDefNode{Ident: "Zebra", Expr: ast.TypeDefShapeExpr{Shape: shape}})
+	if got := tc.FindAnyStructurallyIdenticalNamedType(shape); got != "Zebra" {
+		t.Fatalf("before Catalog: got %q want Zebra", got)
+	}
+	tc.registerType(ast.TypeDefNode{Ident: "Catalog", Expr: ast.TypeDefShapeExpr{Shape: shape}})
+	if got := tc.FindAnyStructurallyIdenticalNamedType(shape); got != "Catalog" {
+		t.Fatalf("after Catalog (must rebuild index): got %q want Catalog", got)
+	}
+}
+
 func ptrTypeIdent(id ast.TypeIdent) *ast.TypeIdent {
 	return &id
 }

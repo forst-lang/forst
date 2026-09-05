@@ -12,6 +12,15 @@ type shapeAliasIndex struct {
 	byAssertionTypeIdent map[ast.TypeIdent]ast.TypeIdent
 }
 
+func (tc *TypeChecker) invalidateShapeAliasIndex() {
+	tc.shapeAliasIndex = nil
+}
+
+func (tc *TypeChecker) setDef(ident ast.TypeIdent, def ast.Node) {
+	tc.Defs[ident] = def
+	tc.invalidateShapeAliasIndex()
+}
+
 func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
 	if tc.shapeAliasIndex != nil {
 		return tc.shapeAliasIndex

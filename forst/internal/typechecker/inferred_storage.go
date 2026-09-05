@@ -18,20 +18,24 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	}
 	hash, err := tc.Hasher.HashNode(node)
 	if err != nil {
-		tc.log.WithFields(logrus.Fields{
-			"node":     node.String(),
-			"function": "storeInferredType",
-		}).WithError(err).Error("failed to hash node during storeInferredType")
+		if tc.log.IsLevelEnabled(logrus.ErrorLevel) {
+			tc.log.WithFields(logrus.Fields{
+				"node":     node.String(),
+				"function": "storeInferredType",
+			}).WithError(err).Error("failed to hash node during storeInferredType")
+		}
 		return
 	}
 	tc.Types[hash] = processedTypes
-	tc.log.WithFields(logrus.Fields{
-		"node":     node.String(),
-		"key":      hash.ToTypeIdent(),
-		"types":    processedTypes,
-		"function": "storeInferredType",
-		"hash":     fmt.Sprintf("%x", uint64(hash)),
-	}).Trace("Stored inferred type for node")
+	if tc.log.IsLevelEnabled(logrus.TraceLevel) {
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"key":      hash.ToTypeIdent(),
+			"types":    processedTypes,
+			"function": "storeInferredType",
+			"hash":     fmt.Sprintf("%x", uint64(hash)),
+		}).Trace("Stored inferred type for node")
+	}
 }
 
 // storeInferredFunctionReturnType stores the return types for a function in its signature.
