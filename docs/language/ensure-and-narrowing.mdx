@@ -97,7 +97,7 @@ Caller functions can then check `ensure task is Actionable() else InactiveTask()
 
 ## Check against a named type
 
-Check membership in a named type by writing its name without parentheses after `is`. This narrows values to defined subsets such as literal unions.
+Check membership in a named type by writing its name without parentheses after `is`. This narrows values to defined subsets such as literal unions, and to constrained scalar aliases.
 
 ```ft
 type ActiveStatus =
@@ -107,7 +107,14 @@ type ActiveStatus =
 ensure status is ActiveStatus else InvalidStatus()
 ```
 
-The bare name `ActiveStatus` validates that `status` matches one of the declared union values. Omit parentheses when checking membership in a named type (`ActiveStatus`). Use parentheses when calling assertion functions or type guards (`Strong()`, `Pending()`).
+```ft
+type HttpPort = Int.Min(1).Max(65535)
+
+ensure port is HttpPort else InvalidPort()
+listen(port)
+```
+
+`ensure port is HttpPort` runs the same checks as `ensure port is Min(1).Max(65535)`, then narrows `port` to `HttpPort` so `listen` can take it. Omit parentheses when checking membership in a named type (`ActiveStatus`, `HttpPort`). Use parentheses when calling assertion functions or type guards (`Strong()`, `Pending()`).
 
 ## Exiting from `main`
 
