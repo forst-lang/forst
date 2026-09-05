@@ -1,0 +1,232 @@
+---
+title: "Effect mode"
+description: "Use Effect to call Forst with typed errors, managed services, retries, and cancellation."
+---
+
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
+[Effect](https://effect.website) is a TypeScript library for programs with typed errors, managed dependencies, retries, cancellation, and safe resource use. It makes these needs visible in your types and gives you tools to combine them.
+
+Forst already gives you typed backend functions and generated clients. Effect mode carries those types into Node. Each generated call has typed Forst failures and declares the service it needs. This makes calls easier to provide, retry, cancel, and replace in tests.
+
+<NodeClientSetupNote />
+
+Install `effect`, enable Effect mode, then regenerate:
+
+```bash
+npm install effect
+```
+
+```json
+{
+  "generate": {
+    "effect": true
+  }
+}
+```
+
+```bash
+npx forst generate .
+```
+
+```typescript
+import { Effect } from "effect";
+import { ForstClientLive } from "@forst/gen";
+import { $auth } from "@forst/gen/auth";
+
+const program = Effect.gen(function* () {
+  const { valid } = yield* $auth.VerifyPassword({
+    plainPassword: "secret",
+    passwordHash: "$2a$...",
+  });
+  return valid;
+});
+
+Effect.runPromise(program.pipe(Effect.provide(ForstClientLive)));
+```
+
+Without `Effect.provide`, TypeScript reports an unsatisfied `R` channel. That is expected. Provide `ForstClientLive` (or a custom layer) before you run the program.
+
+Full `generate` fields live on the [CLI reference](/workflow/cli#generate-configuration).
+
+## Two separate points
+
+**Promise mode keeps structural compatibility.** Default clients inline a small tagged-error helper. Every invoke failure carries a readonly `_tag` that matches the `Data.TaggedError` contract, so `Effect.catchTag` works without adding `effect` as a runtime dependency.
+
+**Effect mode uses real Effect errors.** With `generate.effect: true`, invoke, domain, and harness errors extend `Data.TaggedError` from the `effect` peer. `Equal.equals` and other Effect APIs work on error values. Function returns become `Effect` values with a typed error channel.
+
+## What changes
+
+| Aspect | Promise mode (default) | Effect mode (`generate.effect: true`) |
+| --- | --- | --- |
+| Error classes | Inlined tagged helper (structural `_tag`) | `Data.TaggedError` from `effect` peer |
+| Function return | `Promise<Response>` | `$pkg.Method(...)` returns `Effect.Effect<Response, Failure, $pkg>` |
+| Failure encoding | Thrown tagged error, plus `.safe()` | Typed `E` channel. No `.safe()`. |
+| Retries | `options.retries` | `Effect.retry` with a `Schedule` |
+| Dependencies | None | Peer dependency `effect` `>=3.17.0` |
+| Wiring | `createForstClient(config)` | `ForstClientLive` / `ForstClientLayer(config)` |
+| Mocking | `withForstTestScope` | `Layer.mock` / `ForstTestLayer` |
+
+Both modes import the package handle (for example `$auth` from `@forst/gen/auth`) and call `$auth.VerifyPassword(...)`.
+
+## Errors
+
+Catch by tag in either mode:
+
+<CodeGroup>
+
+```typescript Promise
+import { isInvokeFailure } from "@forst/errors";
+import { $auth } from "@forst/gen/auth";
+
+try {
+  await $auth.VerifyPassword(input);
+} catch (error) {
+  if (!isInvokeFailure(error)) throw error;
+  switch (error._tag) {
+    case "@forst/errors/InvokeRejected":
+      return { valid: false as const, reason: error.serverError };
+    case "@forst/errors/InvokeUnreachable":
+      throw new Error("forst server unreachable");
+    default:
+      throw error;
+  }
+}
+```
+
+```typescript Effect
+import { Effect } from "effect";
+import { $auth } from "@forst/gen/auth";
+
+const program = $auth.VerifyPassword(input).pipe(
+  Effect.catchTag("@forst/errors/InvokeRejected", (e) =>
+    Effect.succeed({ valid: false as const, reason: e.serverError })
+  ),
+  Effect.catchTag("@forst/errors/InvokeUnreachable", () =>
+    Effect.fail(new Error("forst server unreachable"))
+  )
+);
+```
+
+</CodeGroup>
+
+See [Call Forst over HTTP](/interop/invoke/call-forst#failures) for the full failure guide.
+
+## Wiring
+
+| Export | Use when |
+| --- | --- |
+| `ForstClientLive` | Default transport for every Forst package |
+| `ForstClientLayer(config)` | Explicit base URL, timeouts, or middleware |
+| `makeForstClientRuntime(config)` | Call Forst from code that is not written in Effect |
+
+```typescript
+import { Effect } from "effect";
+import { ForstClientLayer, makeForstClientRuntime } from "@forst/gen";
+import { $auth } from "@forst/gen/auth";
+
+const layer = ForstClientLayer({
+  baseUrl: process.env.FORST_BASE_URL,
+});
+
+// Effect call sites
+Effect.runPromise(
+  $auth.VerifyPassword(input).pipe(Effect.provide(layer))
+);
+
+// Non-Effect call sites
+const runtime = makeForstClientRuntime({
+  baseUrl: process.env.FORST_BASE_URL,
+});
+const result = await runtime.runPromise($auth.VerifyPassword(input));
+```
+
+Set **`FORST_BASE_URL`** in production. The client never spawns a server when `NODE_ENV` is `production`.
+
+## Testing
+
+Same three levels as [Testing](/interop/invoke/testing), expressed as layers.
+
+**One method** with `Layer.mock`:
+
+```typescript
+import { Effect, Layer } from "effect";
+import { $auth } from "@forst/gen/auth";
+
+const AuthTest = Layer.mock($auth, {
+  VerifyPassword: () => Effect.succeed({ valid: true }),
+});
+
+await Effect.runPromise(
+  $auth.VerifyPassword(input).pipe(Effect.provide(AuthTest))
+);
+```
+
+An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode requires `effect` `>=3.17.0`.
+
+**Whole client** with `ForstTestLayer`:
+
+```typescript
+import { Effect } from "effect";
+import { ForstTestLayer } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
+
+const Test = ForstTestLayer({
+  packages: {
+    auth: {
+      VerifyPassword: async () => ({ valid: true }),
+    },
+  },
+});
+
+await Effect.runPromise(
+  $auth.VerifyPassword(input).pipe(Effect.provide(Test))
+);
+```
+
+Handlers may return a value, a `Promise`, or an `Effect`.
+
+**Wire level** with a fake transport, when you need to assert payloads or simulate a specific failure. Provide a mock `ForstTransport` under the real package services. See [Testing](/interop/invoke/testing) for the Promise mode equivalents.
+
+**Real invoke server** with the test trio that mirrors `ForstClientLive` / `ForstClientLayer` / `makeForstClientRuntime`. Install optional `@forst/cli`, then:
+
+```typescript
+import { Effect } from "effect";
+import { ForstTestServerLayer } from "@forst/gen/$testing";
+import { $main } from "@forst/gen/main";
+
+await Effect.runPromise(
+  $main.Echo({ message: "hi" }).pipe(Effect.provide(ForstTestServerLayer()))
+);
+```
+
+For Vitest or Jest hooks, use `makeForstTestServer()` and call `dispose()` in `afterAll`. See [Testing](/interop/invoke/testing#call-a-real-forst-server).
+
+## Requirements
+
+- Install `effect` in your app (`>=3.17.0`).
+- Set `"generate": { "effect": true }` in `ftconfig.json`.
+- Run `npx forst generate .` after changing that flag.
+
+If the resolved `effect` version is missing or too old, generate fails and names the version it found, the floor (`>=3.17.0`), and why.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
+    Promise mode calls, tagged errors, and `.safe()`.
+  </Card>
+  <Card title="Testing" icon="flask" href="/interop/invoke/testing">
+    `withForstTestScope` for Promise mode.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
+  </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
+    Subpaths and `@forst/gen` imports.
+  </Card>
+
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    Full `generate` configuration table.
+  </Card>
+</CardGroup>

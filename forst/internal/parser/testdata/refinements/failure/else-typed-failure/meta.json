@@ -1,0 +1,5 @@
+{
+  "id": "failure/else-typed-failure",
+  "expect": "parse-ok",
+  "title": "else typed failure"
+}

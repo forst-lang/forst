@@ -82,13 +82,13 @@ Providers lower to a **deduped struct parameter** at the Go boundary. Production
 
 ## Caveats
 
-**Providers** are **experimental**. The RFC surface is still evolving. Pin your compiler version and run `task example:providers` when upgrading.
+**Providers** are **experimental**. The RFC surface is still evolving. Pin your compiler version and check the [Providers examples](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers) when upgrading.
 
 ### Host wiring only
 
 Providers lower in Go. They are **not** exported to TypeScript or sidecar invoke payloads. Functions with unsatisfied **`Providers(f)`** are omitted from generated clients. Wire **`with`** blocks in Go **`main`** before exposing handlers.
 
-See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats) and [Generate client types § Caveats](/interop/node/generate-types#caveats).
+See [Call Forst over HTTP § Caveats](/interop/invoke/call-forst#caveats) and [Generate client types § Caveats](/interop/invoke/generate-types#caveats).
 
 ### Void contract methods
 
@@ -107,15 +107,12 @@ Providers do not replace Go's **`context.Context`**. They solve a different prob
 
 A handler can take both. Use `context` for the request lifecycle, and Providers for the services the host supplies once and reuses across calls.
 
-## Try it
+## Examples
 
-From the Forst repository:
+See the provider examples on GitHub
 
-```bash
-task example:providers
-task example:providers-cross_pkg
-forst test examples/in/rfc/providers/
-```
+* [`examples/in/rfc/providers/providers_demo/providers.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/rfc/providers/providers_demo/providers.ft)
+* [`examples/in/rfc/providers/cross_pkg/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers/cross_pkg/)
 
 Deep dive: [Providers RFC hub](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers)
 

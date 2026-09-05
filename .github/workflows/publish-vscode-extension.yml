@@ -59,7 +59,8 @@ jobs:
           VERSION="${TAG_NAME#vscode-forst-v}"
           echo "Extension semver: $VERSION"
           task build:vsix VERSION="$VERSION"
-          gh release upload "$TAG_NAME" dist/forst-vscode-*.vsix
+          # --clobber: re-runs replace an existing asset (same as release.yml binary upload).
+          gh release upload --clobber "$TAG_NAME" dist/forst-vscode-*.vsix
 
       - uses: actions/setup-node@v6
         with:

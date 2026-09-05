@@ -48,6 +48,27 @@ func RunWithProject(proj *project.Project, opts Options) (ExitCode, error) {
 			return ExitFailure, emitErr
 		}
 	}
+	goOnly, err := collectGoOnlyPackageReplaces(proj.ModuleRoot, proj.ModulePath, testDirs)
+	if err != nil {
+		return ExitError, err
+	}
+	for _, rep := range goOnly {
+		if _, exists := libReplaces[rep.ImportPath]; exists {
+			continue
+		}
+		suffix := strings.TrimPrefix(rep.ImportPath, proj.ModulePath+"/")
+		shimDir := filepath.Dir(layoutRoot.LibShim(runID, filepath.ToSlash(suffix)))
+		if err := os.MkdirAll(shimDir, 0o755); err != nil {
+			return ExitError, err
+		}
+		if err := copyHandwrittenGoSources(rep.Dir, shimDir); err != nil {
+			return ExitError, fmt.Errorf("go-only %s: %w", rep.ImportPath, err)
+		}
+		if err := writePackageGoMod(shimDir, rep.ImportPath); err != nil {
+			return ExitError, err
+		}
+		libReplaces[rep.ImportPath] = shimDir
+	}
 
 	for _, pkg := range pkgs {
 		code, err := runPackageTestsSession(proj, layoutRoot, runID, pkg, modResult, libReplaces, opts)
@@ -108,6 +129,9 @@ func emitLibShimsSession(layoutRoot layout.Root, runID string, modResult *module
 		if err := os.WriteFile(shimPath, []byte(code), 0o644); err != nil {
 			return nil, err
 		}
+		if err := copyHandwrittenGoSources(dir, shimDir); err != nil {
+			return nil, fmt.Errorf("lib shim %s sibling .go: %w", forstPkg, err)
+		}
 		imp := modResult.ImportPathForForstPackage(forstPkg)
 		if imp == "" {
 			imp = proj.ModulePath + "/" + suffix
@@ -161,6 +185,9 @@ func runPackageTestsSession(proj *project.Project, layoutRoot layout.Root, runID
 	}
 	if err := os.WriteFile(testPaths.TestFile, []byte(code), 0o644); err != nil {
 		return ExitFailure, err
+	}
+	if err := copyHandwrittenGoSources(pkg.Dir, testDir); err != nil {
+		return ExitFailure, fmt.Errorf("%s: sibling .go: %w", pkg.RelPath, err)
 	}
 	if err := writePackageGoMod(testDir, testImport); err != nil {
 		return ExitFailure, err

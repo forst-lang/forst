@@ -1,0 +1,13 @@
+{
+  "generate": {
+    "skipClient": true,
+    "go": {
+      "entry": "./cli.ft",
+      "out": "./main.gen.go"
+    }
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": []
+  }
+}

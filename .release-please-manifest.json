@@ -1,8 +1,8 @@
 {
-  ".": "0.12.0",
-  "packages/cli": "0.3.0",
-  "packages/vscode-forst": "0.4.0",
-  "packages/sidecar": "0.5.0",
-  "packages/node-runtime": "0.4.1",
-  "packages/errors": "0.2.0"
+  ".": "0.18.1",
+  "packages/cli": "0.9.0",
+  "packages/vscode-forst": "0.5.0",
+  "packages/sidecar": "0.7.0",
+  "packages/runtime": "0.5.1",
+  "packages/errors": "0.3.0"
 }

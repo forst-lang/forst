@@ -1,0 +1,5 @@
+{
+  "id": "clobber/merge-name-only-retains",
+  "expect": "typecheck-ok",
+  "title": "if both branches write name, Adult remains"
+}

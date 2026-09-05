@@ -9,10 +9,12 @@ import (
 
 // FunctionSignature represents a function's type information
 type FunctionSignature struct {
-	Ident       ast.Ident
-	Parameters  []ParameterSignature
-	ReturnTypes []ast.TypeNode
-	ErrorSet    FunctionErrorSet
+	Ident          ast.Ident
+	TypeParams     []ast.TypeParamDecl
+	TypeParamNames typeParamSet // names declared on this generic function
+	Parameters     []ParameterSignature
+	ReturnTypes    []ast.TypeNode
+	ErrorSet       FunctionErrorSet
 }
 
 // FunctionErrorSet is the inferred set of nominal errors a function may raise at runtime.

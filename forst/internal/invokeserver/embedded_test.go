@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestEffectivePort(t *testing.T) {
 
 func TestResolveBoundaryRoot_env(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv(envBoundaryRoot, dir)
+	t.Setenv(ftconfig.EnvRoot, dir)
 	got, err := resolveBoundaryRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +66,7 @@ func TestResolveBoundaryRoot_walksAncestor(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "ftconfig.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(envBoundaryRoot, "")
+	t.Setenv(ftconfig.EnvRoot, "")
 	t.Chdir(sub)
 	got, err := resolveBoundaryRoot()
 	if err != nil {
@@ -79,7 +80,7 @@ func TestResolveBoundaryRoot_walksAncestor(t *testing.T) {
 func TestWriteInvokeReady(t *testing.T) {
 	dir := t.TempDir()
 	cfg := Config{Host: "127.0.0.1", Port: "8081", Runtime: "embedded"}
-	if err := writeInvokeReady(dir, cfg); err != nil {
+	if err := writeInvokeReady(dir, cfg, 1, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".forst", "invoke.ready"))
@@ -93,10 +94,19 @@ func TestWriteInvokeReady(t *testing.T) {
 	if payload.URL != "http://127.0.0.1:8081" || payload.Runtime != "embedded" {
 		t.Fatalf("payload = %+v", payload)
 	}
+	if payload.Generation != 1 {
+		t.Fatalf("generation = %d", payload.Generation)
+	}
+	if payload.PID != os.Getpid() {
+		t.Fatalf("pid = %d, want %d", payload.PID, os.Getpid())
+	}
+	if payload.SocketPath != "" {
+		t.Fatalf("tcp ready socketPath = %q, want empty", payload.SocketPath)
+	}
 }
 
 func TestWriteInvokeReady_invalidPath(t *testing.T) {
-	err := writeInvokeReady("../evil", Config{})
+	err := writeInvokeReady("../evil", Config{}, 0, "")
 	if err == nil || !strings.Contains(err.Error(), "invalid ready path") {
 		t.Fatalf("err = %v", err)
 	}
@@ -108,8 +118,7 @@ func TestEmbeddedRuntime_start_disabled(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{}, nil
 		},
-		writeReady: func(string, Config) error { t.Fatal("should not write"); return nil },
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)
@@ -126,8 +135,7 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "0"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)
@@ -148,22 +156,45 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.URL == "" || strings.HasSuffix(payload.URL, ":0") || strings.Contains(payload.URL, "://127.0.0.1:0") {
-		t.Fatalf("ready URL must use bound port, got %q", payload.URL)
+	if runtime.GOOS == "windows" {
+		if payload.URL == "" || strings.HasSuffix(payload.URL, ":0") || strings.Contains(payload.URL, "://127.0.0.1:0") {
+			t.Fatalf("ready URL must use bound port, got %q", payload.URL)
+		}
+		if !strings.HasPrefix(payload.URL, "http://127.0.0.1:") {
+			t.Fatalf("ready URL = %q", payload.URL)
+		}
+		return
 	}
-	if !strings.HasPrefix(payload.URL, "http://127.0.0.1:") {
-		t.Fatalf("ready URL = %q", payload.URL)
+	wantSock := DefaultInvokeSocketPath(workDir)
+	if payload.SocketPath != wantSock {
+		t.Fatalf("socketPath = %q, want %q", payload.SocketPath, wantSock)
+	}
+	if payload.URL != "" {
+		t.Fatalf("unix ready URL should be empty, got %q", payload.URL)
+	}
+	if payload.TokenDelivery != tokenDeliveryEnv {
+		t.Fatalf("tokenDelivery = %q, want %q", payload.TokenDelivery, tokenDeliveryEnv)
+	}
+	tokenEnv := os.Getenv(envInvokeToken)
+	if tokenEnv == "" {
+		t.Fatal("expected FORST_INVOKE_TOKEN in environment")
+	}
+	if _, err := decodeTokenFromHandoff(tokenEnv); err != nil {
+		t.Fatalf("decode env token: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, ".forst", "invoke.token")); !os.IsNotExist(err) {
+		t.Fatalf("invoke.token should not exist on disk, err=%v", err)
 	}
 }
 
 func TestEmbeddedRuntime_start_listenError(t *testing.T) {
+	t.Setenv(envInvokeTransport, "tcp")
 	rt := newEmbeddedRuntime(embeddedDeps{
 		resolveRoot: func() (string, error) { return t.TempDir(), nil },
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "invalid-port"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	err := rt.Start()
 	if err == nil {
@@ -181,7 +212,7 @@ func TestGlobalRegistry_singleton(t *testing.T) {
 
 func TestMustStartEmbedded_idempotent(t *testing.T) {
 	workDir := t.TempDir()
-	t.Setenv(envBoundaryRoot, workDir)
+	t.Setenv(ftconfig.EnvRoot, workDir)
 	if err := os.WriteFile(filepath.Join(workDir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"0"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -224,8 +255,7 @@ func TestWaitForShutdown_stopsServer(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "0"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)

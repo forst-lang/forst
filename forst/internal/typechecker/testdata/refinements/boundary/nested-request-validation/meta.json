@@ -1,0 +1,6 @@
+{
+  "id": "boundary/nested-request-validation",
+  "expect": "typecheck-ok",
+  "title": "nested request ContractViolation",
+  "matrix": true
+}

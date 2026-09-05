@@ -1,0 +1,26 @@
+package main
+
+type Response = {
+    metadata: String
+    user: {
+        email: String
+    }
+}
+
+is (response Response) HasUserEmail {
+    ensure response is {
+        user: {
+            email: String
+        }
+    }
+}
+
+func useHasUserEmail(r Response) {}
+
+func check(response Response) {
+    ensure response is HasUserEmail()
+    response.user.email = "a@b.c"
+    useHasUserEmail(response)
+}
+
+func main() {}

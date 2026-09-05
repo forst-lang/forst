@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/guard-if-is-any-of-alls",
+  "expect": "ir",
+  "title": "guard if is Any of Alls"
+}

@@ -9,7 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Scope represents a lexical scope in the program, containing symbols and their definitions
+// Scope represents a lexical scope in the program, containing symbols and their definitions.
+// Scope owns names, types, and SymbolIDs. RefinementContext owns program-point facts separately.
 type Scope struct {
 	Parent   *Scope
 	Node     *ast.Node
@@ -17,16 +18,23 @@ type Scope struct {
 	Symbols  map[ast.Identifier]Symbol
 	Children []*Scope
 	log      *logrus.Logger
+	// stack is the owning ScopeStack (for SymbolID allocation); nil for tests that build scopes alone.
+	stack *ScopeStack
 }
 
 // NewScope creates a new scope
 func NewScope(parent *Scope, node *ast.Node, log *logrus.Logger) *Scope {
+	var stack *ScopeStack
+	if parent != nil {
+		stack = parent.stack
+	}
 	return &Scope{
 		Parent:   parent,
 		Node:     node,
 		Symbols:  make(map[ast.Identifier]Symbol),
 		Children: make([]*Scope, 0),
 		log:      log,
+		stack:    stack,
 	}
 }
 
@@ -43,8 +51,9 @@ func (s *Scope) RegisterSymbol(name ast.Identifier, types []ast.TypeNode, kind S
 // hover and lookup keep the full chain (e.g. `Min(1)` then `Max(10)` → `Min(1).Max(10)`).
 func (s *Scope) RegisterSymbolWithNarrowing(name ast.Identifier, types []ast.TypeNode, kind SymbolKind, narrowingGuards []string, narrowingPredicateDisplay string) {
 	s.log.Tracef("[RegisterSymbol] Registering symbol %s with types %v in scope %s", name, types, s.String())
-	if prev, ok := s.Symbols[name]; ok && kind == SymbolVariable && prev.Kind == SymbolVariable &&
-		(len(prev.NarrowingTypeGuards) > 0 || prev.NarrowingPredicateDisplay != "") {
+	if prev, ok := s.Symbols[name]; ok && kind == SymbolVariable &&
+		(prev.Kind == SymbolVariable || prev.Kind == SymbolParameter) {
+		// Preserve SymbolID across ensure/if narrowing of an existing binding (phase 4d aliases).
 		s.Symbols[name] = mergeVariableNarrowingInPlace(prev, types, narrowingGuards, narrowingPredicateDisplay)
 		return
 	}
@@ -53,15 +62,63 @@ func (s *Scope) RegisterSymbolWithNarrowing(name ast.Identifier, types []ast.Typ
 		Types:                     types,
 		Kind:                      kind,
 		Scope:                     s,
+		ID:                        s.allocSymbolID(),
 		NarrowingTypeGuards:       append([]string(nil), narrowingGuards...),
 		NarrowingPredicateDisplay: narrowingPredicateDisplay,
 	}
 }
 
+func (s *Scope) allocSymbolID() SymbolID {
+	if s == nil {
+		return 0
+	}
+	if s.stack != nil {
+		return s.stack.allocSymbolID()
+	}
+	// Standalone scopes (unit tests): allocate from a local counter on the root.
+	root := s
+	for root.Parent != nil {
+		root = root.Parent
+	}
+	if root.stack != nil {
+		return root.stack.allocSymbolID()
+	}
+	// Fallback: walk Symbols for max ID — only for ad-hoc NewScope tests.
+	var max SymbolID
+	var walk func(*Scope)
+	walk = func(sc *Scope) {
+		if sc == nil {
+			return
+		}
+		for _, sym := range sc.Symbols {
+			if sym.ID > max {
+				max = sym.ID
+			}
+		}
+		for _, ch := range sc.Children {
+			walk(ch)
+		}
+	}
+	walk(root)
+	return max + 1
+}
+
+// LookupSymbolID returns the SymbolID for name in this scope chain, if present.
+func (s *Scope) LookupSymbolID(name ast.Identifier) (SymbolID, bool) {
+	if sym, ok := s.LookupVariable(name); ok {
+		return sym.ID, sym.ID != 0
+	}
+	return 0, false
+}
+
 func mergeVariableNarrowingInPlace(prev Symbol, types []ast.TypeNode, nextGuards []string, nextDisplay string) Symbol {
 	out := prev
 	out.Types = types
-	out.Kind = SymbolVariable
+	if prev.Kind == SymbolParameter {
+		out.Kind = SymbolParameter
+	} else {
+		out.Kind = SymbolVariable
+	}
 	out.NarrowingTypeGuards = mergeNarrowingGuardNamesDedupe(prev.NarrowingTypeGuards, nextGuards)
 	out.NarrowingPredicateDisplay = mergeNarrowingPredicateDisplaySegments(prev.NarrowingPredicateDisplay, nextDisplay)
 	return out
@@ -137,6 +194,7 @@ func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
 		Types:      []ast.TypeNode{typ},
 		Kind:       SymbolType,
 		Scope:      s,
+		ID:         s.allocSymbolID(),
 	}
 }
 
@@ -158,6 +216,8 @@ type Symbol struct {
 	Kind       SymbolKind // Variable, Function, Type, etc
 	Scope      *Scope     // Where this symbol is defined
 	Position   NodePath   // Precise location in AST where symbol is valid
+	// ID is the local SymbolID for this binding (distinct across shadowing).
+	ID SymbolID
 	// NarrowingTypeGuards is set when this variable binding was registered by if-branch or
 	// ensure-successor narrowing (`x is …`); names refer to user type guards in assertion order.
 	NarrowingTypeGuards []string
@@ -189,13 +249,17 @@ const (
 	SymbolTypeGuard
 )
 
-// IsFunction checks if the scope is a function
+// IsFunction checks if the scope is a named function or function literal.
 func (s *Scope) IsFunction() bool {
 	if s.Node == nil {
 		panic("Cannot call IsFunction on global scope")
 	}
-	_, ok := (*s.Node).(ast.FunctionNode)
-	return ok
+	switch (*s.Node).(type) {
+	case ast.FunctionNode, *ast.FunctionNode, ast.FunctionLiteralNode, *ast.FunctionLiteralNode:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsTypeGuard checks if the scope is a type guard

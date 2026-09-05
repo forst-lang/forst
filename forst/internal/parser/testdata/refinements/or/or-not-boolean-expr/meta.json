@@ -1,0 +1,5 @@
+{
+  "id": "or/or-not-boolean-expr",
+  "expect": "parse-error",
+  "title": "or is not boolean OR in expressions"
+}

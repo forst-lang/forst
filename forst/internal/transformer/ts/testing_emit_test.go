@@ -10,11 +10,11 @@ func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
 	assertContainsAll(t, got, []string{
 		"export type AuthHandlers",
 		"VerifyToken: (",
-		"Promise<VerifyTokenResponse>",
+		"Promise<$VerifyTokenResponse>",
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 		"export declare function withForstTestScope",
 		"export declare function createTestForstClient",
 		"InvokeRejected",
@@ -29,7 +29,7 @@ func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
 	if packagesIdx < 0 || authIdx < 0 || authIdx < packagesIdx {
 		t.Fatalf("auth override must sit under packages?:\n%s", got)
 	}
-	// Top-level ForstTestOverrides must not list auth beside packages/transport.
+	// Top-level ForstTestOverrides must not list auth beside packages/client.
 	iface := got[strings.Index(got, "export interface ForstTestOverrides"):]
 	end := strings.Index(iface, "export declare function withForstTestScope")
 	if end < 0 {
@@ -52,8 +52,9 @@ func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 		"AsyncLocalStorage",
 		"createScopeTransport",
 		"mergeOverrides",
-		`import { auth } from "./pkg/auth.js"`,
-		"auth: auth(transport)",
+		"resolveAuth",
+		`import { $auth } from "./core/auth.js"`,
+		"auth: $auth(transport)",
 		"new InvokeRejected",
 	})
 	assertContainsNone(t, got, []string{

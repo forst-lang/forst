@@ -29,5 +29,16 @@ describe("@forst/cli/invoke package exports", () => {
     const mod = await import("./invoke.js");
     expect(typeof mod.startForstInvokeServer).toBe("function");
     expect(typeof mod.readInvokeReadyUrl).toBe("function");
+    expect(typeof mod.fetchAuthenticatedInvoke).toBe("function");
+    expect(typeof mod.readInvokeReadyAuth).toBe("function");
+    expect(typeof mod.requestOverUnixSocket).toBe("function");
+    expect(typeof mod.stripReservedHeaders).toBe("function");
+    expect(typeof mod.parseInvokeChallengeResult).toBe("function");
+    expect(typeof mod.prepareInvokeConnect).toBe("function");
+    expect(typeof mod.getInvokeAuthHandoff).toBe("function");
+    expect(mod.consumeHostInvokeAuthStreamForTest).toBeUndefined();
+    expect(mod.resetHostInvokeAuthHandoffForTest).toBeUndefined();
+    expect(mod.startHostInvokeAuthRecvListener).toBeUndefined();
+    expect(mod.envInvokeAuthRecvFd).toBeUndefined();
   });
 });

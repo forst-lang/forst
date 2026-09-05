@@ -7,7 +7,7 @@ import (
 	"forst/internal/forstpkg"
 	"forst/internal/ftconfig"
 	"forst/internal/goload"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	"forst/internal/providersgraph"
 )
 
@@ -78,7 +78,7 @@ func (tc *TypeChecker) ConfigureForForstFile(moduleRoot, fileDir string, nodes [
 	if tc.NodeImportPolicy == "" {
 		tc.NodeImportPolicy = ftconfig.ImportPolicyFromDir(fileDir)
 	}
-	if boundary, err := nodeinterop.BoundaryRootFromEntry(fileDir); err == nil {
+	if boundary, err := bridgeinterop.BoundaryRootFromEntry(fileDir); err == nil {
 		tc.NodeBoundaryRoot = boundary
 	}
 	tc.SetForstPackage(forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)))

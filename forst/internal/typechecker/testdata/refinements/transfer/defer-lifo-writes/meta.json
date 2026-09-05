@@ -1,0 +1,6 @@
+{
+  "id": "transfer/defer-lifo-writes",
+  "expect": "typecheck-ok",
+  "title": "defer LIFO summary writes",
+  "matrix": true
+}

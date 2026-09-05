@@ -11,12 +11,20 @@ func TestEmitEffectSupportESM_exportsTransportService(t *testing.T) {
 		`from "effect"`,
 		"export class ForstTransport",
 		`"@forst/gen/Transport"`,
-		"export const withTransport",
+		"export const mergeOptions",
 		"export const ForstTransportLayer",
 		"AbortSignal.any",
-		`from "./transport.js"`,
+		`from "./transport/runtime.js"`,
+		"getDefaultInvokeClient",
+		"client: getDefaultInvokeClient()",
+		"client: createInvokeClient(config)",
 	})
-	assertContainsNone(t, got, []string{"AbortController"})
+	assertContainsNone(t, got, []string{
+		"AbortController",
+		"export const withTransport",
+		"transport: client",
+		"client: createInvokeClient()",
+	})
 }
 
 func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
@@ -26,7 +34,12 @@ func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
 		"ForstClientLayer",
 		"makeForstClientRuntime",
 		"config?: ForstInvokeClientConfig",
+		`import("./pkg/auth.js").$auth`,
+		`import("./pkg/billing.js").$billing`,
 	})
+	if strings.Contains(got, `import { $auth } from "./pkg/auth.js"`) {
+		t.Fatalf("EmitIndexEffectDTS must not duplicate pkg namespace imports when appended to index.d.ts:\n%s", got)
+	}
 	if strings.Contains(got, `import type { ForstInvokeClientConfig`) {
 		t.Fatalf("EmitIndexEffectDTS must not duplicate transport import when appended to index.d.ts:\n%s", got)
 	}
@@ -40,8 +53,8 @@ func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 		"makeForstClientRuntime",
 		"const transportLayer = ForstTransportLayer(config)",
 		"Layer.provide(transportLayer)",
-		"Billing.DefaultWithoutDependencies",
-		"Auth.DefaultWithoutDependencies",
+		"$billing.DefaultWithoutDependencies",
+		"$auth.DefaultWithoutDependencies",
 	})
 	if strings.Count(got, "ForstTransportLayer(config)") != 1 {
 		t.Fatalf("expected one ForstTransportLayer call:\n%s", got)
@@ -53,10 +66,9 @@ func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "ForstUnknownFailure | InvokeFailure"
 	got := EmitPackageEffectDTS(m, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`import type { ForstUnknownFailure } from "../errors.js"`,
-		`import type { InvokeFailure } from "../errors.js"`,
-		"export type VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
-		"Effect.Effect<VerifyTokenResponse, VerifyTokenFailure>",
+		`import type { ForstUnknownFailure, InvokeFailure } from "@forst/errors/effect"`,
+		"export type $VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
+		"Effect.Effect<$VerifyTokenResponse, $VerifyTokenFailure>",
 	})
 	assertContainsNone(t, got, []string{
 		"InvokeRejected",
@@ -70,13 +82,13 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
-		"transport?:",
-		"| VerifyTokenResponse",
-		"| Promise<VerifyTokenResponse>",
-		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
+		"client?:",
+		"| $VerifyTokenResponse",
+		"| Promise<$VerifyTokenResponse>",
+		"| Effect.Effect<$VerifyTokenResponse, InvokeFailure>",
 		"ForstTestLayer",
 		`import { InvokeRejected } from "@forst/errors/effect"`,
-		`import type { InvokeFailure } from "./errors.js"`,
+		`import type { InvokeFailure } from "@forst/errors/effect"`,
 		`import type { ForstTestServerFailed } from "@forst/errors/effect"`,
 		`export { ForstTestServerFailed } from "@forst/errors/effect"`,
 	})

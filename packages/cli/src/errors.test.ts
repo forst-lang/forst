@@ -31,6 +31,35 @@ describe("CLI error types", () => {
     expect(e.status).toBe(404);
     expect(e.statusText).toBe("Not Found");
     expect(e.message).toContain("404");
+    expect(e.message).toContain("--forst-cli-info");
+  });
+
+  test("CompilerBinaryDownloadHttpFailure includes download context and 404 hints", () => {
+    const e = new CompilerBinaryDownloadHttpFailure(404, "Not Found", {
+      version: "0.15.1",
+      artifact: "forst-darwin-arm64",
+      url: "https://github.com/forst-lang/forst/releases/download/v0.15.1/forst-darwin-arm64",
+    });
+    expect(e.version).toBe("0.15.1");
+    expect(e.artifact).toBe("forst-darwin-arm64");
+    expect(e.url).toContain("v0.15.1");
+    expect(e.message).toContain("forst-darwin-arm64");
+    expect(e.message).toContain("Upgrade @forst/cli");
+    expect(e.message).toContain("forst.compilerRelease");
+    expect(e.message).toContain("FORST_BINARY");
+    expect(e.message).toContain("--forst-cli-info");
+  });
+
+  test("CompilerBinaryDownloadHttpFailure includes context for non-404 errors", () => {
+    const e = new CompilerBinaryDownloadHttpFailure(503, "Service Unavailable", {
+      version: "0.6.0",
+      artifact: "forst-linux-amd64",
+      url: "https://github.com/forst-lang/forst/releases/download/v0.6.0/forst-linux-amd64",
+    });
+    expect(e.message).toContain("503");
+    expect(e.message).toContain("forst-linux-amd64");
+    expect(e.message).toContain("release v0.6.0");
+    expect(e.message).not.toContain("Upgrade @forst/cli");
   });
 
   test("CompilerBinaryDownloadFailed supports cause", () => {

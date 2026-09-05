@@ -46,14 +46,14 @@ Common project tree for a Forst backend:
 ```text
 my-service/
 ├── go.mod
-├── handlers/orders.ft
+├── handlers/orders/orders.ft
 ├── internal/legacy.go
 ├── ftconfig.json          # optional: generate / dev discovery
 ├── package.json           # scripts.postinstall: forst generate .
 └── .forst/client/         # gitignored, linked as @forst/gen
 ```
 
-Same-package `.ft` files merge when you pass `-root`. Go files and Forst files can live in one module.
+Each directory holds one Forst package name. Same-package `.ft` files in **one directory** merge when you pass `-root`. The same package name in sibling directories is rejected. Go files and Forst files can live in one module.
 
 ## Syntax you must use
 
@@ -61,13 +61,18 @@ Same-package `.ft` files merge when you pass `-root`. Go files and Forst files c
 | --- | --- |
 | **Packages** | Go style: `package handlers`, `import "fmt"`, module paths from `go.mod`. |
 | **Types** | `type Name = { field: String, count: Int }`. Use `String`, `Int`, `Float`, `Bool`, `Array(T)`, `*T`, not `string`/`int` in Forst type positions. |
-| **Parameters** | Always annotated: `func f(x: OrderInput): Result(String, Error)`. |
+| **Literal unions** | `type TaskStatus = "todo" \| "in_progress" \| "success" \| "failed"`. |
+| **Domain type guards** | `type Password = String` then `is (p Password) Strong() { ... }`. Guards attach to nominal domain types. |
+| **Parameters** | Always annotated: `func f(x OrderInput): Result(String, Error)`. |
 | **Records at call sites** | `placeOrder({ stockKeepingUnit: "A", quantity: 2 })`. |
 | **Constraints on fields** | `String.Min(1).Max(64)`, `Int.Min(1).Max(99)`, `Array(String).NotEmpty()`. Compiler emits boundary checks. |
-| **Runtime checks** | `ensure speed is LessThan(100) or TooFast({ ... })`. |
-| **Optional / errors** | `ensure err is Nil() or err`. No `try`/`catch`, no `panic`/`recover`. |
+| **Runtime checks (`else`)** | `ensure speed is LessThan(100) else TooFast({ ... })`. `else` marks the failure path. |
+| **Assertion alternative (`or`)** | `ensure password is Strong() or Passkey() else InvalidCredential()`. Joins conditions on one value. |
+| **Type targets (`is`)** | `ensure status is TaskStatus else BadStatus()`. Bare name checks named type membership. |
+| **Refinement stability** | Successful `ensure` refines type facts on following lines until dependent storage is written. |
+| **Optional / errors** | `ensure !err` (or `ensure err is Nil()`) implicitly propagates an `Error`. No `try`/`catch`, no `panic`/`recover`. |
 | **Map lookup** | Returns `Result(V, Error)`. **No comma-ok.** `ensure avail is Ok()` then use `avail`. |
-| **Nominal errors** | `error InsufficientStock { stockKeepingUnit: String, ... }`. Use with `ensure ... or InsufficientStock({...})`. |
+| **Nominal errors** | `error InsufficientStock { stockKeepingUnit: String, ... }`. Use with `ensure … else InsufficientStock({...})`. |
 | **Result returns** | `func f(): Result(String, Error) { return Ok("done") }`. Narrow with `ensure x is Ok()`. |
 | **Providers** | `use logger: Logger` inside body. Wire at entry with `with { Logger: prodLogger {} } { handler(input) }`. Params = request data. Providers = host services. |
 
@@ -87,9 +92,9 @@ Chain with dots. Same names work on type fields and in `ensure`.
 
 | Command | Purpose |
 | --- | --- |
-| `forst run FILE.ft` | Transpile, build, run |
-| `forst build FILE.ft [-root DIR]` | Transpile and build only |
-| `forst generate [DIR\|FILE]` | Emit TypeScript from Forst types |
+| `forst run FILE.ft` | Transpile and run (`go run`) |
+| `forst build -o DIR FILE.ft` | Native program binary + `manifest.json` |
+| `forst generate [DIR\|FILE]` | Emit `@forst/gen` (optional Go sources via `generate.go` / `--go-*`) |
 | `forst dev -root DIR -port N` | HTTP dev server + discovery |
 | `forst test ./...` | Run Forst tests |
 | `forst fmt FILE.ft` | Format source |
@@ -111,6 +116,7 @@ Flags: `-root` merges same-package `.ft` files; `-export-struct-fields` emits ex
 | --- | --- |
 | Zod / class-validator patterns | Constraints on Forst shapes |
 | `try` / `catch`, thrown exceptions | `ensure`, `Result`, nominal `error` |
+| Application guards on bare primitives (`String`) | Guards on declared domain types (`type Password = String`) |
 | `v, ok := m[k]` | `Result` + `ensure v is Ok()` |
 | User-defined generics `<T>` | Built-ins only: `Array(T)`, `*T`, `Result(S,F)` (generics roadmap item) |
 | DI frameworks, globals, service locators | `use` / `with` at entry points |
@@ -123,8 +129,10 @@ Flags: `-root` merges same-package `.ft` files; `-export-struct-fields` emits ex
 | First project | [Quickstart](/quickstart) |
 | Shapes and constraints | [Shapes and constraints](/language/shapes-and-constraints) |
 | `ensure` and narrowing | [Ensure and narrowing](/language/ensure-and-narrowing) |
+| Literal unions and error unions | [Combining types](/language/union-and-intersection-types) |
+| Type guards | [Type guards](/language/type-guards) |
 | Errors and Result | [Errors and Result](/language/errors-and-result) |
 | Providers | [Providers (DI)](/language/providers) |
 | Go interop | [Go interop](/interop/go) — subslices, variadic spread into Go calls, fields/methods on Go values, sibling Forst packages |
-| TypeScript emit | [Generate client types](/interop/node/generate-types) |
+| TypeScript emit | [Generate client types](/interop/invoke/generate-types) |
 | Examples in repo | [github.com/forst-lang/forst/tree/main/examples/in](https://github.com/forst-lang/forst/tree/main/examples/in) |

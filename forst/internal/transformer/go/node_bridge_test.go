@@ -22,9 +22,9 @@ func formatTransformerGoFiles(t *testing.T, tr *Transformer, mainFile *goast.Fil
 		t.Fatalf("format main: %v", err)
 	}
 	mainCode = mainBuf.String()
-	runtimeAST, err := tr.NodeRuntimeFile()
+	runtimeAST, err := tr.BridgeRuntimeFile()
 	if err != nil {
-		t.Fatalf("NodeRuntimeFile: %v", err)
+		t.Fatalf("BridgeRuntimeFile: %v", err)
 	}
 	if runtimeAST == nil {
 		return mainCode, ""
@@ -41,7 +41,7 @@ func TestTransformNodeQualifiedCall_emitsBridgeCall(t *testing.T) {
 	writeNodeBridgeFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" js
 
 func main() {
 	result := payment.create(10.0, "usd")
@@ -59,16 +59,16 @@ func main() {
 		t.Fatalf("TransformForstFileToGo: %v", err)
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
-	if strings.Contains(mainCode, "nodert.") {
-		t.Fatalf("main must not reference nodert:\n%s", mainCode)
+	if strings.Contains(mainCode, "bridgert.") {
+		t.Fatalf("main must not reference bridgert:\n%s", mainCode)
 	}
-	if !strings.Contains(mainCode, "forst_node_callsync_") {
+	if !strings.Contains(mainCode, "forst_bridge_callsync_") {
 		t.Fatalf("missing wrapper call in main:\n%s", mainCode)
 	}
-	if !strings.Contains(runtimeCode, "nodert.CallSync") {
-		t.Fatalf("missing nodert.CallSync in runtime:\n%s", runtimeCode)
+	if !strings.Contains(runtimeCode, "bridgert.CallSync") {
+		t.Fatalf("missing bridgert.CallSync in runtime:\n%s", runtimeCode)
 	}
-	if !strings.Contains(runtimeCode, "forstNodeManifestJSON") {
+	if !strings.Contains(runtimeCode, "forstBridgeManifestJSON") {
 		t.Fatalf("missing manifest in runtime:\n%s", runtimeCode)
 	}
 	if !strings.Contains(mainCode, "resultErr") {
@@ -81,7 +81,7 @@ func TestCodegen_asyncExportUsesCallAsync(t *testing.T) {
 	writeNodeBridgeAsyncFixture(t, root)
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" js
 
 func main() {
 	result := payment.create(10.0, "usd")
@@ -99,13 +99,13 @@ func main() {
 		t.Fatalf("TransformForstFileToGo: %v", err)
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
-	if !strings.Contains(runtimeCode, "nodert.CallAsync") {
-		t.Fatalf("missing nodert.CallAsync in runtime:\n%s", runtimeCode)
+	if !strings.Contains(runtimeCode, "bridgert.CallAsync") {
+		t.Fatalf("missing bridgert.CallAsync in runtime:\n%s", runtimeCode)
 	}
-	if strings.Contains(runtimeCode, "nodert.MustCallAsync[") {
+	if strings.Contains(runtimeCode, "bridgert.MustCallAsync[") {
 		t.Fatalf("must not use MustCallAsync in:\n%s", runtimeCode)
 	}
-	if strings.Contains(runtimeCode, "nodert.CallSync[") && !strings.Contains(runtimeCode, "nodert.CallSyncArgs") {
+	if strings.Contains(runtimeCode, "bridgert.CallSync[") && !strings.Contains(runtimeCode, "bridgert.CallSyncArgs") {
 		t.Fatalf("async export must not use CallSync in:\n%s", runtimeCode)
 	}
 	_ = mainCode
@@ -123,7 +123,7 @@ func TestCodegen_nodeWrapperUsesIndexParamTypesForFloatArg(t *testing.T) {
 	}
 
 	src := `package main
-import node "./legacy/payment"
+import "./legacy/payment" js
 import "strconv"
 
 func echo(n Float): String {
@@ -152,7 +152,7 @@ func TestCodegen_blockingForInOverAsyncIterator(t *testing.T) {
 	writeNodeBridgeAsyncGenFixture(t, root)
 
 	src := `package main
-import node "./legacy/events"
+import "./legacy/events" js
 
 func drain(userId String): Void {
 	seq := events.subscribe(userId)
@@ -173,18 +173,18 @@ func drain(userId String): Void {
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
 	for _, want := range []string{
-		"forst_node_open_seq_",
+		"forst_bridge_open_seq_",
 		"seqErr",
 		".NextBatch(",
 		".Close()",
-		"forst_node_callasync_",
+		"forst_bridge_callasync_",
 	} {
 		if !strings.Contains(mainCode, want) {
 			t.Fatalf("missing %q in main:\n%s", want, mainCode)
 		}
 	}
-	if !strings.Contains(runtimeCode, "nodert.OpenSeq") {
-		t.Fatalf("missing nodert.OpenSeq in runtime:\n%s", runtimeCode)
+	if !strings.Contains(runtimeCode, "bridgert.OpenSeq") {
+		t.Fatalf("missing bridgert.OpenSeq in runtime:\n%s", runtimeCode)
 	}
 	if strings.Contains(mainCode, "async.MustAwait[") {
 		t.Fatalf("blocking sync model must not emit async.MustAwait in:\n%s", mainCode)
@@ -196,7 +196,7 @@ func TestCodegen_generatorExportUsesOpenGenAndRangeLowering(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" js
 
 func main() {
 	seq := generators.syncNumbers(2.0)
@@ -216,17 +216,17 @@ func main() {
 	}
 	mainCode, runtimeCode := formatTransformerGoFiles(t, tr, file)
 	for _, want := range []string{
-		"forst_node_open_seq_",
+		"forst_bridge_open_seq_",
 		".NextBatch(",
 		".Close()",
-		"forstNodeGenStepDone",
+		"forstBridgeGenStepDone",
 	} {
 		if !strings.Contains(mainCode, want) {
 			t.Fatalf("missing %q in main:\n%s", want, mainCode)
 		}
 	}
-	if !strings.Contains(runtimeCode, "nodert.OpenSeq") {
-		t.Fatalf("missing nodert.OpenSeq in runtime:\n%s", runtimeCode)
+	if !strings.Contains(runtimeCode, "bridgert.OpenSeq") {
+		t.Fatalf("missing bridgert.OpenSeq in runtime:\n%s", runtimeCode)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestCodegen_nodeIteratorFor_bindsIndexAndValue(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" js
 
 func main() {
 	seq := generators.syncNumbers(2.0)
@@ -272,7 +272,7 @@ func TestCodegen_nodeIteratorFor_emitsErrorKindPanic(t *testing.T) {
 	writeNodeBridgeGeneratorFixture(t, root)
 
 	src := `package main
-import node "./legacy/generators"
+import "./legacy/generators" js
 
 func main() {
 	seq := generators.syncNumbers(2.0)
@@ -291,7 +291,7 @@ func main() {
 		t.Fatalf("TransformForstFileToGo: %v", err)
 	}
 	mainCode, _ := formatTransformerGoFiles(t, tr, file)
-	if !strings.Contains(mainCode, forstNodeGenStepErrorIdent) {
+	if !strings.Contains(mainCode, forstBridgeGenStepErrorIdent) {
 		t.Fatalf("missing error-kind branch in main:\n%s", mainCode)
 	}
 	if !strings.Contains(mainCode, "panic") {

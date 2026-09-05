@@ -1,0 +1,4 @@
+// MATRIX stub: Predicate flatten/sort/dedupe
+package main
+
+func main() {}

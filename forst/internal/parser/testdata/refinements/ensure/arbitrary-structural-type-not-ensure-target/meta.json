@@ -1,0 +1,5 @@
+{
+  "id": "ensure/arbitrary-structural-type-not-ensure-target",
+  "expect": "parse-error",
+  "title": "arbitrary structural type not a runtime ensure target (parse rejection)"
+}

@@ -90,6 +90,17 @@ describe("sanitizePayload", () => {
     expect(out.headers.Authorization).toBe("[redacted]");
     expect(out.headers.safe).toBe("y");
   });
+
+  it("redacts x-forst-invoke-proof header value", () => {
+    const h = new Headers();
+    h.set("X-Forst-Invoke-Proof", "proof-value");
+    const out = sanitizePayload(h) as Record<string, string>;
+    const key = Object.keys(out).find(
+      (k) => k.toLowerCase() === "x-forst-invoke-proof"
+    );
+    expect(key).toBeDefined();
+    expect(out[key!]).toBe("[redacted]");
+  });
 });
 
 describe("sanitizeRequestBodyString", () => {

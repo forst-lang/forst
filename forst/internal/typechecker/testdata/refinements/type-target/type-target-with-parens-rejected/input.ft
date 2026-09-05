@@ -1,0 +1,11 @@
+package main
+
+type ActiveStatus = "pending" | "processing"
+
+func check(status String) {
+	ensure status is ActiveStatus() else {
+		return
+	}
+}
+
+func main() {}

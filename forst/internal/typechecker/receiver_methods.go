@@ -51,11 +51,7 @@ func (tc *TypeChecker) registerTypeMethod(recvType ast.TypeIdent, methodName str
 
 	processedReturnTypes := make([]ast.TypeNode, len(fn.ReturnTypes))
 	for i, returnType := range fn.ReturnTypes {
-		if returnType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(returnType.Ident) {
-			processedReturnTypes[i] = ensureUserDefinedType(returnType)
-		} else {
-			processedReturnTypes[i] = returnType
-		}
+		processedReturnTypes[i] = tc.normalizeTypeForStorage(returnType)
 	}
 
 	tc.TypeMethods[recvType][methodName] = FunctionSignature{

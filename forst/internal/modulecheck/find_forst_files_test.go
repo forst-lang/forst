@@ -99,11 +99,11 @@ func TestFindForstFiles_skipsNestedGoMod(t *testing.T) {
 func TestFindForstFiles_skipsNestedFtconfig(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	nested := filepath.Join(root, "rfc", "node-interop")
+	nested := filepath.Join(root, "rfc", "bridge-interop")
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nested, "ftconfig.json"), []byte(`{"node":{"enabled":true}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(nested, "ftconfig.json"), []byte(`{"bridge":{"enabled":true}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(nested, "main.ft"), []byte("package main\n"), 0o644); err != nil {
@@ -269,11 +269,15 @@ func TestCheckModuleProviders_forstGomodSubdirLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	forstDir := filepath.Join(dir, "forst")
-	if err := os.MkdirAll(forstDir, 0o755); err != nil {
-		t.Fatal(err)
+	mainDir := filepath.Join(forstDir, "main")
+	helperDir := filepath.Join(forstDir, "helper")
+	for _, d := range []string{mainDir, helperDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	writeModuleFile(t, filepath.Join(forstDir, "main.ft"), "package main\nfunc main() {}\n")
-	writeModuleFile(t, filepath.Join(forstDir, "helper.ft"), `package helper
+	writeModuleFile(t, filepath.Join(mainDir, "main.ft"), "package main\nfunc main() {}\n")
+	writeModuleFile(t, filepath.Join(helperDir, "helper.ft"), `package helper
 
 func Ping() {
   return {ok: "yes"}

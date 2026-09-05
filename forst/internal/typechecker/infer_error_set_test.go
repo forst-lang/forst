@@ -14,7 +14,7 @@ func TestErrorSet_directNominalEnsure(t *testing.T) {
 error CellTaken { row: Int, col: Int }
 
 func PlayMove(row Int, col Int) {
-	ensure row is GreaterThan(-1) or CellTaken({ row: row, col: col })
+	ensure row is GreaterThan(-1) else CellTaken({ row: row, col: col })
 }
 `
 	tc := typecheckErrorSetSource(t, src)
@@ -35,7 +35,7 @@ error E1 { msg: String }
 
 func inner() {
 	ok := false
-	ensure ok is True() or E1({ msg: "a" })
+	ensure ok is True() else E1({ msg: "a" })
 }
 
 func outer() {
@@ -61,7 +61,7 @@ func bad(msg String): Error {
 
 func f() {
 	ok := false
-	ensure ok is True() or bad("nope")
+	ensure ok is True() else bad("nope")
 }
 `
 	tc := typecheckErrorSetSource(t, src)
@@ -84,7 +84,7 @@ type ErrKind = ParseError | IoError
 
 func load() {
 	ok := false
-	ensure ok is True() or ParseError({ code: 1 })
+	ensure ok is True() else ParseError({ code: 1 })
 }
 `
 	tc := typecheckErrorSetSource(t, src)

@@ -63,6 +63,9 @@ type GetAliasedTypeNameOptions struct {
 // This is the unified function that should be used by both typechecker and transformer.
 func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliasedTypeNameOptions) (string, error) {
 	// Handle built-in types
+	if typeNode.IsTypeParam() {
+		return string(typeNode.Ident), nil
+	}
 	if IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		// Convert Forst built-in types to Go built-in types
 		switch typeNode.Ident {
@@ -127,6 +130,11 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 		if _, exists := tc.Defs[typeNode.Ident]; exists {
 			return string(typeNode.Ident), nil
 		}
+	}
+
+	// Bare identifiers that are generic function type parameters (e.g. T in f[T any](x { value: T })).
+	if typeNode.Assertion == nil && len(typeNode.TypeParams) == 0 && tc.IsDeclaredGenericTypeParam(typeNode.Ident) {
+		return string(typeNode.Ident), nil
 	}
 
 	// Preserve registered Go qualified import types (e.g. testing.T) instead of hashing.

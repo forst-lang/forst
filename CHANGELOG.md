@@ -9,37 +9,183 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ⚠ BREAKING CHANGES
 
-* **generate:** The TypeScript client layout is replaced. `forst generate` emits a self-contained package under `generate.outDir` (default ephemeral `.forst/client`, gitignored) with compiled `dist/*.{js,d.ts}` and links it into `node_modules` as `@forst/gen`. Import functions and types from `@forst/gen/<forstPackage>` (for example `@forst/gen/auth`). The previous dual `generated/` plus `client/` (or `@forst/generated-client`) layout is no longer written.
+* **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
+* **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
-  **Migration**
-  1. Add a lifecycle script so a fresh checkout regenerates the link, for example `"postinstall": "forst generate ."`. Ephemeral output is not committed.
-  2. Update imports to `@forst/gen` / `@forst/gen/<pkg>`. Drop `tsconfig` `paths`, bundler aliases, and allowlists that pointed at the old folders.
-  3. Delete any local `generated/` and `client/` directories yourself if you no longer need them. **Forst deletes nothing** on disk, including recognized legacy trees.
-  4. Optional. Set `generate.effect: true` for Effect-returning callables (`effect` peer `>=3.17.0`). Use `@forst/gen/testing` (or `generate.testingSubpath`) for `withForstTestScope` overrides.
-  5. Use `forst generate --watch` or sidecar `watchGenerate` (default on in development) to refresh types on `.ft` edits.
+## [0.18.1](https://github.com/forst-lang/forst/compare/v0.18.0...v0.18.1) (2026-09-04)
 
-* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`, `layerTransport` → `ForstTransportLayer`. Regenerate the client after upgrading.
-
-* **generate:** Shared built-in errors via `@forst/errors` (`>=0.1.0` runtime dependency). Generated clients emit `dist/errors.*` only (domain errors + re-exports from `@forst/errors`). Package export `./errors` is the common surface. Built-in invoke/harness/unknown-failure classes live in `@forst/errors` with `_tag` values namespaced as `@forst/errors/InvokeRejected`, `@forst/errors/ForstUnknownFailure`, … Domain error `_tag` strings stay namespaced per npm package (`@forst/tictactoe/CellTaken`). `generate.packageName` cannot be `@forst/errors`. Effect mode uses `@forst/errors/effect`.
-
-  **Migration**
-  1. Add `@forst/errors` to your app lockfile (generated `package.json` declares it under `dependencies`, or install `@forst/cli` which pulls it in transitively).
-  2. Prefer `import { CellTaken, InvokeRejected } from "@forst/gen/errors"`.
-  3. Update `Effect.catchTag` / `switch (error._tag)` for invoke failures to namespaced tags (`@forst/errors/InvokeRejected`, not `@forst/InvokeRejected`). Domain errors still use `@<packageName>/ErrorName`.
-  4. Domain errors still re-export from the package root (`import { CellTaken } from "@forst/tictactoe"`).
-
-### Features
-
-* **errors:** New `@forst/errors` package with shared invoke, harness, and unknown-failure tagged error classes. Promise mode at package root, Effect mode at `@forst/errors/effect`.
-* **cli:** `@forst/cli` depends on `@forst/errors` so consumers with the CLI installed get shared error classes without adding Effect.
-* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
-* **generate (Effect mode):** Invoke, domain, and harness errors use `Data.TaggedError` from the `effect` peer instead of the inlined tagged helper. Promise mode is unchanged. Regenerate Effect-mode clients after upgrading.
-* **generate:** Real-server testing helpers on `@forst/gen/testing`: Promise mode `startForstTestServer`, Effect mode `ForstTestServer` / `ForstTestServerLayer` / `makeForstTestServer`. Optional peer `@forst/cli` (`peerDependenciesMeta.optional`) lazy-imports `@forst/cli/invoke`. Harness failures use `ForstTestServerFailed` outside `InvokeFailure`.
-* **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).
 
 ### Bug Fixes
 
-* **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
+* **ci:** skip npm publish when version already exists ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+* **ci:** upload only release files and clobber on re-run ([7b57e48](https://github.com/forst-lang/forst/commit/7b57e481d1c3c4787ed75350230a1af7c2d90c97))
+
+## [0.18.0](https://github.com/forst-lang/forst/compare/v0.17.1...v0.18.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bridgert:** `EnvNodeAttachOnly` is renamed to `EnvBridgeAttachOnly` and `ResolveNodeBinary` is renamed to `ResolveBridgeBinary`. Error messages now use the bridge runtime and bridge host prefixes instead of node runtime.
+* **interop:** node.loader is deprecated; use javascript.legacyModules.format. The default runtime mode is compiled JavaScript, not tsx-backed TypeScript source. Set javascript.legacyModules.format to typescript to restore the previous behavior.
+* **imports:** Migrate in one step — no compatibility shims remain. 1. Replace `import "./path" node` with `import "./path" js`. 2. Collapse `ftconfig.node` and `ftconfig.javascript` into `bridge` (use    `bridge.legacyModules.format` instead of `node.loader`). 3. `npm install @forst/runtime` and remove `@forst/node-runtime`. 4. Rename deploy env vars `FORST_NODE_*` to `FORST_BRIDGE_*`. 5. Point bootstrap defaults to `node_modules/@forst/runtime/dist/bootstrap.js`. 6. Replace CLI flag `-require-no-node` with `-require-no-bridge`.
+
+### Features
+
+* **docs:** add client-side Forst syntax highlighter for Mintlify ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **generics:** add user-defined generic functions ([#195](https://github.com/forst-lang/forst/issues/195)) ([1fc37bc](https://github.com/forst-lang/forst/commit/1fc37bc6750264095c90ee99f1c5bb1c71af5fae))
+* **imports:** safe local names for node imports with LSP quickfixes ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **interop:** support Bun and Deno as JavaScript bridge hosts ([#190](https://github.com/forst-lang/forst/issues/190)) ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **vscode:** highlight nominal errors at or-use sites ([#192](https://github.com/forst-lang/forst/issues/192)) ([c623ed9](https://github.com/forst-lang/forst/commit/c623ed937f38e9677599965a46a779336ad8da61))
+
+
+### Bug Fixes
+
+* **docs:** correct tokenizer spans and dark-mode colors ([0de3968](https://github.com/forst-lang/forst/commit/0de3968e1c9009b0bb70faa8a2ba15eb2b8c4df0))
+* **gointerop:** close mixed-package and stdlib gaps ([#196](https://github.com/forst-lang/forst/issues/196)) ([a918266](https://github.com/forst-lang/forst/commit/a918266709c1aa5cd72d66aa6e70ed2d5e0afc0c))
+
+
+### Code Refactoring
+
+* **bridgert:** unify bridge naming and extract spawn hooks ([#194](https://github.com/forst-lang/forst/issues/194)) ([aa23ee0](https://github.com/forst-lang/forst/commit/aa23ee06fdfdb2f73213d9affcf947fcb441e512))
+
+## [0.17.1](https://github.com/forst-lang/forst/compare/v0.17.0...v0.17.1) (2026-08-18)
+
+
+### Features
+
+* **ftconfig:** resolve bare plugin cmds beside the compiler ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **generate:** project a semantic snapshot and run local plugins ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* Generator plugins ([#186](https://github.com/forst-lang/forst/issues/186)) ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **go-interop:** type-check Go callbacks & unnamed structs (FFI) ([#189](https://github.com/forst-lang/forst/issues/189)) ([33de156](https://github.com/forst-lang/forst/commit/33de156430fa60412f8260280213b9e515b90086))
+* **gointerop:** map Go types faithfully at the FFI boundary ([#188](https://github.com/forst-lang/forst/issues/188)) ([6d89177](https://github.com/forst-lang/forst/commit/6d891774be8d834e3d8e0872ebbbfebf9c7ab20f))
+
+## [0.17.0](https://github.com/forst-lang/forst/compare/v0.16.0...v0.17.0) (2026-08-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* `forst build -o` no longer emits Go sources or a fixed `bin/forst-invoke` name. Use `forst generate` for Go output and exec the path in `manifest.binary` with `FORST_BOUNDARY_ROOT` set.
+* **examples:** FORST_INVOKE_ONLY was removed. Set FORST_SKIP_NODE_HOST=1 (or true) when running a hostMode built binary with Node external. manifest.json invokeOnlyDefault is now skipNodeHostDefault.
+
+### Features
+
+* add native program build with hostMode runtime ([#185](https://github.com/forst-lang/forst/issues/185)) ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+
+### Bug Fixes
+
+* **compiler:** remove legacy companions and tighten generate paths ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **examples:** refresh goldens with forst generate after build output change ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **invokeserver:** avoid double WriteHeader on auth errors ([d0d9b9a](https://github.com/forst-lang/forst/commit/d0d9b9a8e6f9e1263886afe4e69e7307937043d6))
+* **invokeserver:** synchronize embedded server lifecycle ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **nodert:** respect invoke-only for hostMode and auth handoff ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+## [0.16.0](https://github.com/forst-lang/forst/compare/v0.15.3...v0.16.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **release:** @forst/cli will follow the Go compiler semver on the next linked release. The first publish after this change may jump from the old CLI line (for example 0.6.x) to the current compiler line.
+
+### Continuous Integration
+
+* **release:** couple @forst/cli with compiler via linked-versions ([e6d0349](https://github.com/forst-lang/forst/commit/e6d0349ba2423fc42d9d3e3bc887e3ca23281dcc))
+
+## [0.15.3](https://github.com/forst-lang/forst/compare/v0.15.2...v0.15.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **invokeserver:** route invoke logs through logrus ([#181](https://github.com/forst-lang/forst/issues/181)) ([66f5c42](https://github.com/forst-lang/forst/commit/66f5c42accf4c2ed7e872a8d0133966f56a702e4))
+* **nodert:** copy parent HOST into hostMode shim spawn ([75a2429](https://github.com/forst-lang/forst/commit/75a242939c08373e2fe3b498e2d811655b65bd7d))
+
+## [0.15.2](https://github.com/forst-lang/forst/compare/v0.15.1...v0.15.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* **cli:** improve pin diagnostics and download errors ([335b3c8](https://github.com/forst-lang/forst/commit/335b3c8454575852061911355a992cd8d4a0edf1))
+
+## [0.15.1](https://github.com/forst-lang/forst/compare/v0.15.0...v0.15.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **transformer:** repair Effect invoke and add options helper ([#178](https://github.com/forst-lang/forst/issues/178)) ([603abc9](https://github.com/forst-lang/forst/commit/603abc9267dd1abe8584725519f59ad34a0c2f76))
+
+## [0.15.0](https://github.com/forst-lang/forst/compare/v0.14.0...v0.15.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compiler:** Multiple Forst package names in one directory are no longer allowed. Each package must live in its own directory. The --allow-stem-package-mismatch flag applies to filename vs package name only and does not bypass layout rules.
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176))
+
+### Features
+
+* **compiler:** enforce Go-aligned package layout ([#177](https://github.com/forst-lang/forst/issues/177)) ([f0b1366](https://github.com/forst-lang/forst/commit/f0b1366e46b11bc43be02bedeb8f2739b84d86d8))
+* **generate:** add log-level flag and phase timing ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176)) ([f053420](https://github.com/forst-lang/forst/commit/f053420bcfe8810a71ac55f037908230ed0c009e))
+
+
+### Bug Fixes
+
+* **builtins:** accept `string([]byte)` like Go ([#175](https://github.com/forst-lang/forst/issues/175)) ([e3e02bc](https://github.com/forst-lang/forst/commit/e3e02bc0cdfb177e0cee9469be922e15ca34dfe8))
+* **examples:** point sidecar tests at package root ([f0b1366](https://github.com/forst-lang/forst/commit/f0b1366e46b11bc43be02bedeb8f2739b84d86d8))
+* **generate:** demote verbose default output to debug ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+
+
+### Performance Improvements
+
+* **generate:** skip excluded directories during discovery ([#173](https://github.com/forst-lang/forst/issues/173)) ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+
+## [0.14.0](https://github.com/forst-lang/forst/compare/v0.13.1...v0.14.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** @forst/cli/invoke no longer exports prepareConnectInvokeEnv, resolveHostInvokeAuthHandoff, startHostInvokeAuthRecvListener, or envInvokeAuthRecvFd. Use prepareInvokeConnect and getInvokeAuthHandoff instead.
+
+### Features
+
+* **cli:** shrink host invoke connect API ([#171](https://github.com/forst-lang/forst/issues/171)) ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+
+### Bug Fixes
+
+* **cli:** add explicit type for DEFAULT_EMBEDDED_INVOKE_BASE_URL ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+* **generate:** skip throw in emitted invoke auth handoff parsing ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+## [0.13.1](https://github.com/forst-lang/forst/compare/v0.13.0...v0.13.1) (2026-08-11)
+
+
+### Features
+
+* **generate:** prefer host auth handoff in emitted transport ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+* **invoke:** relay host-mode auth over inherited fds ([#168](https://github.com/forst-lang/forst/issues/168)) ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+
+### Bug Fixes
+
+* **cli:** safe host auth handoff parse and early recv listen ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+## [0.13.0](https://github.com/forst-lang/forst/compare/v0.12.1...v0.13.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166))
+
+### Features
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166)) ([cf593cb](https://github.com/forst-lang/forst/commit/cf593cb82f6aac4ee6fccd0ed0562cc5176c6fc0))
+
+## [0.12.1](https://github.com/forst-lang/forst/compare/v0.12.0...v0.12.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **typechecker:** pop if-scope before collecting else/else-if branches ([#164](https://github.com/forst-lang/forst/issues/164)) ([db0afc0](https://github.com/forst-lang/forst/commit/db0afc002b77f2fbd7b007891f07e1123b4dcfd9))
 
 ## [0.12.0](https://github.com/forst-lang/forst/compare/v0.11.0...v0.12.0) (2026-08-09)
 
@@ -192,13 +338,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ⚠ BREAKING CHANGES
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
 * add slice spread fields and sibling Go FFI ([#129](https://github.com/forst-lang/forst/issues/129))
 
 ### Features
 
 * add slice spread fields and sibling Go FFI ([#129](https://github.com/forst-lang/forst/issues/129)) ([322b03f](https://github.com/forst-lang/forst/commit/322b03f4d2942e04c4770776de097ddbe5c5a86b))
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
 * **node-runtime:** add npm and JSR publish pipeline ([1744924](https://github.com/forst-lang/forst/commit/1744924ef613deab88722a3adb97bac147ee3abe))
 
 

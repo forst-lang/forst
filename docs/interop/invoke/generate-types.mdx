@@ -1,0 +1,235 @@
+---
+title: "Generate a TypeScript client"
+description: "Run `forst generate` and import typed clients from `@forst/gen`."
+---
+
+import CatalogOrder from "/snippets/catalog-order.mdx";
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
+<NodeClientSetupNote />
+
+```typescript
+import { $auth } from "@forst/gen/auth";
+import type { $VerifyPasswordRequest } from "@forst/gen/auth";
+
+const input: $VerifyPasswordRequest = {
+  plainPassword: "secret",
+  passwordHash: "$2a$...",
+};
+
+const { valid } = await $auth.VerifyPassword(input);
+```
+
+To call functions at runtime, see [Call Forst over HTTP](/interop/invoke/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/bridge).
+
+## Compiler-owned `$` names
+
+`forst generate` prefixes **Forst-domain** exports with `$` so generated JavaScript stays valid even when Forst names collide with JS reserved words (`class`, `export`, …).
+
+| Export kind | Example |
+| --- | --- |
+| Package handle | `$auth` on `@forst/gen/auth` |
+| Shape or hash type from `.ft` | `$VerifyPasswordRequest`, `$T_abc123` |
+| Domain error class | `$CellTaken` from `@forst/gen/<package>/errors` |
+| Per-function failure alias | `$VerifyPasswordFailure` |
+
+Call functions through the package handle: `$auth.VerifyPassword(input)`.
+
+Runtime `_tag` strings and Effect service tags keep normal package paths without `$`, for example `@forst/gen/auth/BcryptGenerateFailed` and `@forst/gen/auth`.
+
+Transport and index infrastructure (`InvokeCallOptions`, `ForstClientConfig`, `@forst/errors` catalog classes) is **not** prefixed.
+
+## What you get
+
+Each Forst package becomes a subpath under `@forst/gen`:
+
+| Forst package | Import |
+| --- | --- |
+| `package auth` | `@forst/gen/auth` |
+| `package bcrypt` | `@forst/gen/bcrypt` |
+
+Types for that package export from the same subpath. Shared shapes also re-export from `@forst/gen`.
+
+```typescript
+import type { $VerifyPasswordRequest } from "@forst/gen/auth";
+// or
+import type { $VerifyPasswordRequest } from "@forst/gen";
+```
+
+Output on disk (default):
+
+```text
+.forst/client/          gitignored, regenerated, linked into node_modules
+```
+
+`forst generate` writes `node_modules/@forst/gen` → `.forst/client` so the specifier resolves. Full output modes and every `generate` field are on the [CLI reference](/workflow/cli#generate-configuration).
+
+## Bundlers (Vite, Remix, webpack)
+
+The generated package is a real npm-style module: subpath imports like `@forst/gen/auth` resolve through `package.json` **`exports`** to files under `dist/pkg/`. TypeScript and Node resolve it from `node_modules/@forst/gen` after `forst generate` creates the link.
+
+The generated `package.json` declares an optional peer on `@forst/cli` so real-server helpers under `@forst/gen/$testing` can load `@forst/cli/invoke`. Install it only when those helpers are used.
+
+**Do not** add a bundler `resolve.alias` that maps `@forst/gen` to `.forst/client`. Plain directory aliases skip the exports map, so `@forst/gen/main` incorrectly becomes `.forst/client/main` (which does not exist). Let normal package resolution handle `@forst/gen`.
+
+For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
+
+Working reference: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve) (`vite.config.ts`).
+
+## Runtime targets
+
+Default output is for **Node.js 20.19+** on the server (SSR loaders, API routes, background jobs). The transport uses `fetch`, `process.env`, and Node timing APIs.
+
+Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles are **not** supported by the generated client today. Run `forst generate` in a Node boundary and call Forst from a supported backend. See [Call Forst over HTTP § Runtime support](/interop/invoke/call-forst#runtime-support).
+
+## Monorepos and multiple Forst projects
+
+### When to run `forst generate .` vs `forst generate app`
+
+| Target | When |
+| --- | --- |
+| `forst generate .` | Your shell cwd **is** the Forst boundary (the directory that owns `ftconfig.json` and `.forst`). Typical single-package app. |
+| `forst generate app` (or `apps/web`, `packages/api`, …) | Your cwd is the **monorepo root** (or another parent). Pass the boundary path so discovery, `.forst`, and the `@forst/gen` link bind to that app. |
+
+Running `forst generate .` from the monorepo root when `ftconfig.json` lives under `app/` picks the wrong discovery root and places `.forst` in the wrong tree. Preferred patterns:
+
+- From the app package: `"postinstall": "forst generate ."` in that workspace package’s `package.json`.
+- From the monorepo root: `pnpm --filter @acme/app exec forst generate .` (filter sets cwd to the boundary), **or** `forst generate app` when `app/` is the boundary path.
+
+### One `.forst` tree per boundary
+
+Every `ftconfig.json` boundary gets **one** compiler-owned `.forst/` directory under that boundary root. The default client output is `.forst/client`. Do not add a second `.forst` tree manually. A second Forst project needs a second boundary (another `ftconfig.json` at its project root).
+
+A Forst **package** named `client` is fine. It emits to `dist/pkg/client.js` and resolves as `@forst/gen/client`. That is separate from the compiler-owned `.forst/client` output directory.
+
+### How the `node_modules` link is placed
+
+`forst generate` walks **up** from the ftconfig boundary root until it finds a `node_modules` directory, then writes:
+
+```text
+node_modules/@forst/gen  →  <boundaryRoot>/.forst/client
+```
+
+The link is a symlink or junction when the OS allows it, with a directory copy fallback that warns it goes stale until the next generate. A `.forst-generated` marker inside the output records which boundary owns the link. If the link already points at the correct output, generate leaves it untouched.
+
+Treat the link like `.forst` itself: **regenerated infrastructure**, not something npm installed. `postinstall: forst generate .` restores it after `npm ci` deletes `node_modules`.
+
+### Single app in a monorepo
+
+When one boundary lives inside a larger repo (for example `apps/remix-serve/`), the link usually lands in that app's nearest `node_modules`. Hoisting to the repo root only changes **where** the link is created, not **what** it points at. Each app's link still targets **that** boundary's `.forst/client`.
+
+### Two Forst boundaries, same repo
+
+If two boundaries both use the default name `@forst/gen` and share a hoisted `node_modules`, the **second** `forst generate` fails with an ownership error naming both boundary paths. That is intentional. Silent overwrite would point both apps at one generated client.
+
+Pick one fix:
+
+| Approach | When to use |
+| --- | --- |
+| **Distinct `generate.packageName`** per boundary (for example `@acme/app-a-gen` and `@acme/app-b-gen`) | Each app keeps ephemeral output and its own link slot under `node_modules` |
+| **Committed mode** per boundary (`outDir` outside `.forst`, `link: "never"`) plus a workspace `file:` dependency | pnpm, Yarn Plug'n'Play, or when you want the client checked in and resolved like any local package |
+
+Committed mode example:
+
+```json
+{
+  "generate": {
+    "outDir": "packages/forst-client",
+    "link": "never"
+  }
+}
+```
+
+Register `packages/forst-client` in the workspace. TypeScript and bundlers resolve it without a symlink. You still run `forst generate` when `.ft` sources change.
+
+### Recommended pnpm monorepo hooks
+
+1. Put `ftconfig.json` and `.ft` sources in the workspace package that owns the Forst boundary (for example `app/` or `apps/api/`).
+2. In that package’s `package.json`: `"postinstall": "forst generate ."`.
+3. Optional `"predev"` / `"prebuild"`: same command when generate must run before local servers or builds without relying on install alone.
+4. Root scripts may call `pnpm --filter <boundary-package> run postinstall` (or a named `generate` script) so CI from the repo root still targets the correct boundary.
+5. For pnpm strict / isolated linking issues, use committed mode (`outDir` + `link: "never"`) below. Do not add a second ephemeral link strategy.
+
+### Package managers and environments
+
+| Environment | Ephemeral link mode |
+| --- | --- |
+| npm or bun, single boundary, `postinstall` | Reliable (default path) |
+| `npm ci` without `postinstall` | Link missing until you run generate |
+| Yarn Plug'n'Play | Link skipped; use committed mode |
+| pnpm strict / isolated | Variable; committed mode is the safe path |
+| Windows without Developer Mode | Junction or copy fallback |
+| Docker / CI | Run `forst generate` in the build step, or use committed mode |
+
+### Nested packages without their own `ftconfig.json`
+
+Commands run from a subdirectory still discover the **ancestor** `ftconfig.json`. One boundary, one `.forst` tree, one link. No extra setup.
+
+## Types from .ft
+
+Define the shape once in Forst:
+
+<CatalogOrder />
+
+Only **exported** functions (capitalized names) appear in the client. Provider gated functions are omitted. See [Caveats](#caveats).
+
+## Discovery with `ftconfig.json`
+
+`forst generate` and `forst dev` share **include/exclude** rules from `ftconfig.json`:
+
+```json
+{
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**"
+    ]
+  }
+}
+```
+
+Globs resolve from the **ftconfig boundary root**, not from the shell cwd alone. `files.include` selects which `.ft` files enter generate and dev. It does **not** override Go package layout. Each directory holds one Forst package name. Broad includes like `**/*.ft` at a monorepo-root boundary pull every nested package under that boundary. Prefer placing the boundary at the app that owns the `.ft` tree.
+
+Pass **`-config`** explicitly or let the CLI search upward from your target directory.
+
+Lifecycle scripts (`postinstall`, optional `predev` / `prebuild`) live on
+[Installation § Generated TypeScript client](/installation#generated-typescript-client).
+
+## End-to-end example
+
+See the tictactoe example [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/examples/in/tictactoe) and [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration).
+
+## Caveats
+
+### Structure only in TypeScript
+
+Generated types reflect field names and TypeScript shapes. They do **not** carry runtime rules like **`String.Min(1)`** or **`Int.Max(99)`**. Add client validation yourself, or call the Forst server which validates at the boundary.
+
+### Provider gated exports
+
+Functions that need wired **`Providers(f)`** are excluded from TypeScript emit. The invoke wire stays payload only. See [Providers § Caveats](/language/providers#caveats).
+
+### Nominal error tags
+
+TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat those payloads as evolving. Invoke transport failures (`InvokeRejected`, …) already use stable tags. See [Errors and Result § Caveats](/language/errors-and-result#caveats) and [Call Forst over HTTP](/interop/invoke/call-forst#failures).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
+  </Card>
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
+    Invoke generated functions over HTTP.
+  </Card>
+  <Card title="Testing" icon="flask" href="/interop/invoke/testing">
+    Stub calls with `withForstTestScope`.
+  </Card>
+  <Card title="Effect mode" icon="bolt" href="/interop/invoke/effect">
+    `generate.effect` and `ForstClientLive`.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    Full `generate` configuration table.
+  </Card>
+</CardGroup>

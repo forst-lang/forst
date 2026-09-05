@@ -51,12 +51,27 @@ func TestMarkdownForKeywordToken_typesAndKeywords(t *testing.T) {
 		{ast.TokenAndNot, "&^"},
 		{ast.TokenLShift, "<<"},
 		{ast.TokenBitwiseAndEq, "&="},
+		{ast.TokenBitwiseAnd, "Bitwise AND"},
 	}
 	for _, tc := range cases {
 		got := MarkdownForKeywordToken(tc.tok)
 		if got == "" || !strings.Contains(got, tc.want) {
 			t.Fatalf("MarkdownForKeywordToken(%v): got %q, want substring %q", tc.tok, got, tc.want)
 		}
+	}
+}
+
+func TestAddressOfAmpersandMarkdown_notBitwise(t *testing.T) {
+	t.Parallel()
+	md := AddressOfAmpersandMarkdown()
+	if md == "" || !strings.Contains(md, "Address-of") {
+		t.Fatalf("expected address-of hover, got %q", md)
+	}
+	if strings.Contains(md, "Bitwise AND") {
+		t.Fatalf("address-of hover must not say Bitwise AND: %q", md)
+	}
+	if !strings.Contains(BitwiseAndAmpersandMarkdown(), "Bitwise AND") {
+		t.Fatal("binary & hover should still say Bitwise AND")
 	}
 }
 

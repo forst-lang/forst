@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/nested-guard-cached-body",
+  "expect": "deps",
+  "title": "nested named guard uses body deps"
+}

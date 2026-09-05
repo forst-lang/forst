@@ -138,7 +138,7 @@ func TestParseEnsure_negatedAndOrError(t *testing.T) {
 
 func f(x Int, err Error) {
 	ensure !x
-	ensure err is Error.NotNil() or err
+	ensure err is Error.NotNil() else err
 }
 `
 	if _, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile(); err != nil {

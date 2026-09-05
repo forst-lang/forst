@@ -1,4 +1,4 @@
-# Publish @forst/cli, @forst/errors, @forst/sidecar, and @forst/node-runtime (npm + JSR). Called from release.yml via
+# Publish @forst/cli, @forst/errors, @forst/sidecar, and @forst/runtime (npm + JSR). Called from release.yml via
 # workflow_call, or run manually: Actions → "Publish packages (npm / JSR)" → Run workflow.
 # Inputs: pass the tag for each package that released (omit or leave empty for the other).
 # Optional: npm_publish_verbose — pass --verbose to npm publish (default true).
@@ -7,9 +7,12 @@
 # JSR resolves that package from jsr.io (npm publish order matters for npm installability).
 # CLI jobs depend on errors jobs when both run: `@forst/cli` declares `@forst/errors@>=0.1.0`.
 #
-# npm publish: trusted publishing (OIDC). After setup-node, a step clears ~/.npmrc, ./.npmrc, and
-#   NPM_CONFIG_USERCONFIG and sets NODE_AUTH_TOKEN= in GITHUB_ENV; publish also passes NODE_AUTH_TOKEN=""
-#   so npm does not use a classic token. Re-add token in the publish command if you need fallback.
+# npm publish: trusted publishing (OIDC) via .github/scripts/npm-publish-oidc.sh.
+#   Each package needs its own trusted publisher on npmjs.com (repo forst-lang/forst,
+#   workflow publish-packages.yml) — same settings as @forst/cli. Missing that config
+#   yields: "OIDC token exchange error - package not found" / ENEEDAUTH.
+#   After setup-node, a step clears ~/.npmrc / NODE_AUTH_TOKEN so OIDC is not shadowed.
+#   Re-publishes of an already-published version are skipped (no-op success).
 
 name: Publish packages (npm / JSR)
 
@@ -32,12 +35,12 @@ on:
         type: string
         default: ""
       node_runtime_tag:
-        description: "Git tag for node-runtime (e.g. node-runtime-v0.1.0)"
+        description: "Git tag for @forst/runtime (e.g. runtime-v0.5.0)"
         required: false
         type: string
         default: ""
       npm_publish_verbose:
-        description: "Pass --verbose to npm publish (@forst/cli, @forst/errors, @forst/sidecar, @forst/node-runtime)"
+        description: "Pass --verbose to npm publish (@forst/cli, @forst/errors, @forst/sidecar, @forst/runtime)"
         required: false
         type: boolean
         default: true
@@ -59,12 +62,12 @@ on:
         type: string
         default: ""
       node_runtime_tag:
-        description: "Git tag for node-runtime (e.g. node-runtime-v0.1.0). Leave empty to skip."
+        description: "Git tag for @forst/runtime (e.g. runtime-v0.5.0). Leave empty to skip."
         required: false
         type: string
         default: ""
       npm_publish_verbose:
-        description: "Pass --verbose to npm publish (@forst/cli, @forst/errors, @forst/sidecar, @forst/node-runtime)"
+        description: "Pass --verbose to npm publish (@forst/cli, @forst/errors, @forst/sidecar, @forst/runtime)"
         required: false
         type: boolean
         default: true
@@ -132,7 +135,7 @@ jobs:
           if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
             NPM_VERBOSE="--verbose"
           fi
-          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
+          "${GITHUB_WORKSPACE}/.github/scripts/npm-publish-oidc.sh" ${NPM_VERBOSE}
 
   errors-jsr:
     name: "@forst/errors → JSR"
@@ -207,7 +210,7 @@ jobs:
           if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
             NPM_VERBOSE="--verbose"
           fi
-          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
+          "${GITHUB_WORKSPACE}/.github/scripts/npm-publish-oidc.sh" ${NPM_VERBOSE}
 
   cli-jsr:
     name: "@forst/cli → JSR"
@@ -294,7 +297,7 @@ jobs:
           if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
             NPM_VERBOSE="--verbose"
           fi
-          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
+          "${GITHUB_WORKSPACE}/.github/scripts/npm-publish-oidc.sh" ${NPM_VERBOSE}
 
   sidecar-jsr:
     name: "@forst/sidecar → JSR"
@@ -327,7 +330,7 @@ jobs:
           jsr-token: ${{ secrets.JSR_TOKEN }}
 
   node-runtime-npm:
-    name: "@forst/node-runtime → npm"
+    name: "@forst/runtime → npm"
     runs-on: ubuntu-latest
     needs: [validate-dispatch]
     permissions:
@@ -358,22 +361,22 @@ jobs:
           rm -f "$NPM_CONFIG_USERCONFIG" || true
           echo "NODE_AUTH_TOKEN=" >> "$GITHUB_ENV"
 
-      - name: Build @forst/node-runtime
-        working-directory: packages/node-runtime
+      - name: Build @forst/runtime
+        working-directory: packages/runtime
         run: bun run build
 
       - name: Publish package to NPM
-        working-directory: packages/node-runtime
+        working-directory: packages/runtime
         run: |
           set -euo pipefail
           NPM_VERBOSE=""
           if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
             NPM_VERBOSE="--verbose"
           fi
-          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
+          "${GITHUB_WORKSPACE}/.github/scripts/npm-publish-oidc.sh" ${NPM_VERBOSE}
 
   node-runtime-jsr:
-    name: "@forst/node-runtime → JSR"
+    name: "@forst/runtime → JSR"
     runs-on: ubuntu-latest
     needs: [validate-dispatch]
     if: inputs.node_runtime_tag != ''
@@ -391,5 +394,5 @@ jobs:
 
       - uses: ./.github/actions/jsr-publish-package
         with:
-          working-directory: packages/node-runtime
+          working-directory: packages/runtime
           jsr-token: ${{ secrets.JSR_TOKEN }}

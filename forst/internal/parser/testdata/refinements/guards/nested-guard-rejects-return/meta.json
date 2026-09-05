@@ -1,0 +1,5 @@
+{
+  "id": "guards/nested-guard-rejects-return",
+  "expect": "parse-error",
+  "title": "nested if in guard rejects return (parse rejection)"
+}

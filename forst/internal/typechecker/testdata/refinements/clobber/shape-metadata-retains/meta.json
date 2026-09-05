@@ -1,0 +1,5 @@
+{
+  "id": "clobber/shape-metadata-retains",
+  "expect": "typecheck-ok",
+  "title": "shape metadata write retains user facts"
+}

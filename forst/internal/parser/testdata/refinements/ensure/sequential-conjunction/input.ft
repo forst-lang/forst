@@ -1,0 +1,4 @@
+is (x X) Valid {
+    ensure x is A()
+    ensure x is B()
+}

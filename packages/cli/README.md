@@ -30,7 +30,7 @@ Use it in npm scripts, developer tooling, or as a dependency of libraries such a
 
 ## Overview
 
-`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: by default the **npm package version** determines which **native binary** is downloaded (matching that semver on GitHub Releases). Callers may opt into **`preferLatestRelease`** so resolution uses semantic versioning to pick the newer of the bundled semver and GitHub’s latest release. The binary is cached per version so repeat invocations avoid redundant downloads.
+`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: by default the pinned **`forst.compilerRelease`** in `package.json` (falling back to the npm package semver when unset) determines which **native binary** is downloaded from GitHub Releases. Callers may opt into **`preferLatestRelease`** so resolution uses semantic versioning to pick the newer of the bundled pin and GitHub’s latest release. The binary is cached per version so repeat invocations avoid redundant downloads.
 
 The wrapper is responsible for resolution, verification, and concurrency-safe installation—not for implementing compiler features (those live in the native `forst` executable).
 
@@ -42,7 +42,7 @@ The wrapper is responsible for resolution, verification, and concurrency-safe in
 | **JavaScript API** | `resolveForstBinary`, `spawnForst`, `getCliPackageVersion`, etc., for tools that need to locate or run the binary programmatically. |
 | **`@forst/cli/invoke`** | `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle in tests and `globalSetup`. |
 | **`@forst/errors` (transitive)** | Shared invoke/harness failure classes. Installed with `@forst/cli`; import from `@forst/errors` (Promise mode, no Effect peer). Effect mode stays at `@forst/errors/effect` when you add the `effect` peer. |
-| **Diagnostics** | `npx forst --forst-cli-info` prints package semver, resolved binary path, and `forst version` output—use this in bug reports and CI logs. |
+| **Diagnostics** | `npx forst --forst-cli-info` prints npm semver, pinned `forst.compilerRelease`, resolved compiler version, binary path, and `forst version` output—use this in bug reports and CI logs. |
 
 ## Requirements
 
@@ -136,9 +136,9 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 
 ## `@forst/cli/invoke`
 
-Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/node-runtime`](../node-runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
+Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/runtime`](../runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
 
-Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/testing` instead; those helpers call this subpath.
+Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/$testing` instead; those helpers call this subpath.
 
 ```ts
 import { startForstInvokeServer } from "@forst/cli/invoke";
@@ -150,9 +150,11 @@ await using server = await startForstInvokeServer({ root: process.cwd() });
 Behaviour in short:
 
 - **Attach before spawn** when `baseUrl`, `FORST_SKIP_SPAWN`, `.forst/invoke.ready`, or `FORST_BASE_URL` / `FORST_INVOKE_URL` / `FORST_DEV_URL` is set. Attach handles never kill the process.
-- **`mode: "auto"`** (default) reads `ftconfig.json` and picks `embedded` when `server.embedded` or `node.hostMode` is true, otherwise `dev`.
+- **`mode: "auto"`** (default) reads `ftconfig.json` and picks `embedded` when `server.embedded` or `bridge.hostMode` is true, otherwise `dev`.
 - Readiness is `GET /health`, not log scraping.
 - `stop()` sends `SIGTERM`, then `SIGKILL` after 5s.
+
+For **host mode** (`bridge.hostMode` in `ftconfig.json`), call `prepareInvokeConnect()` at process startup so connect-mode env and the `FORST_INVOKE_AUTH_RECV_FD` listener are ready. Use `getInvokeAuthHandoff()` with a generated client's `resolveAuth` when auth arrives over the host pipe instead of `FORST_INVOKE_TOKEN`.
 
 Opt-in real spawn test (needs a local `forst` binary and Go for embedded compile):
 
@@ -164,7 +166,8 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 
 | Topic | Details |
 | --- | --- |
-| **Versioning** | [Release Please](https://github.com/googleapis/release-please) manages `packages/cli`; tags like `cli-v*` bump `package.json` and `jsr.json` (see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). |
+| **Versioning** | [Release Please](https://github.com/googleapis/release-please) manages `packages/cli` with the Go compiler via the `linked-versions` plugin. Both share the same semver. Tags like `cli-v*` bump `package.json` and `jsr.json` (see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). The first linked release may jump `@forst/cli` from its old line (for example `0.6.x`) to the current compiler line. |
+| **Compiler pin** | Root compiler releases update `forst.compilerRelease` via Release Please `extra-files` in the same release PR that bumps `@forst/cli`. The npm `version` and pin stay aligned because the compiler and CLI release together. |
 | **Automation** | When a GitHub Release is published, [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes **@forst/cli** to npm and JSR. |
 | **npm** | [Package page](https://www.npmjs.com/package/@forst/cli). CI may use [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC); a repository `NPM_TOKEN` can still be used where a classic token fallback is required. |
 | **JSR** | [jsr.io/@forst/cli](https://jsr.io/@forst/cli)—link the repository for OIDC or configure `JSR_TOKEN` as documented by JSR. |
@@ -179,7 +182,7 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 
 ## Upgrading
 
-Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the **installed npm semver**, not an implicit “latest” on the registry—stale dependencies mean a stale compiler until you upgrade.
+Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the bundled **`forst.compilerRelease`** pin (not the npm semver alone). Compiler and CLI releases share one semver, so upgrading `@forst/cli` also picks up the matching compiler pin.
 
 After upgrading, run:
 
@@ -193,7 +196,7 @@ Confirm that the reported package version, binary path, and `forst version` matc
 
 | Symptom | What to check |
 | --- | --- |
-| Download fails or 404 on an asset | A GitHub release must exist for this package version’s artifacts. Unpublished semvers or forks may need `FORST_BINARY` or a published CLI version. |
+| Download fails or 404 on an asset | A GitHub release must exist for the pinned compiler version’s artifacts. When the pinned release is missing but an older release exists, the wrapper may fall back silently—check `npx forst --forst-cli-info` for pinned vs resolved version. Unpublished pins or forks may need `FORST_BINARY` or an upgraded `@forst/cli`. |
 | Wrong OS or architecture | Override with `FORST_BINARY` for custom builds or unsupported matrices. |
 | SHA-256 / verification errors | **Checksum mismatch** (`CompilerBinaryChecksumMismatch`): downloaded bytes differ from GitHub metadata — do not run the binary; clear the cache entry and retry, or use `FORST_BINARY`. May indicate corruption, proxy tampering, or supply-chain attack. **Strict mode, no digest** (`CompilerBinaryDigestUnavailable`): `FORST_CLI_VERIFY=strict` requires a digest but the release tag, asset name, or GitHub digest is missing — check `forst.compilerRelease`. Default (unset) skips verification when no digest is available and still downloads. |
 | Concurrent installs | Locking prevents corruption; different versions use separate cache subdirectories. |

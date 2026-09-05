@@ -1,0 +1,6 @@
+{
+  "id": "assertion-ir/no-dnf-distribution",
+  "expect": "ir",
+  "title": "no DNF distribution",
+  "matrix": true
+}

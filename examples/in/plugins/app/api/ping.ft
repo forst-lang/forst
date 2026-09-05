@@ -1,0 +1,13 @@
+package api
+
+type PingResponse = {
+  ok: Bool
+}
+
+type Ping = {
+  GET(): PingResponse
+}.Router()
+
+func GET(): PingResponse {
+  return { ok: true }
+}

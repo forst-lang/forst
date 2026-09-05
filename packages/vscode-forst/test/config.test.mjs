@@ -34,6 +34,7 @@ test("handleCliResolutionFailure returns PATH fallback when downloads are disabl
 test("compilerResolutionCacheKey changes when download settings change", () => {
   const base = {
     forstPath: "forst",
+    goPath: "",
     port: 8081,
     logLevel: "info",
     autoStart: true,

@@ -12,6 +12,7 @@
     { "include": "#func-signature" },
     { "include": "#func-name" },
     { "include": "#nominal-error-decl" },
+    { "include": "#nominal-error-use" },
     { "include": "#function-call" },
     { "include": "#short-var-decl" },
     { "include": "#param-type-pair" },
@@ -115,7 +116,7 @@
     },
     "constraints": {
       "comment": "Builtin guards and Result discriminators in type strings (String.Min(1).Ok())",
-      "match": "\\.(Min|Max|LessThan|GreaterThan|HasPrefix|Contains|True|False|Nil|Present|NotEmpty|Valid|Value|Match|Ok|Err)\\s*\\(",
+      "match": "\\.(Min|Max|LessThan|GreaterThan|HasPrefix|Contains|True|False|Nil|Present|NotEmpty|Value|Match|Ok|Err)\\s*\\(",
       "captures": {
         "1": { "name": "entity.name.function.constraint.forst" }
       }
@@ -147,6 +148,14 @@
       "match": "\\b(error)\\s+([A-Za-z_][\\w]*)",
       "captures": {
         "1": { "name": "keyword.declaration" },
+        "2": { "name": "entity.name.type.error.forst" }
+      }
+    },
+    "nominal-error-use": {
+      "comment": "ensure … else ErrorName( — constructor at failure site",
+      "match": "\\b(else)\\s+([A-Za-z_][\\w]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "keyword.control" },
         "2": { "name": "entity.name.type.error.forst" }
       }
     },

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
+	"go/token"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -17,17 +18,35 @@ func (t *Transformer) transformTypeGuardEnsure(ensure *ast.EnsureNode) ([]goast.
 		return nil, fmt.Errorf("failed to lookup variable type: %w", err)
 	}
 
-	// Transform each constraint
-	var transformedStmts []goast.Stmt
-	for _, constraint := range ensure.Assertion.Constraints {
-		transformed, err := t.transformEnsureConstraint(*ensure, constraint, varType)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform constraint: %w", err)
+	chains := ensure.Assertion.MeetChains()
+	var chainExprs []goast.Expr
+	for _, chain := range chains {
+		if len(chain.Constraints) == 0 {
+			continue
 		}
-		transformedStmts = append(transformedStmts, &goast.ExprStmt{X: transformed})
+		var parts []goast.Expr
+		for _, constraint := range chain.Constraints {
+			transformed, err := t.transformEnsureConstraint(*ensure, constraint, varType)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform constraint: %w", err)
+			}
+			parts = append(parts, transformed)
+		}
+		meet := parts[0]
+		for i := 1; i < len(parts); i++ {
+			meet = &goast.BinaryExpr{X: meet, Op: token.LAND, Y: parts[i]}
+		}
+		chainExprs = append(chainExprs, meet)
 	}
-
-	return transformedStmts, nil
+	if len(chainExprs) == 0 {
+		// Type-level / empty: never fail the guard ensure.
+		return []goast.Stmt{&goast.ExprStmt{X: goast.NewIdent("false")}}, nil
+	}
+	joined := chainExprs[0]
+	for i := 1; i < len(chainExprs); i++ {
+		joined = &goast.BinaryExpr{X: joined, Op: token.LOR, Y: chainExprs[i]}
+	}
+	return []goast.Stmt{&goast.ExprStmt{X: joined}}, nil
 }
 
 // Helper to look up a TypeGuardNode by name

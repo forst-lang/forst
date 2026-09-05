@@ -6,14 +6,14 @@
 
 ## Today’s behavior (summary)
 
-- **`ensure subject is Assertion(...) or err`** — runtime check, **narrows** subject on **success**, **returns** **`error`** on failure (often **multi-return** in **generated Go**).
+- **`ensure subject is Assertion(...) else err`** — runtime check, **narrows** subject on **success**, **returns** **`error`** on failure (often **multi-return** in **generated Go**). **Today’s parser still uses `or` for failure**; [refinements 12](../refinements/12-accepted-decision.md) uses **`else`** for failure and **`or`** for assertion alternatives.
 - **`if`** + **`is`** — **then** branch sees **narrowed** type.
 
 Details: [guard RFC](../guard/guard.md).
 
 ### Compiler enforcement (`Result` + `if` … `is Err`)
 
-The typechecker rejects **`return Err(...)`** inside the **then** branch of **`if subject is Err(...)`** when **`subject`** is a built-in **`Result(S, F)`**—use **`ensure subject is Ok()`** (and optional **`or err`**) to propagate failure instead ([errors RFC 01](../errors/01-ensure-only-failure-returns.md)). **`return Ok(...)`** in that branch for **recovery** remains valid. **`else`** after **`is Ok`** (failure region without negated narrowing) is **not** covered yet.
+The typechecker rejects **`return Err(...)`** inside the **then** branch of **`if subject is Err(...)`** when **`subject`** is a built-in **`Result(S, F)`**—use **`ensure subject is Ok()`** (and optional **`else err`**) to propagate failure instead ([errors RFC 01](../errors/01-ensure-only-failure-returns.md)). **`return Ok(...)`** in that branch for **recovery** remains valid. **`else`** after **`is Ok`** (failure region without negated narrowing) is **not** covered yet.
 
 ---
 

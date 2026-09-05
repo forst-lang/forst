@@ -76,7 +76,7 @@ async function handleRequest(
   req.on("end", async () => {
     try {
       const request: SidecarRequest = JSON.parse(body);
-      const testFile = resolve(__dirname, `${request.test}.ft`);
+      const testFile = resolve(__dirname, `../${request.test}/${request.test}.ft`);
 
       const result = await handleForstRequest(
         testFile,
@@ -97,7 +97,7 @@ const port = 3001;
 
 server.listen(port, () => {
   console.log(`Sidecar test server running on http://localhost:${port}`);
-  console.log("Available tests: echo, error_handling, type_safety");
+  console.log("Available tests: echo, error_handling, typesafety");
 });
 
 export { handleForstRequest };

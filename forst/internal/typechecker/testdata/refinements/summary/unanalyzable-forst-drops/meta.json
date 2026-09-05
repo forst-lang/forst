@@ -1,0 +1,5 @@
+{
+  "id": "summary/unanalyzable-forst-drops",
+  "expect": "typecheck-error",
+  "title": "unanalyzable Forst call drops"
+}

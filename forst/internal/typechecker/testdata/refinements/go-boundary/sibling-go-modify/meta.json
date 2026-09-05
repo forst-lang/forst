@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/sibling-go-modify",
+  "expect": "typecheck-error",
+  "title": "same-package .go Modify drops"
+}

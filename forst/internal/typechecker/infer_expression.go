@@ -29,6 +29,22 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 	}
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
+		if e.Operator == ast.TokenArrow {
+			// channel <- value
+			if _, err := tc.inferExpressionType(e.Left); err != nil {
+				return nil, err
+			}
+			if _, err := tc.inferExpressionType(e.Right); err != nil {
+				return nil, err
+			}
+			span := ast.SourceSpan{}
+			if vn, ok := e.Left.(ast.VariableNode); ok {
+				span = vn.Ident.Span
+			}
+			tc.invalidateAfterChannelSend(e.Right, span)
+			tc.storeInferredType(e, []ast.TypeNode{{Ident: ast.TypeVoid}})
+			return []ast.TypeNode{{Ident: ast.TypeVoid}}, nil
+		}
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
 		if err != nil {
 			return nil, err
@@ -168,6 +184,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			tc.storeInferredType(e, []ast.TypeNode{elem})
 			return []ast.TypeNode{elem}, nil
 		}
+		if t.Ident == ast.TypeBytes {
+			if indexTypes[0].Ident != ast.TypeInt {
+				return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+			}
+			elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
+			tc.storeInferredType(e, []ast.TypeNode{elem})
+			return []ast.TypeNode{elem}, nil
+		}
 		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
 			return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
 		}
@@ -210,7 +234,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					return nil, fmt.Errorf("slice expression: high bound must be Int")
 				}
 			}
-			ft, ok := goTypeToForstType(types.NewSlice(elem))
+			ft, ok := tc.mapGoType(types.NewSlice(elem))
 			if !ok {
 				return nil, fmt.Errorf("slice expression: cannot map Go slice element type")
 			}
@@ -274,7 +298,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if obj == nil {
 				return nil, diagnosticf(e.Field.Span, "go-field", "%s has no field %s", goRecv.String(), e.Field.ID)
 			}
-			ft, ok := goTypeToForstType(obj.Type())
+			ft, ok := tc.mapGoType(obj.Type())
 			if !ok {
 				return nil, diagnosticf(e.Field.Span, "go-field", "cannot map Go field type %s", obj.Type().String())
 			}
@@ -298,6 +322,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if err != nil {
 				return nil, err
 			}
+			span := e.CallSpan
+			if !span.IsSet() {
+				span = e.Method.Span
+			}
+			tc.invalidateReachableMutableArg(e.Receiver, span, dropByForeign)
 			tc.storeInferredType(e, ret)
 			return ret, nil
 		}
@@ -336,10 +365,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
 
 		var argTypes [][]ast.TypeNode
-		if sig, ok := tc.Functions[e.Function.ID]; ok && len(e.Arguments) == len(sig.Parameters) {
+		if signature, exists := tc.Functions[e.Function.ID]; exists {
 			argTypes = make([][]ast.TypeNode, len(e.Arguments))
 			for i, arg := range e.Arguments {
-				exp := &sig.Parameters[i].Type
+				exp := expectedTypeForCallParam(signature.Parameters, i)
 				ts, err := tc.inferExpressionTypeWithExpected(arg, exp)
 				if err != nil {
 					return nil, err
@@ -358,15 +387,35 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
-			if err := tc.checkUserFunctionCall(e.Function.ID, signature, e, argTypes); err != nil {
-				return nil, err
-			}
+			callSig := signature
 			callSpan := e.CallSpan
 			if !callSpan.IsSet() {
 				callSpan = e.Function.Span
 			}
+			if len(e.TypeArgs) > 0 && len(signature.TypeParams) == 0 {
+				_, err := tc.instantiateGenericCallExplicit(signature, e.TypeArgs, argTypes, callSpan)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if len(signature.TypeParams) > 0 {
+				var inst FunctionSignature
+				var err error
+				if len(e.TypeArgs) > 0 {
+					inst, err = tc.instantiateGenericCallExplicit(signature, e.TypeArgs, argTypes, callSpan)
+				} else {
+					inst, err = tc.instantiateGenericCall(signature, argTypes, callSpan)
+				}
+				if err != nil {
+					return nil, err
+				}
+				callSig = inst
+			}
+			if err := tc.checkUserFunctionCall(e.Function.ID, callSig, e, argTypes); err != nil {
+				return nil, err
+			}
 			tc.recordFunctionCall(e.Function.ID, callSpan)
-			retTypes := signature.ReturnTypes
+			retTypes := callSig.ReturnTypes
 			tc.storeInferredType(e, retTypes)
 			return retTypes, nil
 		}
@@ -376,6 +425,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if ret, found, err := tc.trySamePackageGoCall(string(e.Function.ID), e, argTypes, true); err != nil {
 				return nil, err
 			} else if found {
+				tc.invalidateAfterUntrustedGoCall(e)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}
@@ -456,6 +506,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					callSpan = e.Function.Span
 				}
 				tc.recordCrossPackageCall(pkgName, ast.Identifier(funcName), callSpan)
+				tc.invalidateAfterUntrustedGoCall(e)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}
@@ -484,6 +535,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					if p, ok := tc.importPathByLocal[pkgName]; ok && p != "" {
 						importPath = p
 					}
+				}
+				if loadErr := tc.goImportLoadErrorForPath(importPath); loadErr != nil {
+					return nil, diagnosticf(callSpan, "go-import", "failed to load Go package %q: %v", importPath, loadErr)
 				}
 				tc.log.WithFields(logrus.Fields{
 					"function":           "inferExpressionType",
@@ -556,6 +610,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if err != nil {
 				return nil, err
 			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+
+		// Phase 4f: unresolved pkg.Func — invalidate, do not reject.
+		if ret, ok := tc.treatUnresolvedQualifiedCallAsForeign(e); ok {
 			tc.storeInferredType(e, ret)
 			return ret, nil
 		}
@@ -780,6 +840,14 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 			return nil, fmt.Errorf("index expression: string index must be Int, got %s", indexTypes[0].Ident)
 		}
 		elem := ast.TypeNode{Ident: ast.TypeInt}
+		tc.storeInferredType(e, []ast.TypeNode{elem})
+		return []ast.TypeNode{elem}, nil
+	}
+	if t.Ident == ast.TypeBytes {
+		if indexTypes[0].Ident != ast.TypeInt {
+			return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+		}
+		elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
 	}

@@ -90,7 +90,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		if len(parsedType) == 1 && parsedType[0].IsResultType() {
 			for _, retTypes := range returnStmtTypes {
 				if len(retTypes) != 1 {
-					return nil, fmt.Errorf("Result-returning function expects single-value returns, got %d values", len(retTypes))
+					return nil, fmt.Errorf("result-returning function expects single-value returns, got %d values", len(retTypes))
 				}
 				if !tc.isCompatibleResultReturnArm(retTypes[0], parsedType[0]) {
 					return nil, failWithTypeMismatch(fn, retTypes, parsedType, "Inconsistent type of return statements")

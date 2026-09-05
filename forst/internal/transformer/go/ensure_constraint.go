@@ -44,9 +44,10 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 		}
 	}
 
-	// Type-level shape constraints (`ensure m is { field }`) are not lowered to runtime checks yet.
-	if constraint.Name == "is" {
-		return goast.NewIdent("true"), nil
+	// Type-level shape constraints (`ensure m is { field }` → Match) are not lowered to runtime checks yet.
+	// Return false so type-guard lowering `if cond { return false }` is a no-op.
+	if constraint.Name == "is" || constraint.Name == "Match" {
+		return goast.NewIdent("false"), nil
 	}
 
 	// Try built-in constraints first
@@ -144,7 +145,7 @@ func transformConstraintArg(arg ast.ConstraintArgumentNode) (goast.Expr, error) 
 	if arg.Value != nil {
 		switch v := (*arg.Value).(type) {
 		case ast.IntLiteralNode:
-			return &goast.BasicLit{Kind: gotoken.INT, Value: strconv.FormatInt(v.Value, 10)}, nil
+			return &goast.BasicLit{Kind: gotoken.INT, Value: v.Source()}, nil
 		case ast.StringLiteralNode:
 			return &goast.BasicLit{Kind: gotoken.STRING, Value: strconv.Quote(v.Value)}, nil
 		case ast.BoolLiteralNode:

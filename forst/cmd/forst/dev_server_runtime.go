@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"forst/internal/compiler"
 	"forst/internal/devserver"
@@ -20,7 +19,7 @@ func (s *DevServer) listenAddr() string {
 	return s.host + ":" + s.port
 }
 
-// Start starts the HTTP server.
+// Start starts the HTTP server with invoke auth middleware and default local transport.
 func (s *DevServer) Start() error {
 	if err := s.refreshFunctions(); err != nil {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
@@ -29,26 +28,22 @@ func (s *DevServer) Start() error {
 	s.startWatchGenerate()
 
 	mux := http.NewServeMux()
-	s.invoke.RegisterRoutes(mux)
 	mux.HandleFunc("/types", s.handleTypes)
-
-	readTimeout := time.Duration(s.config.Server.ReadTimeout) * time.Second
-	writeTimeout := time.Duration(s.config.Server.WriteTimeout) * time.Second
-
-	s.server = &http.Server{
-		Addr:         s.listenAddr(),
-		Handler:      mux,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-	}
-
 	s.logStartupInfo()
-	return s.server.ListenAndServe()
+	// StartOnMux registers invoke routes, applies HMAC auth, and prefers Unix sockets.
+	return s.invoke.StartOnMux(mux)
 }
 
 // logStartupInfo logs information about the server startup.
 func (s *DevServer) logStartupInfo() {
-	s.log.Infof("HTTP server listening on %s", s.listenAddr())
+	target := s.listenAddr()
+	if s.invoke != nil {
+		cfg := s.invoke.Config()
+		if cfg.Transport == "unix" && cfg.SocketPath != "" {
+			target = cfg.SocketPath
+		}
+	}
+	s.log.Infof("HTTP server listening on %s", target)
 	s.log.Info("Available endpoints:")
 	s.log.Info("  GET  /functions  - Discover available functions")
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
@@ -60,6 +55,9 @@ func (s *DevServer) logStartupInfo() {
 // Stop stops the HTTP server.
 func (s *DevServer) Stop() error {
 	s.stopWatchGenerate()
+	if s.invoke != nil {
+		return s.invoke.Stop()
+	}
 	if s.server != nil {
 		return s.server.Close()
 	}
@@ -151,20 +149,30 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 // devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
 var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
+// runtimeDevGenerateFn runs an initial client generate before runtime dev starts.
+// Watch mode skips AfterReload on the first compile (generation 1) to avoid a duplicate pass.
+var runtimeDevGenerateFn = runGenerateForDev
+
+// runtimeDevEntrypoints are overridable in tests.
+var (
+	runRuntimeDevEntry  = devserver.RunRuntimeDev
+	watchRuntimeDevEntry = devserver.WatchRuntimeDev
+)
+
 // runRuntimeDevFn runs compile+go run for runtime profile; tests may stub.
 var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
-	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
+	if err := runtimeDevGenerateFn(boundaryRoot, cfg, log); err != nil {
 		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
 	}
-	return devserver.RunRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
+	return runRuntimeDevEntry(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 // watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
 var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
-	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
+	if err := runtimeDevGenerateFn(boundaryRoot, cfg, log); err != nil {
 		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
 	}
-	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
+	return watchRuntimeDevEntry(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string, rootDir string, exportStructFieldsCLI bool) *ForstConfig {

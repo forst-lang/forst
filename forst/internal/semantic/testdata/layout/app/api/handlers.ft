@@ -1,0 +1,13 @@
+package api
+
+type Health = {
+  message: String
+}
+
+type Handlers = {
+  POST(): Health
+}.Router()
+
+func POST(): Health {
+  return { message: "ok" }
+}

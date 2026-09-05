@@ -1,9 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   resolveForstBinary,
+  resolveForstBinaryDetailed,
   type ResolveForstBinaryOptions,
 } from "./resolve.js";
-import { getCliPackageVersion } from "./version.js";
+import {
+  getBundledCompilerReleaseVersion,
+  getCliPackageVersion,
+} from "./version.js";
 
 /**
  * Prints `@forst/cli` npm version, resolved native binary path, and `forst version` stdout.
@@ -13,9 +17,29 @@ export async function printForstCliInfo(
   resolveOptions?: ResolveForstBinaryOptions
 ): Promise<void> {
   console.log(`@forst/cli (npm): ${getCliPackageVersion()}`);
-  const bin = await resolveForstBinary(resolveOptions);
-  console.log(`Compiler binary: ${bin}`);
-  const out = execFileSync(bin, ["version"], { encoding: "utf8" }).trim();
+  const pinned = getBundledCompilerReleaseVersion();
+  console.log(`Pinned compiler release: ${pinned}`);
+
+  const env = resolveOptions?.env ?? process.env;
+  const override = env.FORST_BINARY?.trim();
+  const { binaryPath, version: resolved } =
+    await resolveForstBinaryDetailed(resolveOptions);
+
+  if (override) {
+    console.log(`Resolved compiler version: (FORST_BINARY override)`);
+  } else {
+    console.log(`Resolved compiler version: ${resolved}`);
+    if (resolved && pinned !== resolved) {
+      console.log(
+        `Note: pinned release unavailable; resolved to an older compiler.`
+      );
+    }
+  }
+
+  console.log(`Compiler binary: ${binaryPath}`);
+  const out = execFileSync(binaryPath, ["version"], {
+    encoding: "utf8",
+  }).trim();
   console.log(`Compiler version output:\n${out}`);
 }
 

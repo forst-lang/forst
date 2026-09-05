@@ -12,6 +12,8 @@ Tiny “hello” program split across three files so you can see **how the langu
 
 The language server merges **all same-package `.ft` files in this directory on disk**, not only the tabs you have open, so `main.ft` still typechecks when `greeting.ft` / `fmt_only.ft` are closed.
 
+This matches Strict package layout: one package name, one directory. Split helpers freely inside the same folder.
+
 ## Golden outputs (`examples/out/`)
 
 `fmt_only.ft` → `fmt_only.go`, `greeting.ft` → `greeting.go`, `cli.ft` → `cli.go`. There is no `main.go`: `main.ft` does not compile alone. Integration coverage for the merged case is `TestProcessForstFile_crossFileGoImportSharedAcrossBuffers` in `cmd/forst/lsp/cross_file_test.go`.

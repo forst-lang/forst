@@ -115,7 +115,7 @@ func TestHandleFunctions_discoveryFailure_returns500(t *testing.T) {
 func TestHandleInvoke_readBodyError(t *testing.T) {
 	s := testDevServer(t)
 	rr := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/invoke", io.NopCloser(failReader{}))
+	req := newInvokeTestRequest(http.MethodPost, "/invoke", io.NopCloser(failReader{}))
 	s.handleInvoke(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d body %s", rr.Code, rr.Body.String())
@@ -138,7 +138,7 @@ func TestHandleInvoke_wrongMethod(t *testing.T) {
 func TestHandleInvoke_invalidJSON(t *testing.T) {
 	s := testDevServer(t)
 	rr := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/invoke", bytes.NewBufferString("not-json"))
+	req := newInvokeTestRequest(http.MethodPost, "/invoke", bytes.NewBufferString("not-json"))
 	s.handleInvoke(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d body %s", rr.Code, rr.Body.String())
@@ -152,7 +152,7 @@ func TestHandleInvoke_oversizedBody(t *testing.T) {
 
 	body := strings.Repeat("x", 128)
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("want 413, got %d body %s", rr.Code, rr.Body.String())
 	}
@@ -164,7 +164,7 @@ func TestHandleInvoke_packageNotFound(t *testing.T) {
 
 	body := bytes.NewBufferString(`{"package":"missing","function":"Fn","args":null}`)
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", body))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", body))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -178,7 +178,7 @@ func TestHandleInvoke_functionNotFound(t *testing.T) {
 
 	body := bytes.NewBufferString(`{"package":"mypkg","function":"Nope","args":null}`)
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", body))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", body))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -198,7 +198,7 @@ func TestHandleInvoke_streamingNotSupported_returns400(t *testing.T) {
 	}
 	body := `{"package":"mypkg","function":"NoStream","args":[],"streaming":true}`
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -225,7 +225,7 @@ func TestHandleInvoke_streamingRequiresFlusher_returns500(t *testing.T) {
 	reqBody := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
 	writer := &nonFlushingResponseWriter{}
 
-	s.handleInvoke(writer, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
+	s.handleInvoke(writer, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
 	if writer.status != http.StatusInternalServerError {
 		t.Fatalf("expected 500 when flusher missing, got %d body=%s", writer.status, writer.body.String())
 	}
@@ -246,7 +246,7 @@ func TestHandleInvoke_executeFunctionFailure_returns500(t *testing.T) {
 	}
 	body := `{"package":"mypkg","function":"Fn","args":[]}`
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500 when execution fails, got %d body=%s", rr.Code, rr.Body.String())
 	}
@@ -301,7 +301,7 @@ func TestHandleInvoke_streamingExecuteError_returns500(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	body := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("want 500, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -508,7 +508,7 @@ func TestHandleInvoke_executeFunctionSuccess_returns200(t *testing.T) {
 	}
 	body := `{"package":"mypkg","function":"Fn","args":[]}`
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
 	}
@@ -542,7 +542,7 @@ func TestHandleInvoke_streamingSuccess_writesNDJSON(t *testing.T) {
 	}
 	reqBody := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
 	rr := httptest.NewRecorder()
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
 	}
@@ -599,7 +599,7 @@ func TestHandleInvoke_streamingEncodeError_stopsAfterFirstChunk(t *testing.T) {
 	base := httptest.NewRecorder()
 	rr := &errAfterManyBytes{ResponseRecorder: base, limit: 40}
 	reqBody := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
-	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
+	s.handleInvoke(rr, newInvokeTestRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
 	if base.Code != 0 && base.Code != http.StatusOK {
 		t.Fatalf("unexpected code %d", base.Code)
 	}

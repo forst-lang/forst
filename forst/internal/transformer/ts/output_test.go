@@ -102,19 +102,26 @@ func TestGeneratedTypes_containsStreamingResultAndNoSidecarImport(t *testing.T) 
 	}
 }
 
-func TestTypeScriptOutput_GeneratePackageModule_reExportsCoreAndTypes(t *testing.T) {
+func TestTypeScriptOutput_GeneratePackageModule_emitsBoundNamespaceAndTypes(t *testing.T) {
 	o := &TypeScriptOutput{
 		PackageName:       "auth",
-		ExportedTypeNames: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
+		ExportedTypeNames: []string{"$VerifyTokenRequest", "$VerifyTokenResponse"},
+		Functions: []FunctionSignature{
+			{Name: "VerifyToken", ReturnType: "VerifyTokenResponse"},
+		},
 	}
 	got := o.GeneratePackageModule()
 	for _, frag := range []string{
-		`export * from "../core/auth.js"`,
-		"export type { VerifyTokenRequest, VerifyTokenResponse }",
-		`from "../types.js"`,
+		`import { $auth as $authCore } from "../core/auth.js"`,
+		"export const $auth = {",
+		"VerifyToken: Object.assign(",
 	} {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q:\n%s", frag, got)
 		}
+	}
+	dts := EmitPackageDTS(ModuleEmitFromOutput(o, false), RuntimePromise, "")
+	if !strings.Contains(dts, "export type { $VerifyTokenRequest, $VerifyTokenResponse }") {
+		t.Fatalf("missing type re-exports in d.ts:\n%s", dts)
 	}
 }

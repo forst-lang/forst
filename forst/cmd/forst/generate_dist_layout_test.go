@@ -32,10 +32,13 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 	for _, rel := range []string{
 		"dist/index.js",
 		"dist/index.d.ts",
-		"dist/errors.js",
-		"dist/errors.d.ts",
-		"dist/transport.js",
-		"dist/transport.d.ts",
+		"dist/$errors.js",
+		"dist/$errors.d.ts",
+		"dist/$transport.js",
+		"dist/$transport.d.ts",
+		"dist/transport/runtime.js",
+		"dist/transport/runtime.d.ts",
+		"dist/transport/errors.js",
 		"dist/types.d.ts",
 		"dist/core/main.js",
 		"dist/core/main.d.ts",
@@ -90,7 +93,7 @@ func TestGenerate_userModulesEmittedUnderDistPkgAndDistCore(t *testing.T) {
 }
 
 func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -110,7 +113,7 @@ func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
 }
 
 func TestGenerate_packageJSONDeclaresNodeEnginesFloor(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), nil)
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), nil, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -167,7 +170,7 @@ func TestWriteFileAtomic_neverLeavesPartialFile(t *testing.T) {
 	path := filepath.Join(dir, "out.js")
 	origRename := generateIO.Rename
 	t.Cleanup(func() { generateIO.Rename = origRename })
-	generateIO.Rename = func(oldpath, newpath string) error {
+	generateIO.Rename = func(_, _ string) error {
 		return os.ErrPermission
 	}
 	_, err := writeFileAtomic(path, []byte("partial\n"))
@@ -255,7 +258,7 @@ func TestGenerate_watchRegeneratesOnFtChange(t *testing.T) {
 	generateWatchDebounce = 5 * time.Millisecond
 	stopHook := make(chan struct{})
 	generateWatchStopHook = stopHook
-	watchPackageRootFn = func(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config, debounce time.Duration, onChange func(changedPath string), stop <-chan struct{}) error {
+	watchPackageRootFn = func(_ *logrus.Logger, _ string, _ *ftconfig.Config, _ time.Duration, onChange func(changedPath string), stop <-chan struct{}) error {
 		select {
 		case <-kick:
 			onChange(ftPath)
@@ -378,7 +381,7 @@ func TestGenerate_tsc_requireFromCommonJsResolves(t *testing.T) {
 	body := `
 const path = require("node:path");
 const mod = require("@forst/gen/main");
-if (typeof mod.Echo !== "function") {
+if (typeof mod.$main?.Echo !== "function") {
   console.error("Echo missing", Object.keys(mod));
   process.exit(1);
 }

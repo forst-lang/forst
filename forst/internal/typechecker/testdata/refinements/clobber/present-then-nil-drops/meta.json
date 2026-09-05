@@ -1,0 +1,5 @@
+{
+  "id": "clobber/present-then-nil-drops",
+  "expect": "typecheck-error",
+  "title": "Present then Nil drops"
+}

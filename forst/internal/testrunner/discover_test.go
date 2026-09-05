@@ -48,6 +48,40 @@ func TestDiscoverPackages_walksModuleAndSkipsDotDirs(t *testing.T) {
 	}
 }
 
+func TestDiscoverPackages_skipsNestedGoMod(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "pkg", "a.ft"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "pkg", "a_test.ft"), "package pkg\n")
+	nested := filepath.Join(root, "other_mod", "api")
+	writeFile(t, filepath.Join(root, "other_mod", "go.mod"), "module other_mod\n\ngo 1.26\n")
+	writeFile(t, filepath.Join(nested, "b_test.ft"), "package api\n")
+
+	pkgs, err := DiscoverPackages(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 || pkgs[0].RelPath != "pkg" {
+		t.Fatalf("got %#v, want only pkg (skip nested go.mod)", pkgs)
+	}
+}
+
+func TestDiscoverPackages_skipsNestedFtconfig(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "pkg", "a_test.ft"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "isolated", "ftconfig.json"), "{}\n")
+	writeFile(t, filepath.Join(root, "isolated", "x_test.ft"), "package isolated\n")
+
+	pkgs, err := DiscoverPackages(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 || pkgs[0].RelPath != "pkg" {
+		t.Fatalf("got %#v, want only pkg (skip nested ftconfig.json)", pkgs)
+	}
+}
+
 func TestDiscoverPackages_explicitPathToPackageDir(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

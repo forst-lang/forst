@@ -1,0 +1,196 @@
+---
+title: "Testing"
+description: "Replace Forst calls in tests, or start a real invoke server."
+---
+
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
+Code that calls Forst should be testable without a running Forst server. The generated test helpers let you replace a call for the duration of one test. Your application keeps using the same import as production.
+
+<NodeClientSetupNote />
+
+## Replace one function
+
+This is the usual choice for a unit test. Supply the result you need, then run the code that depends on it.
+
+```typescript
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
+
+const input = {
+  plainPassword: "secret",
+  passwordHash: "$2a$...",
+};
+
+await withForstTestScope(
+  {
+    packages: {
+      auth: {
+        VerifyPassword: async () => ({ valid: true }),
+      },
+    },
+  },
+  async () => {
+    expect(await $auth.VerifyPassword(input)).toEqual({ valid: true });
+  }
+);
+```
+
+`$auth.VerifyPassword` still comes from `@forst/gen/auth`. The replacement only applies inside the callback passed to `withForstTestScope`.
+
+The generated handler type matches the real function. TypeScript reports an error if your replacement accepts the wrong input or returns the wrong shape.
+
+## What the scope guarantees
+
+The scope contains each replacement and cleans it up for you.
+
+- The original client behavior is restored after the callback finishes.
+- Restoration also happens when the callback throws.
+- Nested scopes use the closest replacement.
+- Concurrent tests keep their replacements separate.
+- A call with no replacement fails with `InvokeRejected` and names the package and function.
+
+You do not need an `afterEach` cleanup hook.
+
+## Choose how much to replace
+
+Start with the smallest replacement that describes your test.
+
+| Choice | What it replaces | Use it when |
+| --- | --- | --- |
+| One function | One generated function | Testing one business path |
+| Package functions | Several functions from one Forst package | Testing a feature that uses a group of calls |
+| Connection | The low level invoke client | Checking request data or connection failures |
+
+### Replace several package functions
+
+Place related replacements under the same package name. Any function you call inside the scope must have a replacement.
+
+```typescript
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
+
+await withForstTestScope(
+  {
+    packages: {
+      auth: {
+        VerifyPassword: async () => ({ valid: true }),
+        Hash: async () => ({ hash: "stub" }),
+      },
+    },
+  },
+  async () => {
+    await expect(
+      $auth.VerifyPassword({
+        plainPassword: "secret",
+        passwordHash: "$2a$...",
+      })
+    ).resolves.toEqual({ valid: true });
+
+    await expect($auth.Hash({ password: "secret" })).resolves.toEqual({
+      hash: "stub",
+    });
+  }
+);
+```
+
+### Replace the connection
+
+Use a connection replacement when the request itself matters. It is also useful for failures that happen before Forst returns a business result.
+
+```typescript
+import { InvokeTimedOut } from "@forst/errors";
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
+
+await withForstTestScope(
+  {
+    transport: {
+      invokeFunction: async (pkg, fn) => {
+        throw new InvokeTimedOut({
+          packageName: pkg,
+          functionName: fn,
+          timeoutMs: 50,
+        });
+      },
+    },
+  },
+  async () => {
+    await expect(
+      $auth.VerifyPassword({
+        plainPassword: "secret",
+        passwordHash: "$2a$...",
+      })
+    ).rejects.toMatchObject({ _tag: "@forst/errors/InvokeTimedOut" });
+  }
+);
+```
+
+The example makes every call time out. Your application sees the same `InvokeTimedOut` tag that it would see in production.
+
+## Test a namespaced client
+
+If your application uses `createForstClient`, create a test client with the same package and function shape.
+
+```typescript
+import { createTestForstClient } from "@forst/gen/$testing";
+
+const forst = createTestForstClient({
+  auth: {
+    VerifyPassword: async () => ({ valid: true }),
+  },
+});
+
+await forst.auth.VerifyPassword({
+  plainPassword: "secret",
+  passwordHash: "$2a$...",
+});
+```
+
+## Effect mode
+
+An Effect Layer supplies replacement services to the code under test. You can replace one service, a set of package functions, or the connection. See [Effect mode](/interop/invoke/effect#testing).
+
+## Call a real Forst server
+
+Mocks replace the server. When a test should exercise compiled Forst code over HTTP, start or attach to an invoke server from the same testing module.
+
+Install the optional peer once:
+
+```bash
+npm i -D @forst/cli
+```
+
+```typescript
+import { startForstTestServer } from "@forst/gen/$testing";
+import { $main } from "@forst/gen/main";
+
+await using _ = await startForstTestServer();
+expect(await $main.Echo({ message: "hi" })).toEqual({
+  echo: "hi",
+  timestamp: 42,
+});
+```
+
+`startForstTestServer` lazy-loads `@forst/cli/invoke`, starts or attaches to the invoke server, and points the default client at it. Package handles keep working.
+
+If a server is already running (CI, Docker, or a `globalSetup`), set `FORST_BASE_URL` or `FORST_SKIP_SPAWN=1`. The same call attaches instead of spawning. `@forst/runtime` is the other direction (Forst calling JS) and is not used here.
+
+In Effect mode use `ForstTestServerLayer` or `makeForstTestServer` instead. See [Effect mode](/interop/invoke/effect#testing).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst over HTTP" icon="/icons/typescript.svg" href="/interop/invoke/call-forst">
+    Production calls, failures, and options.
+  </Card>
+  <Card title="Effect mode" icon="bolt" href="/interop/invoke/effect">
+    `Layer.mock` and `ForstTestLayer`.
+  </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
+    `@forst/gen` imports and layout.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    `testingSubpath` and other `generate` fields.
+  </Card>
+</CardGroup>

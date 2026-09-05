@@ -9,9 +9,9 @@ func TestCheckTypes_mergedProvidersDemo(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
 	paths := []string{
-		filepath.Join(root, "providers.ft"),
-		filepath.Join(root, "providers_test.ft"),
-		filepath.Join(root, "main_wiring.ft"),
+		filepath.Join(root, "providers_demo", "providers.ft"),
+		filepath.Join(root, "providers_demo", "providers_test.ft"),
+		filepath.Join(root, "providers_demo", "main_wiring.ft"),
 	}
 	tc := mergedPackageTypecheck(t, paths)
 	if len(tc.FunctionProviders["expireToken"]) == 0 {

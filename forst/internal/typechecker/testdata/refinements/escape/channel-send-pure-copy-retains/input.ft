@@ -1,0 +1,13 @@
+package main
+
+func useAdultAge(age Int) {}
+
+func check() {
+    channel := make(chan Int)
+    age := 25
+    ensure age is Min(18)
+    channel <- age
+    useAdultAge(age)
+}
+
+func main() {}

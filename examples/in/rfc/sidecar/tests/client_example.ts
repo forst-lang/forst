@@ -128,7 +128,7 @@ async function runClientExampleWithSidecar() {
     port: 8084, // Use different port to avoid conflicts
     host: "localhost",
     logLevel: "debug",
-    rootDir: resolve(__dirname, "."),
+    rootDir: resolve(__dirname, ".."),
   });
 
   // Intentionally awkward way to set custom compiler path
@@ -171,7 +171,7 @@ async function runClientExampleWithManagedServer() {
     port: 8085,
     host: "localhost",
     logLevel: "info",
-    rootDir: resolve(__dirname, "."),
+    rootDir: resolve(__dirname, ".."),
   });
 
   try {

@@ -11,8 +11,10 @@ vars:
 tasks:
   # Build tasks
   build:
-    desc: Build the Forst compiler
+    desc: Build the Forst compiler and official generate plugins
     dir: forst
+    deps:
+      - build:plugins
     cmds:
       - go build -o ../bin/{{.BINARY_NAME}} ./{{.BUILD_DIR}}
     sources:
@@ -111,21 +113,21 @@ tasks:
     cmds:
       - bun run test
 
-  build:node-runtime:
-    desc: Build @forst/node-runtime
-    dir: packages/node-runtime
+  build:runtime:
+    desc: Build @forst/runtime
+    dir: packages/runtime
     deps: [install:bun]
     cmds:
       - bun run build
     sources:
       - ./**/*.ts
     generates:
-      - packages/node-runtime/dist/bootstrap.js
-      - packages/node-runtime/dist/index.js
+      - packages/runtime/dist/bootstrap.js
+      - packages/runtime/dist/index.js
 
-  test:node-runtime:
-    desc: Run Bun tests for @forst/node-runtime
-    dir: packages/node-runtime
+  test:runtime:
+    desc: Run Bun tests for @forst/runtime
+    dir: packages/runtime
     deps: [install:bun]
     cmds:
       - bun run test
@@ -141,6 +143,37 @@ tasks:
     generates:
       - packages/client/dist/index.js
       - packages/client/dist/index.d.ts
+
+  build:plugins:
+    desc: Build forst generate semantic plugins to ../bin/
+    dir: forst
+    cmds:
+      - mkdir -p ../bin
+      - |
+        set -euo pipefail
+        go build -o ../bin/forst-gen-jsonschema ./plugins/forst-gen-jsonschema &
+        go build -o ../bin/forst-gen-orpc ./plugins/forst-gen-orpc &
+        go build -o ../bin/forst-gen-file-routes ./plugins/forst-gen-file-routes &
+        go build -o ../bin/forst-gen-react-router ./plugins/forst-gen-react-router &
+        go build -o ../bin/forst-gen-echo ./plugins/forst-gen-echo &
+        wait
+    sources:
+      - ./plugins/**/*.go
+      - ./internal/genplugin/**/*.go
+      - ./internal/semantic/**/*.go
+    generates:
+      - ../bin/forst-gen-jsonschema
+      - ../bin/forst-gen-orpc
+      - ../bin/forst-gen-file-routes
+      - ../bin/forst-gen-react-router
+      - ../bin/forst-gen-echo
+
+  test:plugins:
+    desc: Run Go tests for semantic plugins and genplugin
+    dir: forst
+    cmds:
+      - go test ./internal/genplugin/... ./plugins/...
+      - go test ./cmd/forst -run 'TestGenerate_plugins|TestRunSemanticPlugins'
 
   build:vscode:
     desc: Compile the VS Code extension (TypeScript)
@@ -158,14 +191,19 @@ tasks:
       - packages/vscode-forst/out/extension.js.map
 
   sync:forst-grammar:
-    desc: Sync forst.tmLanguage.json to docs/languages/forst.json (Mintlify)
+    desc: Sync forst.tmLanguage.json to docs/languages/forst.json and build client highlighter
     dir: packages/vscode-forst
     cmds:
       - bun run sync:grammar
     sources:
       - syntaxes/forst.tmLanguage.json
+      - scripts/forst-tokenize.mjs
+      - scripts/forst-highlight-detect.mjs
+      - scripts/forst-highlight-browser.mjs
+      - scripts/sync-forst-grammar.mjs
     generates:
       - docs/languages/forst.json
+      - docs/forst-highlight.js
 
   install:
     desc: Install the Forst compiler
@@ -184,7 +222,7 @@ tasks:
   test:
     desc: Run all tests
     dir: forst
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
       - go test -v ./internal/...
       - go test -v ./cmd/forst/...
@@ -192,7 +230,7 @@ tasks:
   test:unit:
     desc: Run unit tests only
     dir: forst
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
       - go test -v ./internal/...
 
@@ -205,7 +243,7 @@ tasks:
   test:unit:typechecker:
     desc: Run unit tests for typechecker
     dir: forst
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
       - go test -v ./internal/typechecker/...
 
@@ -296,7 +334,7 @@ tasks:
     desc: Run go_interop example (Go FFI + same-package hand-written Go)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} build -o {{.EXAMPLES_DIR}}/go_interop/main.gen.go -- {{.EXAMPLES_DIR}}/go_interop/cli.ft
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/go_interop
       - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop && go run .'
 
   test:errors-compat:
@@ -306,11 +344,47 @@ tasks:
       - go test ./internal/typechecker/... -run ErrorsCompat -count=1
       - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop/errors-compat && GOWORK=off go mod tidy && GOWORK=off go test ./... -count=1'
 
+  test:go-import-corpus:
+    desc: Typecheck manifest of Go import integration examples (requires go/packages)
+    dir: forst
+    cmds:
+      - go test ./internal/typechecker/... -run TestGoImportCorpus -count=1
+
   example:generics:
     desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generics.ft
+
+  example:generic-pointer:
+    desc: Compile user generic pointer example (golden examples/out/generic_pointer.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_pointer.ft
+
+  example:generic-map:
+    desc: Compile user generic map example (golden examples/out/generic_map.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_map.ft
+
+  example:generic-variadic:
+    desc: Compile user generic variadic example (golden examples/out/generic_variadic.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_variadic.ft
+
+  example:generic-shape:
+    desc: Compile user generic shape example (golden examples/out/generic_shape.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_shape.ft
+
+  example:generic-result:
+    desc: Compile user generic Result param example (golden examples/out/generic_result.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generic_result.ft
 
   example:function:
     desc: Compile function example
@@ -323,6 +397,90 @@ tasks:
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
+
+  example:ensure-true:
+    desc: Compile ensure_true example (ensure ok is True())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure_true.ft
+
+  example:nested-slices:
+    desc: Compile nested_slices example (Go-style [][]T composites)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/nested_slices.ft
+
+  example:hex-byte-xor:
+    desc: Compile hex_byte_xor example (0x literals and byte^Int)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/hex_byte_xor.ft
+
+  example:http-handler-assign:
+    desc: Compile http_handler_assign example (ServeMux to Server.Handler)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/http_handler_assign.ft
+
+  example:go-stmt:
+    desc: Compile go_stmt example (go f())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_stmt.ft
+
+  example:crypto-hmac:
+    desc: Compile crypto_hmac example (sha256/hmac func values)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/crypto_hmac.ft
+
+  example:funclit-return:
+    desc: Compile funclit_return example (closure return vs outer Result)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/funclit_return.ft
+
+  example:go-ptr-composite:
+    desc: Compile go_ptr_composite example (&imported.T{…})
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_ptr_composite.ft
+
+  example:new-go-named:
+    desc: Compile new_go_named example (new(http.Request))
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/new_go_named.ft
+
+  example:http-err-closed-eq:
+    desc: Compile http_err_closed_eq example (err == http.ErrServerClosed)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/http_err_closed_eq.ft
+
+  example:plain-main:
+    desc: Compile plain_main package (generate without invoke companions)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/plain_main/main.ft
+
+  example:mixed-pkg:
+    desc: Compile mixed_pkg (Forst + sibling handwritten .go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/mixed_pkg/main.ft
+
+  example:new-imported-method:
+    desc: Compile new_imported_method (new(imported.T) then method call)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/new_imported_method/main.ft
+
+  example:config-identity:
+    desc: Compile config_identity (Forst shape alias assignable to Go named struct)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/config_identity/main.ft
 
   example:nominal-error:
     desc: Compile nominal error example (error X { ... } nominal failure type, RFC 02)
@@ -364,7 +522,7 @@ tasks:
     desc: Compile Providers showcase (use/with, golden examples/out/rfc/providers/)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers_demo/providers.ft
 
   ensure:providers-gomod:
     internal: true
@@ -381,7 +539,7 @@ tasks:
     deps: [build, ensure:providers-gomod]
     dir: forst
     cmds:
-      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/providers_demo
 
   test:providers-cross_pkg:
     desc: Run cross-package Providers forst test (session sandbox under .forst/gen)
@@ -571,67 +729,79 @@ tasks:
       - bun run example:client
     silent: false
 
-  test:node-interop:unit:
-    desc: Node interop unit tests (nodeinterop, nodert, typechecker, cmd/forst)
+  test:bridge-interop:unit:
+    desc: Bridge interop unit tests (bridgeinterop, bridgert, typechecker, cmd/forst)
     dir: forst
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
-      - go test ./internal/nodeinterop/... -count=1
-      - go test ./nodert/... -run 'TestCall|TestClient|TestRead|TestManifest|TestFixtures|TestResolve' -count=1 -p 1
+      - go test ./internal/bridgeinterop/... -count=1
+      - go test ./bridgert/... -run 'TestCall|TestClient|TestRead|TestManifest|TestFixtures|TestResolve' -count=1 -p 1
       - go test ./internal/typechecker/... -run 'NodeInterop|NodeImports' -count=1
-      - go test ./internal/compiler/... -run 'NodeInterop|RequireNoNode|CompileNodeInterop' -count=1
+      - go test ./internal/compiler/... -run 'NodeInterop|RequireNoBridge|CompileNodeInterop' -count=1
       - go test ./internal/transformer/go/... -run 'NodeBridge|TransformNode' -count=1
       - go test ./cmd/forst/... -run 'NodeInterop' -count=1
 
-  test:node-interop:integration:
-    desc: Node interop integration tests (real Node bootstrap via nodert)
+  test:bridge-interop:integration:
+    desc: Bridge interop integration tests (real bootstrap via bridgert)
     dir: forst
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go test ./nodert/... -run 'Integration' -count=1
+      - go test ./bridgert/... -run 'Integration' -count=1
 
-  test:node-interop:require-no-node:
-    desc: Verify -require-no-node allows basic.ft and rejects node-interop
+  test:bridge-host-e2e:
+    desc: Bootstrap E2E for Bun and Deno bridge hosts (Ping + CallSync)
+    dir: forst
+    deps: [build:runtime]
+    env:
+      FORST_REQUIRE_BRIDGE_HOST: "1"
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
+    cmds:
+      - go test ./bridgert/ -run '^TestBridgeHost_' -count=1 -timeout=5m -v
+
+  test:bridge-interop:require-no-bridge:
+    desc: Verify -require-no-bridge allows basic.ft and rejects bridge-interop
     dir: forst
     cmds:
-      - go test ./cmd/forst/... -run 'TestNodeInterop_.*RequireNoNode' -count=1
-      - go test ./internal/compiler/... -run 'RequireNoNode' -count=1
+      - go test ./cmd/forst/... -run 'TestNodeInterop_.*RequireNoBridge' -count=1
+      - go test ./internal/compiler/... -run 'RequireNoBridge' -count=1
 
-  node-interop:smoke:
-    desc: Node interop smoke (build node-runtime, Go contracts, Bun tests)
+  bridge-interop:smoke:
+    desc: Bridge interop smoke (build runtime, Go contracts, Bun tests)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     cmds:
-      - task: test:node-interop:unit
-      - task: test:node-runtime
+      - task: test:bridge-interop:unit
+      - task: test:runtime
 
-  example:node-interop:
-    desc: Compile node-interop example (Phase 1 compile-only; import node + TS fixture)
+  example:bridge-interop:
+    desc: Compile bridge-interop example (Phase 1 compile-only; import node + TS fixture)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     cmds:
-      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/node-interop -- {{.EXAMPLES_DIR}}/rfc/node-interop/main.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/bridge-interop -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/main.ft
 
   example:multipackage-dev:
     desc: Compile multi-package-dev example (main host + package auth)
     dir: forst
     deps: [build]
     cmds:
-      - mkdir -p {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main.ft
+      - mkdir -p {{.OUTPUT_DIR}}/rfc/bridge-interop/multi-package-dev
+      - mkdir -p {{.EXAMPLES_DIR}}/rfc/bridge-interop/multi-package-dev/.forst/golden
+      - go run ./{{.BUILD_DIR}} generate --skip-client --go-entry={{.EXAMPLES_DIR}}/rfc/bridge-interop/multi-package-dev/main/main.ft --go-out=.forst/golden/main.go {{.EXAMPLES_DIR}}/rfc/bridge-interop/multi-package-dev
+      - cp -R {{.EXAMPLES_DIR}}/rfc/bridge-interop/multi-package-dev/.forst/golden/. {{.OUTPUT_DIR}}/rfc/bridge-interop/multi-package-dev/
 
   example:multipackage-dev:run:
     desc: Run multi-package-dev via forst dev (embedded invoke + hostMode)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     cmds:
-      - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -entry main.ft -log-level error
+      - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/multi-package-dev -entry main/main.ft -log-level error
 
   example:multipackage-dev:reload-e2e:
     desc: E2E — multipackage-dev forst dev reload keeps Node host pid alive
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     cmds:
       - bash scripts/multipackage-dev-reload-e2e.sh
 
@@ -641,7 +811,9 @@ tasks:
     deps: [build]
     cmds:
       - mkdir -p {{.OUTPUT_DIR}}/rfc/embedded-invoke
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/embedded-invoke/main.go -root {{.EXAMPLES_DIR}}/rfc/embedded-invoke -- {{.EXAMPLES_DIR}}/rfc/embedded-invoke/main.ft
+      - mkdir -p {{.EXAMPLES_DIR}}/rfc/embedded-invoke/.forst/golden
+      - go run ./{{.BUILD_DIR}} generate --skip-client --go-entry={{.EXAMPLES_DIR}}/rfc/embedded-invoke/main.ft --go-out=.forst/golden/main.go {{.EXAMPLES_DIR}}/rfc/embedded-invoke
+      - cp -R {{.EXAMPLES_DIR}}/rfc/embedded-invoke/.forst/golden/. {{.OUTPUT_DIR}}/rfc/embedded-invoke/
 
   example:embedded-invoke:run:
     desc: Run embedded-invoke binary and POST /invoke
@@ -652,7 +824,8 @@ tasks:
         set -euo pipefail
         bash ../scripts/kill-forst-tcp-listeners.sh 6321
         FT_ROOT="{{.EXAMPLES_DIR}}/rfc/embedded-invoke"
-        FORST_BOUNDARY_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
+        FORST_INVOKE_TRANSPORT=tcp FORST_INVOKE_AUTH=off \
+          FORST_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
         PID=$!
         trap 'kill -TERM $PID 2>/dev/null || true; bash ../scripts/kill-forst-tcp-listeners.sh 6321' EXIT
         bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health invoke 30
@@ -660,102 +833,102 @@ tasks:
           -H 'Content-Type: application/json' \
           -d '{"package":"main","function":"Echo","args":[{"message":"hello"}]}'
 
-  example:node-interop-sync:
-    desc: Run node-interop sync example (Phase 2 sync RPC E2E)
+  example:bridge-interop-sync:
+    desc: Run bridge-interop sync example (Phase 2 sync RPC E2E)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/sync -- {{.EXAMPLES_DIR}}/rfc/node-interop/sync/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/sync -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/sync/main.ft
 
-  example:node-interop-promises:
-    desc: Run node-interop promises example (Phase 3 async RPC E2E)
+  example:bridge-interop-promises:
+    desc: Run bridge-interop promises example (Phase 3 async RPC E2E)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/promises -- {{.EXAMPLES_DIR}}/rfc/node-interop/promises/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/promises -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/promises/main.ft
 
-  example:node-interop-generators:
-    desc: Run node-interop generators example (Phase 4 generator RPC E2E)
+  example:bridge-interop-generators:
+    desc: Run bridge-interop generators example (Phase 4 generator RPC E2E)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/generators -- {{.EXAMPLES_DIR}}/rfc/node-interop/generators/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/generators -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/generators/main.ft
 
-  example:node-interop-async:
-    desc: Run node-interop async example (multi-module blocking async + generators E2E)
+  example:bridge-interop-async:
+    desc: Run bridge-interop async example (multi-module blocking async + generators E2E)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/async -- {{.EXAMPLES_DIR}}/rfc/node-interop/async/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/async -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/async/main.ft
 
-  example:node-interop-host:
-    desc: Compile node-interop host example (host mode fixture; compile-only)
+  example:bridge-interop-host:
+    desc: Compile bridge-interop host example (host mode fixture; compile-only)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     cmds:
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/host -- {{.EXAMPLES_DIR}}/rfc/node-interop/host/main.ft
+      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/host -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/host/main.ft
 
-  example:node-interop-remix-serve:install:
+  example:bridge-interop-remix-serve:install:
     desc: Install remix-serve example Node deps
-    dir: examples/in/rfc/node-interop/remix-serve
+    dir: examples/in/rfc/bridge-interop/remix-serve
     cmds:
       - bun install
 
   # Merged package main with descriptive stems (api.ft, types.ft); flag required — see examples/in/forst-generate-ts-examples.json
-  example:node-interop-remix-serve:generate:
+  example:bridge-interop-remix-serve:generate:
     desc: Generate TypeScript client for remix-serve example
     dir: forst
     deps: [build]
     cmds:
-      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve
 
-  example:node-interop-remix-serve:build-remix:
+  example:bridge-interop-remix-serve:build-remix:
     desc: Build Remix app for remix-serve example (remix vite:build)
-    dir: examples/in/rfc/node-interop/remix-serve
-    deps: [build:client, build:errors, build:sidecar, example:node-interop-remix-serve:generate]
+    dir: examples/in/rfc/bridge-interop/remix-serve
+    deps: [build:client, build:errors, build:sidecar, example:bridge-interop-remix-serve:generate]
     cmds:
-      - task: example:node-interop-remix-serve:install
+      - task: example:bridge-interop-remix-serve:install
       - bun run build
 
-  example:node-interop-remix-serve:
-    desc: Compile node-interop remix-serve example (host mode + remix-serve + embedded invoke)
+  example:bridge-interop-remix-serve:
+    desc: Compile bridge-interop remix-serve example (host mode + remix-serve + embedded invoke)
     dir: forst
-    deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
+    deps: [build:runtime, build, example:bridge-interop-remix-serve:build-remix]
     cmds:
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main/main.ft
+      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve/main/main.ft
 
-  example:node-interop-remix-serve:run:
+  example:bridge-interop-remix-serve:run:
     desc: Run remix-serve todo example (three-channel IPC; blocks on invoke server)
     dir: forst
-    deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
+    deps: [build:runtime, build, example:bridge-interop-remix-serve:build-remix]
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve/main/main.ft
 
-  example:node-interop-remix-serve:e2e:
+  example:bridge-interop-remix-serve:e2e:
     desc: E2E — invoke :6321, Remix :6322, generated client
     dir: forst
-    deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
+    deps: [build:runtime, build, example:bridge-interop-remix-serve:build-remix]
     cmds:
       - |
-        FT_ROOT="{{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve"
+        FT_ROOT="{{.EXAMPLES_DIR}}/rfc/bridge-interop/remix-serve"
         FORST_BIN="../bin/{{.BINARY_NAME}}"
         export FT_ROOT FORST_BIN
         bash -eo pipefail <<'EOS'
         bash ../scripts/kill-forst-tcp-listeners.sh 6321
         lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
-        pkill -f 'forst run.*node-interop/remix-serve' 2>/dev/null || true
+        pkill -f 'forst run.*bridge-interop/remix-serve' 2>/dev/null || true
         pkill -f 'remix-serve build/server/index.js' 2>/dev/null || true
         sleep 0.3
 
-        FORST_BOUNDARY_ROOT="$FT_ROOT" "$FORST_BIN" run \
+        FORST_INVOKE_TRANSPORT=tcp FORST_ROOT="$FT_ROOT" "$FORST_BIN" run \
           -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main/main.ft" &
         FORST_PID=$!
         cleanup() {
@@ -773,25 +946,25 @@ tasks:
         cd "$FT_ROOT" && FORST_BASE_URL=http://127.0.0.1:6321 bun test e2e/
         EOS
 
-  example:node-interop-remix-serve:standalone-e2e:
+  example:bridge-interop-remix-serve:standalone-e2e:
     desc: E2E — temp-dir remix-serve with local @forst/* file deps (no registry)
     deps: [install:bun]
     cmds:
       - bash scripts/remix-serve-standalone-e2e.sh
 
-  example:node-interop-remix-serve:standalone-dev:
+  example:bridge-interop-remix-serve:standalone-dev:
     desc: Dev — temp-dir remix-serve; keeps running until Ctrl+C (cleans up after)
     cmds:
       - bash scripts/remix-serve-standalone-e2e.sh --dev
 
-  example:node-interop-modules:
-    desc: Run node-interop modules example (nested TS module resolution E2E)
+  example:bridge-interop-modules:
+    desc: Run bridge-interop modules example (nested TS module resolution E2E)
     dir: forst
-    deps: [build:node-runtime, build]
+    deps: [build:runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_BRIDGE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/runtime/dist/bootstrap.js'
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/modules -- {{.EXAMPLES_DIR}}/rfc/node-interop/modules/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/bridge-interop/modules -- {{.EXAMPLES_DIR}}/rfc/bridge-interop/modules/main.ft
 
   dump:
     desc: Dump debug info for a specific example file
@@ -865,8 +1038,8 @@ tasks:
     cmds:
       - |
         if [ ! -f profile.cov ]; then
-          PKGS=$(go list ./cmd/forst/... ./internal/... ./nodert/... | paste -sd, -)
-          go test -coverprofile=profile.cov -coverpkg="$PKGS" ./cmd/forst/... ./internal/... ./nodert/... -count=1
+          PKGS=$(go list ./cmd/forst/... ./internal/... ./bridgert/... | paste -sd, -)
+          go test -coverprofile=profile.cov -coverpkg="$PKGS" ./cmd/forst/... ./internal/... ./bridgert/... -count=1
         fi
       - bash scripts/check_coverage_threshold.sh profile.cov {{.MIN_COVERAGE}}
 
@@ -880,37 +1053,38 @@ tasks:
     desc: Run CI coverage suite (Go tests + Coveralls profile)
     dir: forst
     set: [errexit]
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
       - task: build:vscode
       - |
-        PKGS=$(go list ./cmd/forst/... ./internal/... ./nodert/... | paste -sd, -)
-        go test -race -covermode atomic -coverpkg="$PKGS" -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/... ./nodert/...
+        PKGS=$(go list ./cmd/forst/... ./internal/... ./bridgert/... | paste -sd, -)
+        go test -race -covermode atomic -coverpkg="$PKGS" -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/... ./bridgert/...
 
   ci:e2e:
     desc: Run CI E2E suite (runtime examples, node interop, sidecar, providers)
     set: [errexit]
-    deps: [build:node-runtime]
+    deps: [build:runtime]
     cmds:
       - task: build
       - task: test:cli
       - task: test:cli:invoke-e2e
       - task: test:sidecar
-      - task: node-interop:smoke
+      - task: bridge-interop:smoke
+      - task: test:bridge-host-e2e
       - task: test:multipackage-dev
       - task: example:embedded-invoke:run
-      - task: example:node-interop-sync
-      - task: example:node-interop-promises
-      - task: example:node-interop-generators
-      - task: example:node-interop-async
-      - task: example:node-interop-modules
+      - task: example:bridge-interop-sync
+      - task: example:bridge-interop-promises
+      - task: example:bridge-interop-generators
+      - task: example:bridge-interop-async
+      - task: example:bridge-interop-modules
       - task: example:multipackage-dev:reload-e2e
       - task example:sidecar-local
       - task example:sidecar-downloaded
       - task test:tictactoe
       - task test:providers
       - task test:providers-cross_pkg
-      - task: example:node-interop-remix-serve:standalone-e2e
+      - task: example:bridge-interop-remix-serve:standalone-e2e
 
   # Release tasks
   build:release:
@@ -934,12 +1108,40 @@ tasks:
         GOOS=darwin GOARCH=arm64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-darwin-arm64 ./${BUILD_DIR}
         GOOS=windows GOARCH=amd64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-windows-amd64.exe ./${BUILD_DIR}
         GOOS=windows GOARCH=arm64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-windows-arm64.exe ./${BUILD_DIR}
+        PLUGINS=(
+          "forst-gen-jsonschema:./plugins/forst-gen-jsonschema"
+          "forst-gen-orpc:./plugins/forst-gen-orpc"
+          "forst-gen-file-routes:./plugins/forst-gen-file-routes"
+          "forst-gen-react-router:./plugins/forst-gen-react-router"
+          "forst-gen-echo:./plugins/forst-gen-echo"
+        )
+        build_release_plugins() {
+          local goos="$1" goarch="$2" suffix="$3" outdir="$4"
+          mkdir -p "$outdir"
+          for entry in "${PLUGINS[@]}"; do
+            local name="${entry%%:*}"
+            local pkg="${entry#*:}"
+            GOOS="$goos" GOARCH="$goarch" go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o "${outdir}/${name}${suffix}" "$pkg"
+          done
+        }
+        build_release_plugins linux amd64 "" ../dist/plugins-linux-amd64
+        build_release_plugins linux arm64 "" ../dist/plugins-linux-arm64
+        build_release_plugins darwin amd64 "" ../dist/plugins-darwin-amd64
+        build_release_plugins darwin arm64 "" ../dist/plugins-darwin-arm64
+        build_release_plugins windows amd64 .exe ../dist/plugins-windows-amd64
+        build_release_plugins windows arm64 .exe ../dist/plugins-windows-arm64
       - tar -czf ../dist/{{.BINARY_NAME}}-linux-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-amd64
       - tar -czf ../dist/{{.BINARY_NAME}}-linux-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-arm64
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-amd64
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
       - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
       - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
+      - tar -czf ../dist/forst-plugins-linux-amd64.tar.gz -C ../dist/plugins-linux-amd64 .
+      - tar -czf ../dist/forst-plugins-linux-arm64.tar.gz -C ../dist/plugins-linux-arm64 .
+      - tar -czf ../dist/forst-plugins-darwin-amd64.tar.gz -C ../dist/plugins-darwin-amd64 .
+      - tar -czf ../dist/forst-plugins-darwin-arm64.tar.gz -C ../dist/plugins-darwin-arm64 .
+      - cd ../dist/plugins-windows-amd64 && zip ../forst-plugins-windows-amd64.zip *.exe
+      - cd ../dist/plugins-windows-arm64 && zip ../forst-plugins-windows-arm64.zip *.exe
       - |
         set -euo pipefail
         VERSION="{{.VERSION | default "dev"}}"
@@ -978,14 +1180,17 @@ tasks:
       - |
         set -euo pipefail
         VERSION="{{.VERSION | default "dev"}}"
-        for pair in "amd64:dist/forst-linux-amd64" "arm64:dist/forst-linux-arm64"; do
-          ARCH="${pair%%:*}"
-          GO_BINARY="${pair#*:}"
+        for pair in "amd64:dist/forst-linux-amd64:dist/plugins-linux-amd64" "arm64:dist/forst-linux-arm64:dist/plugins-linux-arm64"; do
+          IFS=: read -r ARCH GO_BINARY GO_PLUGINS_DIR <<< "${pair}"
           if [ ! -f "$GO_BINARY" ]; then
             echo "missing binary: $GO_BINARY (run task build:release first)" >&2
             exit 1
           fi
-          export VERSION ARCH GO_BINARY
+          if [ ! -d "$GO_PLUGINS_DIR" ]; then
+            echo "missing plugins dir: $GO_PLUGINS_DIR (run task build:release first)" >&2
+            exit 1
+          fi
+          export VERSION ARCH GO_BINARY GO_PLUGINS_DIR
           nfpm package --packager deb --config nfpm.yaml --target dist/
         done
         ls -la dist/forst_*.deb
@@ -1022,7 +1227,7 @@ tasks:
           export PATH="/tmp:${PATH}"
         fi
         rm -f dist/forst_*_amd64.deb
-        export VERSION ARCH=amd64 GO_BINARY="$BINARY"
+        export VERSION ARCH=amd64 GO_BINARY="$BINARY" GO_PLUGINS_DIR="dist/plugins-linux-amd64"
         nfpm package --packager deb --config nfpm.yaml --target dist/
         DEB="$(ls -1t dist/forst_*_amd64.deb | head -1)"
         if [ -z "$DEB" ] || [ ! -f "$DEB" ]; then

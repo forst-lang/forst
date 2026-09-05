@@ -12,7 +12,7 @@ import (
 
 func TestHandleHealth_reportsReloadingMarker(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", dir)
+	t.Setenv("FORST_ROOT", dir)
 	markerPath := filepath.Join(dir, ".forst", "reloading")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o755); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestHandleHealth_reportsReloadingMarker(t *testing.T) {
 
 func TestHandleInvoke_returns503WhenReloadMarkerSet(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", dir)
+	t.Setenv("FORST_ROOT", dir)
 	markerPath := filepath.Join(dir, ".forst", "reloading")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o755); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestHandleInvoke_returns503WhenReloadMarkerSet(t *testing.T) {
 	s := newTestServer(t, &stubBackend{})
 	body := `{"package":"main","function":"Echo","args":{}}`
 	rr := httptest.NewRecorder()
-	s.HandleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.HandleInvoke(rr, newInvokeHTTPRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status: %d body=%s", rr.Code, rr.Body.String())
 	}

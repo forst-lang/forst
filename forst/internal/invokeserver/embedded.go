@@ -16,9 +16,8 @@ import (
 const (
 	envInvokeEnabled = "FORST_INVOKE_ENABLED"
 	// EnvInvokePort overrides the embedded invoke listen port (dev reload port pick).
-	EnvInvokePort   = "FORST_INVOKE_PORT"
-	envInvokePort   = EnvInvokePort
-	envBoundaryRoot = "FORST_BOUNDARY_ROOT"
+	EnvInvokePort = "FORST_INVOKE_PORT"
+	envInvokePort = EnvInvokePort
 )
 
 // GlobalRegistry returns the registry populated by generated init code.
@@ -51,7 +50,7 @@ func effectivePort(s ftconfig.ServerConfig) string {
 }
 
 func resolveBoundaryRoot() (string, error) {
-	if root := os.Getenv(envBoundaryRoot); root != "" {
+	if root := ftconfig.RootFromEnv(); root != "" {
 		return filepath.Clean(root), nil
 	}
 	cwd, err := os.Getwd()
@@ -64,28 +63,43 @@ func resolveBoundaryRoot() (string, error) {
 // InvokeReadyPayload is written to boundaryRoot/.forst/invoke.ready when embedded invoke starts.
 type InvokeReadyPayload struct {
 	URL             string `json:"url"`
+	SocketPath      string `json:"socketPath,omitempty"`
+	Generation      uint64 `json:"generation,omitempty"`
+	TokenDelivery   string `json:"tokenDelivery,omitempty"`
+	PID             int    `json:"pid,omitempty"`
 	ContractVersion string `json:"contractVersion"`
 	Runtime         string `json:"runtime"`
 }
 
-func writeInvokeReady(workDir string, cfg Config) error {
-	readyPath := filepath.Join(workDir, ".forst", "invoke.ready")
+func writeInvokeReady(workDir string, cfg Config, generation uint64, tokenDelivery string) error {
+	readyPath := invokeReadyPath(workDir)
 	if strings.Contains(readyPath, "..") {
 		return fmt.Errorf("invoke server: invalid ready path")
 	}
-	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(readyPath), 0o750); err != nil {
 		return err
 	}
 	payload := InvokeReadyPayload{
 		URL:             cfg.BaseURL(),
+		Generation:      generation,
+		TokenDelivery:   tokenDelivery,
+		PID:             os.Getpid(),
 		ContractVersion: HTTPContractVersion,
-		Runtime:         "embedded",
+		Runtime:         cfg.Runtime,
+	}
+	if cfg.network() == transportUnix {
+		payload.URL = ""
+		payload.SocketPath = cfg.SocketPath
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(readyPath, raw, 0o644)
+	tmp := readyPath + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, readyPath)
 }
 
 // DefaultEmbeddedVersion returns version metadata for embedded invoke /version.
@@ -115,4 +129,9 @@ func WaitForShutdown() {
 // NotifyShutdown unblocks WaitForShutdown (for tests).
 func NotifyShutdown() {
 	defaultRuntime.NotifyShutdown()
+}
+
+// StopEmbeddedForTest stops the default embedded invoke server (for tests).
+func StopEmbeddedForTest() {
+	defaultRuntime.Stop()
 }

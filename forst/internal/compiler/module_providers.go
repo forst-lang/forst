@@ -121,7 +121,7 @@ func RebindTypecheckerScopes(tc *typechecker.TypeChecker, nodes []ast.Node) erro
 
 // packageRootHasStandaloneModuleProviders is true when -root lies in a Go module with its own
 // go.mod (e.g. providers cross_pkg). False when FindModuleRoot falls back to the start directory
-// (node-interop under forst/go.mod) or when the module is the forst compiler repo.
+// (bridge-interop under forst/go.mod) or when the module is the forst compiler repo.
 func (c *Compiler) packageRootHasStandaloneModuleProviders() bool {
 	modRoot := goload.FindModuleRoot(c.Args.PackageRoot)
 	if !moduleRootHasGoMod(modRoot) {

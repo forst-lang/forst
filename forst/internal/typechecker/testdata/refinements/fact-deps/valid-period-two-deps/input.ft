@@ -1,0 +1,18 @@
+package main
+
+type Period = {
+	start: Int
+	end: Int
+	description: String
+}
+
+is (period Period) ValidPeriod {
+	ensure period.start is Min(0)
+	ensure period.end is Min(1)
+}
+
+func check(period Period) {
+	ensure period is ValidPeriod()
+}
+
+func main() {}

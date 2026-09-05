@@ -5,9 +5,11 @@ Start Date: 2026-07-20
 
 # `switch` vs `match`
 
+> **Implemented (2026):** Go-faithful `switch` / `case` / `default` / `fallthrough` shipped. This RFC remains as design history; **`match`** is still a separate future RFC.
+
 ## Summary
 
-`switch` / `case` / `default` / `fallthrough` are lexed but have no AST, typechecker, or Go-emit support (`ROADMAP.md` marks the row 📋 **planned**, "design open: may track Go's `switch` closely, or lean toward a `match`-style construct"). This RFC resolves that question by comparing three options — **(A)** Go-faithful `switch`, **(B)** a new `match` expression/statement layered on Forst's existing `is`/narrowing substrate, **(C)** both — against prior art in Go, Rust, Swift, Kotlin, TypeScript, and Scala, and against Forst's actual narrowing implementation today.
+This RFC resolved whether Forst should ship Go-faithful **`switch`**, a **`match`** construct, or both. **Decision:** **(A)** Go-faithful `switch` was implemented; **`match`** is deferred to a separate RFC. The comparison below is retained as design history.
 
 **Recommendation:** ship **(A)** Go-faithful `switch` first (see [Decision](#decision)), track `match` as a distinct, separately-scoped future RFC rather than blocking `switch` on it.
 

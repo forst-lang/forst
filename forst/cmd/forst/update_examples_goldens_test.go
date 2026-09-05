@@ -65,7 +65,7 @@ func TestUpdateExamplesGoldens(t *testing.T) {
 	t.Run("tictactoe/main/server.ft", func(t *testing.T) {
 		updateTictactoeGolden(t)
 	})
-	t.Run("rfc/providers/providers.ft", func(t *testing.T) {
+	t.Run("rfc/providers/providers_demo/providers.ft", func(t *testing.T) {
 		updateProvidersMergedGolden(t)
 	})
 	t.Run("rfc/providers/cross_pkg", func(t *testing.T) {
@@ -101,7 +101,7 @@ func shouldSkipExampleGoldenUpdate(relPath string) bool {
 	if strings.HasPrefix(relPath, "rfc/providers/") {
 		return true
 	}
-	if strings.HasPrefix(relPath, "rfc/node-interop/") {
+	if strings.HasPrefix(relPath, "rfc/bridge-interop/") {
 		return true
 	}
 	if strings.HasPrefix(relPath, "rfc/embedded-invoke/") {
@@ -178,7 +178,7 @@ func updateTictactoeGolden(t *testing.T) {
 func updateProvidersMergedGolden(t *testing.T) {
 	t.Helper()
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
-	entry := filepath.Join(root, "providers.ft")
+	entry := filepath.Join(root, "providers_demo", "providers.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
 	opts := exampleGoldenCompileOpts{packageRoot: root}

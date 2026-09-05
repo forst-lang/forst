@@ -1,0 +1,13 @@
+package main
+
+import "net/http"
+
+func checkClosed(err Error) {
+	if err == http.ErrServerClosed {
+		return
+	}
+}
+
+func main() {
+	checkClosed(http.ErrServerClosed)
+}

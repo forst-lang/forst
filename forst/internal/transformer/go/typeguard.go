@@ -153,11 +153,6 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 
 		return &goast.FuncDecl{
 			Name: goast.NewIdent(string(guardIdent)),
-			Doc: &goast.CommentGroup{
-				List: []*goast.Comment{
-					{Text: "// Type-level shape guard stub; `ensure m is { field }` is not lowered to runtime checks yet."},
-				},
-			},
 			Type: &goast.FuncType{
 				Params: &goast.FieldList{List: params},
 				Results: &goast.FieldList{
@@ -192,6 +187,7 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 
 	// Transform the body into a series of if-else blocks
 	var bodyStmts []goast.Stmt
+	hasMissableIf := false
 	for _, node := range guard.Body {
 		// Ensure the type guard parameter scope is active
 		if err := t.restoreScope(scopeNode); err != nil {
@@ -201,6 +197,7 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 		case ast.CommentNode:
 			bodyStmts = append(bodyStmts, &goast.EmptyStmt{})
 		case *ast.IfNode:
+			hasMissableIf = true
 			if err := t.restoreScope(t.resolveIfScopeNode(n)); err != nil {
 				return nil, fmt.Errorf("failed to restore if scope in type guard: %s", err)
 			}
@@ -211,8 +208,11 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 				return nil, fmt.Errorf("if condition must be an expression")
 			}
 
-			// Transform if body
+			// Transform if body — succeed when the branch matches and body completes.
 			ifBody := t.transformBlock(n.Body)
+			ifBody.List = append(ifBody.List, &goast.ReturnStmt{
+				Results: []goast.Expr{goast.NewIdent("true")},
+			})
 
 			// Transform else-if blocks
 			var elseIfs []goast.Stmt
@@ -230,9 +230,13 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 				if err != nil {
 					return nil, fmt.Errorf("failed to transform else-if condition: %s", err)
 				}
+				elseIfBody := t.transformBlock(elseIf.Body)
+				elseIfBody.List = append(elseIfBody.List, &goast.ReturnStmt{
+					Results: []goast.Expr{goast.NewIdent("true")},
+				})
 				elseIfs = append(elseIfs, &goast.IfStmt{
 					Cond: elseIfCondExpr,
-					Body: t.transformBlock(elseIf.Body),
+					Body: elseIfBody,
 				})
 			}
 
@@ -244,6 +248,9 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 				}
 
 				elseBody = t.transformBlock(n.Else.Body)
+				elseBody.List = append(elseBody.List, &goast.ReturnStmt{
+					Results: []goast.Expr{goast.NewIdent("true")},
+				})
 			}
 
 			// Add if statement to body
@@ -301,10 +308,14 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 		}
 	}
 
-	// Add default return true at the end
+	// Fail closed when an `if` can miss; ensure-only guards fall through to true.
+	trailing := "true"
+	if hasMissableIf {
+		trailing = "false"
+	}
 	bodyStmts = append(bodyStmts, &goast.ReturnStmt{
 		Results: []goast.Expr{
-			goast.NewIdent("true"),
+			goast.NewIdent(trailing),
 		},
 	})
 
@@ -349,9 +360,11 @@ func (t *Transformer) isTypeLevelTypeGuard(guard ast.TypeGuardNode) bool {
 			// comments do not affect type-level classification
 		case ast.EnsureNode:
 			// Check if all constraints in the ensure statement are type-level
-			for _, constraint := range n.Assertion.Constraints {
-				if !t.isTypeLevelConstraint(constraint) {
-					return false
+			for _, chain := range n.Assertion.MeetChains() {
+				for _, constraint := range chain.Constraints {
+					if !t.isTypeLevelConstraint(constraint) {
+						return false
+					}
 				}
 			}
 		default:
@@ -362,9 +375,8 @@ func (t *Transformer) isTypeLevelTypeGuard(guard ast.TypeGuardNode) bool {
 	return true
 }
 
-// isTypeLevelConstraint checks if a constraint is type-level (like "is" operator)
+// isTypeLevelConstraint checks if a constraint is type-level (like "is" / Match shape)
 func (t *Transformer) isTypeLevelConstraint(constraint ast.ConstraintNode) bool {
 	// Type-level constraints are those that can't be transformed into runtime code
-	// Currently, this includes the "is" operator for shape field assertions
-	return constraint.Name == "is"
+	return constraint.Name == "is" || constraint.Name == "Match"
 }

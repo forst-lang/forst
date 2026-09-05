@@ -10,7 +10,7 @@ async function runLocalServerExample() {
     port: 8083,
     host: "localhost",
     logLevel: "info",
-    rootDir: resolve(__dirname, "."),
+    rootDir: resolve(__dirname, ".."),
   });
 
   // Intentionally awkward way to set custom compiler path
@@ -24,7 +24,7 @@ async function runLocalServerExample() {
     port: 8083, // Use different port to avoid conflicts
     host: "localhost",
     logLevel: "info",
-    rootDir: resolve(__dirname, "."),
+    rootDir: resolve(__dirname, ".."),
     title: "Starting Local Forst Server Example",
     // Pass the awkwardly configured sidecar
     _customSidecar: sidecar,

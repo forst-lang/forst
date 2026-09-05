@@ -32,7 +32,7 @@ func TestDevserver_profileDetection_executorVsRuntime(t *testing.T) {
 			name: "hostMode selects runtime",
 			cfg: func() *ftconfig.Config {
 				c := ftconfig.Default()
-				c.Node.HostMode = true
+				c.Bridge.HostMode = true
 				return c
 			}(),
 			want: ProfileRuntime,

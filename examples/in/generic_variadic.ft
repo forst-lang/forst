@@ -1,0 +1,11 @@
+package main
+
+// Generic variadic function; trailing args infer T.
+// Golden output: ../out/generic_variadic.go
+func ignore[T any](xs ...T): Bool {
+	return true
+}
+
+func main() {
+	println(ignore(1, 2, 3))
+}

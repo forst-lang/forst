@@ -4,10 +4,18 @@ package invokeembed
 import (
 	"forst/internal/invokedispatch"
 	"forst/internal/invokeserver"
+	"forst/bridgert"
 )
 
 // FunctionMeta is invoke handler metadata for generated companions.
 type FunctionMeta = invokedispatch.FunctionMeta
+
+// MustPrepareEmbeddedHostAuth configures invoke auth relay for hostMode embedded programs.
+func MustPrepareEmbeddedHostAuth() {
+	if err := bridgert.PrepareEmbeddedHostInvokeAuthRelay(); err != nil {
+		panic(err)
+	}
+}
 
 // MustStartEmbedded starts the embedded invoke HTTP server.
 func MustStartEmbedded() {

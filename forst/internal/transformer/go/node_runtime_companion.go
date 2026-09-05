@@ -13,58 +13,58 @@ import (
 )
 
 const (
-	forstNodeRuntimeFileStem   = "forst_node_runtime.gen"
-	forstNodeGenStepDoneIdent  = "forstNodeGenStepDone"
-	forstNodeGenStepErrorIdent = "forstNodeGenStepError"
-	forstNodeGenStepTypePrefix = "forstNodeGenStep"
-	forstNodeSeqTypePrefix     = "forstNodeSeq"
-	nodertImportPath           = "forst/nodert"
+	forstBridgeRuntimeFileStem   = "forst_0_bridge_runtime.gen"
+	forstBridgeGenStepDoneIdent  = "forstBridgeGenStepDone"
+	forstBridgeGenStepErrorIdent = "forstBridgeGenStepError"
+	forstBridgeGenStepTypePrefix = "forstBridgeGenStep"
+	forstBridgeSeqTypePrefix     = "forstBridgeSeq"
+	nodertImportPath               = "forst/bridgert"
 )
 
-// ForstNodeRuntimeFileName is the base name (without .go) for the generated node runtime companion file.
-func ForstNodeRuntimeFileName() string {
-	return forstNodeRuntimeFileStem
+// ForstBridgeRuntimeFileName is the base name (without .go) for the generated bridge runtime companion file.
+func ForstBridgeRuntimeFileName() string {
+	return forstBridgeRuntimeFileStem
 }
 
 var nodeWrapperSanitizer = regexp.MustCompile(`[^a-zA-Z0-9_]+`)
 
-func (t *Transformer) nodeRuntimeOut() *TransformerOutput {
+func (t *Transformer) bridgeRuntimeOut() *TransformerOutput {
 	if t == nil {
 		return nil
 	}
-	if t.NodeRuntimeOutput == nil {
-		t.NodeRuntimeOutput = &TransformerOutput{}
-		t.NodeRuntimeOutput.SetPackageName(t.Output.PackageName())
+	if t.BridgeRuntimeOutput == nil {
+		t.BridgeRuntimeOutput = &TransformerOutput{}
+		t.BridgeRuntimeOutput.SetPackageName(t.Output.PackageName())
 	}
-	return t.NodeRuntimeOutput
+	return t.BridgeRuntimeOutput
 }
 
 func (t *Transformer) appendNodeBridgeIfNeeded() {
-	if t == nil || t.TypeChecker == nil || !EmitNeedsNodeRuntime(t.TypeChecker) {
+	if t == nil || t.TypeChecker == nil || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return
 	}
-	if t.nodeRuntimeOut() == nil {
+	if t.bridgeRuntimeOut() == nil {
 		return
 	}
-	t.ensureNodeRuntimeScaffold()
+	t.ensureBridgeRuntimeScaffold()
 	t.appendNodeManifestToRuntime()
-	t.appendNodeRuntimeInitIfNeeded()
+	t.appendBridgeRuntimeInitIfNeeded()
 	t.appendNodeHostShutdownHelperIfNeeded()
 }
 
 func (t *Transformer) appendNodeHostShutdownHelperIfNeeded() {
-	out := t.nodeRuntimeOut()
-	if out == nil || !t.EmbedNodeHostMode || out.HasFunction("ForstNodeWaitForShutdown") {
+	out := t.bridgeRuntimeOut()
+	if out == nil || !t.EmbedBridgeHostMode || out.HasFunction("ForstBridgeWaitForShutdown") {
 		return
 	}
 	t.ensureNodertImportInRuntime()
 	out.AddFunction(&goast.FuncDecl{
-		Name: goast.NewIdent("ForstNodeWaitForShutdown"),
+		Name: goast.NewIdent("ForstBridgeWaitForShutdown"),
 		Type: &goast.FuncType{Params: &goast.FieldList{}},
 		Body: &goast.BlockStmt{List: []goast.Stmt{
 			&goast.ExprStmt{X: &goast.CallExpr{
 				Fun: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent("WaitForShutdown"),
 				},
 			}},
@@ -72,20 +72,20 @@ func (t *Transformer) appendNodeHostShutdownHelperIfNeeded() {
 	})
 }
 
-func (t *Transformer) ensureNodeRuntimeScaffold() {
-	out := t.nodeRuntimeOut()
-	if out == nil || out.HasValueDecl(forstNodeGenStepDoneIdent) {
+func (t *Transformer) ensureBridgeRuntimeScaffold() {
+	out := t.bridgeRuntimeOut()
+	if out == nil || out.HasValueDecl(forstBridgeGenStepDoneIdent) {
 		return
 	}
 	out.AddValueDecl(&goast.GenDecl{
 		Tok: goasttoken.CONST,
 		Specs: []goast.Spec{
 			&goast.ValueSpec{
-				Names:  []*goast.Ident{goast.NewIdent(forstNodeGenStepDoneIdent)},
+				Names:  []*goast.Ident{goast.NewIdent(forstBridgeGenStepDoneIdent)},
 				Values: []goast.Expr{nodeBridgeStringLit("done")},
 			},
 			&goast.ValueSpec{
-				Names:  []*goast.Ident{goast.NewIdent(forstNodeGenStepErrorIdent)},
+				Names:  []*goast.Ident{goast.NewIdent(forstBridgeGenStepErrorIdent)},
 				Values: []goast.Expr{nodeBridgeStringLit("error")},
 			},
 		},
@@ -93,15 +93,15 @@ func (t *Transformer) ensureNodeRuntimeScaffold() {
 }
 
 func (t *Transformer) appendNodeManifestToRuntime() {
-	if t == nil || t.TypeChecker == nil || !EmitNeedsNodeRuntime(t.TypeChecker) {
+	if t == nil || t.TypeChecker == nil || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return
 	}
-	AppendNodeManifestDecl(t.nodeRuntimeOut(), t.TypeChecker.NodeRuntimeInfo().ManifestJSON)
+	AppendNodeManifestDecl(t.bridgeRuntimeOut(), t.TypeChecker.BridgeRuntimeInfo().ManifestJSON)
 }
 
-func (t *Transformer) appendNodeRuntimeInitIfNeeded() {
-	out := t.nodeRuntimeOut()
-	if out == nil || !EmitNeedsNodeRuntime(t.TypeChecker) {
+func (t *Transformer) appendBridgeRuntimeInitIfNeeded() {
+	out := t.bridgeRuntimeOut()
+	if out == nil || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return
 	}
 	if out.HasFunction("init") {
@@ -116,10 +116,10 @@ func (t *Transformer) appendNodeRuntimeInitIfNeeded() {
 				&goast.ExprStmt{
 					X: &goast.CallExpr{
 						Fun: &goast.SelectorExpr{
-							X:   goast.NewIdent("nodert"),
+							X:   goast.NewIdent("bridgert"),
 							Sel: goast.NewIdent("MustConfigureFromManifest"),
 						},
-						Args: []goast.Expr{goast.NewIdent(forstNodeManifestVarName)},
+						Args: []goast.Expr{goast.NewIdent(forstBridgeManifestVarName)},
 					},
 				},
 			},
@@ -128,7 +128,7 @@ func (t *Transformer) appendNodeRuntimeInitIfNeeded() {
 }
 
 func (t *Transformer) ensureNodertImportInRuntime() {
-	out := t.nodeRuntimeOut()
+	out := t.bridgeRuntimeOut()
 	if out == nil {
 		return
 	}
@@ -158,7 +158,7 @@ func (t *Transformer) ensureNodertImportInRuntime() {
 }
 
 func (t *Transformer) ensureJSONImportInRuntime() {
-	out := t.nodeRuntimeOut()
+	out := t.bridgeRuntimeOut()
 	if out == nil {
 		return
 	}
@@ -187,11 +187,11 @@ func (t *Transformer) ensureJSONImportInRuntime() {
 	})
 }
 
-func (t *Transformer) NodeRuntimeFile() (*goast.File, error) {
-	if t == nil || t.NodeRuntimeOutput == nil || !EmitNeedsNodeRuntime(t.TypeChecker) {
+func (t *Transformer) BridgeRuntimeFile() (*goast.File, error) {
+	if t == nil || t.BridgeRuntimeOutput == nil || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return nil, nil
 	}
-	return t.NodeRuntimeOutput.GenerateFile()
+	return t.BridgeRuntimeOutput.GenerateFile()
 }
 
 func nodeWrapperFuncName(kind, moduleID, export string) string {
@@ -200,11 +200,11 @@ func nodeWrapperFuncName(kind, moduleID, export string) string {
 	if base == "" {
 		base = "export"
 	}
-	return "forst_node_" + kind + "_" + base
+	return "forst_bridge_" + kind + "_" + base
 }
 
 func (t *Transformer) registerNodeCallWrapper(
-	target typechecker.NodeCallTarget,
+	target typechecker.BridgeCallTarget,
 	ret ast.TypeNode,
 	bridgeFn string,
 	e ast.FunctionCallNode,
@@ -235,7 +235,7 @@ func (t *Transformer) registerNodeCallWrapper(
 		inner = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
 				X: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent(bridgeFnName),
 				},
 				Index: retGoType,
@@ -255,14 +255,14 @@ func (t *Transformer) registerNodeCallWrapper(
 		inner = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
 				X: &goast.SelectorExpr{
-					X:   goast.NewIdent("nodert"),
+					X:   goast.NewIdent("bridgert"),
 					Sel: goast.NewIdent(bridgeFnName),
 				},
 				Index: retGoType,
 			},
 			Args: t.nodeBridgeCallArgsFromParamIdents(target, paramIdents),
 		}
-		t.nodeRuntimeOut().AddFunction(&goast.FuncDecl{
+		t.bridgeRuntimeOut().AddFunction(&goast.FuncDecl{
 			Name: goast.NewIdent(name),
 			Type: &goast.FuncType{
 				Params: &goast.FieldList{List: params},
@@ -279,7 +279,7 @@ func (t *Transformer) registerNodeCallWrapper(
 		return name, callArgs, nil
 	}
 
-	t.nodeRuntimeOut().AddFunction(&goast.FuncDecl{
+	t.bridgeRuntimeOut().AddFunction(&goast.FuncDecl{
 		Name: goast.NewIdent(name),
 		Type: &goast.FuncType{
 			Results: &goast.FieldList{List: []*goast.Field{
@@ -307,7 +307,7 @@ func (t *Transformer) nodeWrapperCallArgs(e ast.FunctionCallNode) []goast.Expr {
 	return args
 }
 
-func (t *Transformer) nodeBridgeCallArgsFromParamIdents(target typechecker.NodeCallTarget, paramIdents []goast.Expr) []goast.Expr {
+func (t *Transformer) nodeBridgeCallArgsFromParamIdents(target typechecker.BridgeCallTarget, paramIdents []goast.Expr) []goast.Expr {
 	goArgs := make([]goast.Expr, 0, len(paramIdents)+2)
 	goArgs = append(goArgs,
 		nodeBridgeStringLit(target.ModuleID),
@@ -317,17 +317,17 @@ func (t *Transformer) nodeBridgeCallArgsFromParamIdents(target typechecker.NodeC
 	return goArgs
 }
 
-func (t *Transformer) nodeWrapperParamFieldsFromIndex(target typechecker.NodeCallTarget, argCount int) ([]*goast.Field, []goast.Expr, error) {
+func (t *Transformer) nodeWrapperParamFieldsFromIndex(target typechecker.BridgeCallTarget, argCount int) ([]*goast.Field, []goast.Expr, error) {
 	if t == nil || t.TypeChecker == nil {
 		return nil, nil, fmt.Errorf("codegen: node wrapper: missing typechecker")
 	}
-	forstParams, err := t.TypeChecker.NodeExportParamTypes(target.ModuleID, target.ExportName)
+	forstParams, err := t.TypeChecker.BridgeExportParamTypes(target.IndexModuleID(), target.ExportName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("codegen: node wrapper %s.%s: %w", target.ModuleID, target.ExportName, err)
+		return nil, nil, fmt.Errorf("codegen: node wrapper %s.%s: %w", target.IndexModuleID(), target.ExportName, err)
 	}
 	if len(forstParams) != argCount {
 		return nil, nil, fmt.Errorf("codegen: node wrapper %s.%s: index has %d params, call has %d args",
-			target.ModuleID, target.ExportName, len(forstParams), argCount)
+			target.IndexModuleID(), target.ExportName, len(forstParams), argCount)
 	}
 	fields := make([]*goast.Field, 0, len(forstParams))
 	idents := make([]goast.Expr, 0, len(forstParams))
@@ -352,7 +352,7 @@ func (t *Transformer) tryEmitStaticNodeCallArgsJSONInRuntime(args []ast.Expressi
 }
 
 func (t *Transformer) registerNodeOpenSeqWrapper(
-	target typechecker.NodeCallTarget,
+	target typechecker.BridgeCallTarget,
 	ret ast.TypeNode,
 	e ast.FunctionCallNode,
 	async bool,
@@ -394,13 +394,13 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 	if argsJSON, ok := t.tryEmitStaticNodeCallArgsJSONInRuntime(e.Arguments); ok {
 		openCall = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
-				X: &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("OpenSeqArgs")},
+				X: &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("OpenSeqArgs")},
 				Index: elemGoType,
 			},
 			Args: []goast.Expr{
 				nodeBridgeStringLit(target.ModuleID),
 				nodeBridgeStringLit(target.ExportName),
-				&goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent(kindSel)},
+				&goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent(kindSel)},
 				argsJSON,
 			},
 		}
@@ -412,17 +412,17 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 		}
 		goArgs := t.nodeBridgeCallArgsFromParamIdents(target, paramIdents)
 		goArgs = append(goArgs[:2], append([]goast.Expr{
-			&goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent(kindSel)},
+			&goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent(kindSel)},
 		}, goArgs[2:]...)...)
 		openCall = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
-				X: &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("OpenSeq")},
+				X: &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("OpenSeq")},
 				Index: elemGoType,
 			},
 			Args: goArgs,
 		}
 		body := t.openSeqWrapperBody(seqTypeIdent, openCall)
-		t.nodeRuntimeOut().AddFunction(&goast.FuncDecl{
+		t.bridgeRuntimeOut().AddFunction(&goast.FuncDecl{
 			Name: goast.NewIdent(name),
 			Type: &goast.FuncType{
 				Params: &goast.FieldList{List: params},
@@ -438,7 +438,7 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 	}
 
 	body := t.openSeqWrapperBody(seqTypeIdent, openCall)
-	t.nodeRuntimeOut().AddFunction(&goast.FuncDecl{
+	t.bridgeRuntimeOut().AddFunction(&goast.FuncDecl{
 		Name: goast.NewIdent(name),
 		Type: &goast.FuncType{
 			Results: &goast.FieldList{List: []*goast.Field{
@@ -493,16 +493,16 @@ func (t *Transformer) ensureForstNodeSeqTypes(ret ast.TypeNode) (string, *goast.
 	if err != nil {
 		return "", nil, nil, err
 	}
-	typeSuffix := forstNodeSeqTypeSuffix(elemGoType)
-	seqName := forstNodeSeqTypePrefix + typeSuffix
-	stepName := forstNodeGenStepTypePrefix + typeSuffix
+	typeSuffix := forstBridgeSeqTypeSuffix(elemGoType)
+	seqName := forstBridgeSeqTypePrefix + typeSuffix
+	stepName := forstBridgeGenStepTypePrefix + typeSuffix
 	seqIdent := goast.NewIdent(seqName)
 	stepIdent := goast.NewIdent(stepName)
 	if t.nodeSeqTypesEmitted == nil {
 		t.nodeSeqTypesEmitted = make(map[string]bool)
 	}
 	if !t.nodeSeqTypesEmitted[seqName] {
-		out := t.nodeRuntimeOut()
+		out := t.bridgeRuntimeOut()
 		out.AddType(&goast.GenDecl{
 			Tok: goasttoken.TYPE,
 			Specs: []goast.Spec{
@@ -518,7 +518,7 @@ func (t *Transformer) ensureForstNodeSeqTypes(ret ast.TypeNode) (string, *goast.
 					Name: seqIdent,
 					Type: &goast.StructType{Fields: &goast.FieldList{List: []*goast.Field{
 						{Names: []*goast.Ident{goast.NewIdent("inner")}, Type: &goast.StarExpr{X: &goast.IndexExpr{
-							X:     &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("Seq")},
+							X:     &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("Seq")},
 							Index: elemGoType,
 						}}},
 					}}},
@@ -531,7 +531,7 @@ func (t *Transformer) ensureForstNodeSeqTypes(ret ast.TypeNode) (string, *goast.
 	return seqName, seqIdent, stepIdent, nil
 }
 
-func forstNodeSeqTypeSuffix(elemGoType goast.Expr) string {
+func forstBridgeSeqTypeSuffix(elemGoType goast.Expr) string {
 	switch e := elemGoType.(type) {
 	case *goast.Ident:
 		return "_" + strings.ToLower(e.Name)
@@ -544,11 +544,11 @@ func forstNodeSeqTypeSuffix(elemGoType goast.Expr) string {
 }
 
 func (t *Transformer) emitForstNodeSeqMethods(seqIdent, stepIdent *goast.Ident, elemGoType goast.Expr) {
-	out := t.nodeRuntimeOut()
+	out := t.bridgeRuntimeOut()
 	recv := &goast.FieldList{List: []*goast.Field{{Names: []*goast.Ident{goast.NewIdent("s")}, Type: &goast.StarExpr{X: seqIdent}}}}
 	stepSlice := &goast.ArrayType{Elt: stepIdent}
 	nodertGenStep := &goast.IndexExpr{
-		X:     &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("GenStep")},
+		X:     &goast.SelectorExpr{X: goast.NewIdent("bridgert"), Sel: goast.NewIdent("GenStep")},
 		Index: elemGoType,
 	}
 	out.AddFunction(&goast.FuncDecl{

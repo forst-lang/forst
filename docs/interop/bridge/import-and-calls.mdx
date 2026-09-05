@@ -1,0 +1,162 @@
+---
+title: "Import and call JavaScript"
+description: "Import legacy JavaScript modules in Forst, call sync or async functions, and iterate over generators."
+---
+
+You can call functions from existing TypeScript and JavaScript files inside your Forst program. This lets you move backend code to Forst step by step. Working JavaScript code stays in place while new code compiles to Go.
+
+To call Forst over HTTP instead, see [Call Forst over HTTP](/interop/invoke/call-forst).
+
+```ft
+import "./legacy/payment" js
+
+func main() {
+  result := payment.create(100.0, "USD")
+  ensure result is Ok()
+  println(result.id)
+}
+```
+
+The postfix `js` marker tells Forst that this path points to a JavaScript module. The compiler checks the function name, arguments, and return value. Every call returns a `Result`, so `ensure result is Ok()` handles failures before you use the value.
+
+At runtime, the compiled app starts a local bridge process when it first runs a JS import call. If your program does not use a JS import, the compiled binary does not need JavaScript.
+
+## Set up JavaScript imports
+
+Install `@forst/runtime` in your project root.
+
+```bash
+npm install @forst/runtime
+```
+
+Enable the bridge in `ftconfig.json`.
+
+```json
+{
+  "files": {
+    "include": ["**/*.ft", "**/*.ts", "**/*.tsx"],
+    "exclude": ["**/node_modules/**", "**/.git/**"]
+  },
+  "bridge": {
+    "enabled": true,
+    "importPolicy": "explicit",
+    "runtimeEnabled": true
+  }
+}
+```
+
+Forst only loads modules opted in with the postfix `js` marker. Plain imports never start the JS bridge.
+
+## Import a module
+
+Use the file name as the local name, or choose an alias.
+
+| Form | Example | Local name |
+| --- | --- | --- |
+| File name | `import "./legacy/payment" js` | `payment` |
+| Alias | `import checkout "./legacy/api/checkout" js` | `checkout` |
+
+You can also group imports together.
+
+```ft
+import (
+  "strconv"
+  "./legacy/payment" js
+  checkout "./legacy/api/checkout" js
+)
+
+func main() {
+  result := payment.create(100.0, "USD")
+  ensure result is Ok()
+  println(result.id)
+}
+```
+
+Each import exposes the module namespace. For example, `payment.create` calls the `create` export. Your TypeScript files need no special Forst annotations.
+
+### Alias reserved names
+
+When the file or package name matches a Forst or Go keyword, Forst reports an error and asks for an alias.
+
+```ft
+import typePkg "./legacy/type.ts" js
+import effectLib "@effect/platform" js
+import my_package "@scope/my-package" js
+```
+
+| Path or package | Issue | Fix |
+| --- | --- | --- |
+| `./legacy/type.ts` | `type` is a keyword | `import typePkg "./legacy/type.ts" js` |
+| `"map"` (npm) | `map` is a keyword | `import mapPkg "map" js` |
+| `@scope/my-package` | hyphens are invalid in identifiers | `import my_package "@scope/my-package" js` |
+
+Scoped npm packages like `@effect/platform` default to the last path segment (`platform`) when that name is valid.
+
+## Call synchronous functions
+
+Synchronous JavaScript functions look like normal calls in Forst. The result is wrapped in `Result(T, Error)` because the local IPC call can still fail.
+
+Use `ensure … is Ok()` or `if … is Err()` before reading the returned value.
+
+```ft
+import "./legacy/payment" js
+
+func main() {
+  result := payment.create(100.0, "USD")
+  ensure result is Ok()
+  println(result.id)
+}
+```
+
+## Call asynchronous functions
+
+You can call an async JavaScript function from normal Forst code. The bridge waits for the Promise to settle and returns its value. You do not add `async` or `await` to your Forst code.
+
+```ft
+import "./legacy/payment" js
+
+func main() {
+  result := payment.create(100.0, "USD")
+  ensure result is Ok()
+  println(result.id)
+
+  echo := payment.concurrentEcho(7.0)
+  ensure echo is Ok()
+  println(echo.echo)
+}
+```
+
+## Separate system errors from return values
+
+Two different things can fail during a call. The bridge runtime itself can fail, or your JavaScript function can return an error value.
+
+| Layer | Cause | Forst type |
+| --- | --- | --- |
+| System | Network timeout, forbidden call, thrown exception, rejected Promise | `Error` in `Result(T, Error)` |
+| Application | Business result returned by the function | Return type `T` (such as a tagged union or shape) |
+
+If an async JavaScript function resolves to a tagged union, Forst maps that union as `T`. The outer return type remains `Result(T, Error)`.
+
+## Read streams and generators
+
+JavaScript generator functions appear as `Seq[T]` in Forst. Check that the generator opened successfully, then use a `for range` loop to read items.
+
+```ft
+import "./legacy/generators" js
+
+func main() {
+  seq := generators.syncNumbers(3.0)
+  ensure seq is Ok()
+  var sum: Float = 0.0
+  for _, n := range seq {
+    sum = sum + n
+  }
+  println(string(Int(sum)))
+}
+```
+
+Both sync and async generators use `Seq[T]`. The bridge pulls items in batches to cut IPC round trips.
+
+## Next steps
+
+- [Build, deploy, and runtime modes](/interop/bridge/build-and-runtime) compile modules and configure runtime hosts

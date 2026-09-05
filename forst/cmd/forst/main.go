@@ -56,6 +56,8 @@ func runMain(argv []string) int {
 		return 0
 	}
 
+	compiler.SetBuildMetadata(Version, Commit, Date)
+
 	log := newLogger()
 
 	// Check if we should start dev server
@@ -215,8 +217,17 @@ func runMain(argv []string) int {
 			log.Error(err)
 			return 1
 		}
+	} else if args.Command == "build" {
+		if err := p.BuildNativeProgram(args.OutputPath, args.GoOS, args.GoARCH); err != nil {
+			log.Error(err)
+			return 1
+		}
 	} else {
-		mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithNodeRuntime()
+		if args.Command == "run" {
+			p.PreferPackageDirRunEmit()
+			args.OutputPath = p.Args.OutputPath
+		}
+		mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithBridgeRuntime()
 		if err != nil {
 			log.Error(err)
 			return 1
@@ -225,7 +236,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFileFn(mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
+			outputPath, err = createTempOutputFileFn(mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
 			if err != nil {
 				log.Error(err)
 				return 1

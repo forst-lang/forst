@@ -58,7 +58,7 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 	"[]byte": {
 		Name:           "[]byte",
 		Package:        "",
-		ReturnType:     ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeInt}}},
+		ReturnType:     ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeIdent("byte")}}},
 		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}},
 		AcceptSubtypes: true,
 	},

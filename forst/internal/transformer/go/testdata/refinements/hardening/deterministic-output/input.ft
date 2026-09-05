@@ -1,0 +1,4 @@
+// MATRIX stub: deterministic Go output
+package main
+
+func main() {}

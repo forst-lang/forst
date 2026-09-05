@@ -14,9 +14,13 @@ import (
 func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, error) {
 	switch e := expr.(type) {
 	case ast.IntLiteralNode:
+		lit := e.Source()
+		if lit == "" {
+			lit = strconv.FormatInt(e.Value, 10)
+		}
 		return &goast.BasicLit{
 			Kind:  token.INT,
-			Value: strconv.FormatInt(e.Value, 10),
+			Value: lit,
 		}, nil
 	case ast.FloatLiteralNode:
 		return &goast.BasicLit{
@@ -237,6 +241,10 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			if err != nil {
 				return nil, err
 			}
+			funExpr, err = t.wrapCallFunWithTypeArgs(funExpr, e.TypeArgs)
+			if err != nil {
+				return nil, err
+			}
 			args, err := t.transformFunctionCallArgs(ast.Identifier("_callee"), e.Arguments)
 			if err != nil {
 				return nil, err
@@ -297,8 +305,12 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
+		funExpr, err := t.wrapCallFunWithTypeArgs(t.goFunExprFromForstCallIdentWithNarrowing(e.Function), e.TypeArgs)
+		if err != nil {
+			return nil, err
+		}
 		call := &goast.CallExpr{
-			Fun:      t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
+			Fun:      funExpr,
 			Args:     args.exprs,
 			Ellipsis: args.ellipsis,
 		}
@@ -329,7 +341,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		context := &ShapeContext{}
 		expectedType := t.getExpectedTypeForShape(&e, context)
 		// Always use the unified aliasing logic for shape literals
-		return t.transformShapeNodeWithExpectedType(&e, expectedType)
+		return t.transformShapeNodeWithExpectedType(&e, expectedType, nil)
 
 	case ast.OkExprNode, ast.ErrExprNode:
 		return nil, fmt.Errorf("Ok(...) and Err(...) are lowered in return statements only (not as a value expression)")
@@ -365,7 +377,7 @@ func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArra
 	for _, item := range e.Value {
 		var ex goast.Expr
 		if shapeNode, ok := item.(ast.ShapeNode); ok {
-			ex, err = t.transformShapeNodeWithExpectedType(&shapeNode, &elemType)
+			ex, err = t.transformShapeNodeWithExpectedType(&shapeNode, &elemType, nil)
 		} else {
 			ex, err = t.transformExpression(item)
 		}
@@ -408,4 +420,19 @@ func (t *Transformer) transformGoBoundDottedMethodCall(e ast.FunctionCallNode) (
 		Args:     args.exprs,
 		Ellipsis: args.ellipsis,
 	}, true, nil
+}
+
+func (t *Transformer) wrapCallFunWithTypeArgs(fun goast.Expr, typeArgs []ast.TypeNode) (goast.Expr, error) {
+	if len(typeArgs) == 0 {
+		return fun, nil
+	}
+	indices := make([]goast.Expr, len(typeArgs))
+	for i, ta := range typeArgs {
+		gt, err := t.transformType(ta)
+		if err != nil {
+			return nil, err
+		}
+		indices[i] = gt
+	}
+	return &goast.IndexListExpr{X: fun, Indices: indices}, nil
 }

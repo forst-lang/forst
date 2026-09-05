@@ -15,6 +15,8 @@ This RFC defines the semantics, constraints, and compiler behavior for type guar
 - Efficient to analyze statically
 - Safe for use in type narrowing, Go code generation, and `.d.ts` emission
 
+**Disjunction, enums, and `ensure` failure** are specified in the [analyzable refinements RFC](../refinements/README.md) (accepted: [12](../refinements/12-accepted-decision.md), [14](../refinements/14-type-targets.md)). Assertion alternative is **`or`**; typed failure is **`else`**; **`|`** is type union; **`ensure place is Type`** (no parens) is a type target. **Mutation after narrowing** is [13](../refinements/13-refinement-stability.md). Guide-level `return len(…)` examples below are **not** normative; they contradict TG-1 and are withdrawn in favor of `ensure` / `is` atoms.
+
 ## Motivation
 
 Currently, Forst provides built-in `ensure` statements with an `is` operator for runtime validation and error handling.
@@ -196,7 +198,7 @@ func validateUser(password: Password) {
 > The `ensure` must refine or preserve the type of the receiver.
 
 - `ensure` must only be used for type assertions.
-- `or` clauses are not allowed inside `ensure` in type guards.
+- Typed `else` and failure blocks are not allowed inside `ensure` in type guards. Assertion `or` (alternatives on the same place) **is** allowed.
 - Refinement must never weaken or remove any existing fields from the shape.
 
 ### TG-4: Recursive Refinement Applies to Sub-Shapes
@@ -569,6 +571,8 @@ Forst's design philosophy prioritizes explicit, compile-time type safety over ru
    - Guard testing tools
 
 ## Unresolved questions
+
+Disjunction of atoms, literal unions (enums), and fail-closed `if` in guard bodies are **resolved** in [refinements/12](../refinements/12-accepted-decision.md). Refinement stability under mutation, aliasing, and Go is **resolved** in [refinements/13](../refinements/13-refinement-stability.md). Do not reopen opaque `return`, boolean `ensure`, or `ensure`-scoped immutability here.
 
 1. How to handle type guards across module boundaries?
 

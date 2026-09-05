@@ -27,7 +27,7 @@ import {
   DevServerStreamingInvokeNoResponseBody,
 } from "./errors";
 import type { InvokeTransport } from "./transport";
-import { createHttpInvokeTransport } from "./transport";
+import { buildHttpInvokeTransportConfig, createHttpInvokeTransport } from "./transport";
 import { createReloadAwareTransport } from "./reload-transport";
 
 /**
@@ -48,12 +48,23 @@ export class ForstSidecarClient {
     if (this.config.reloadAware !== false && config.retries === undefined) {
       this.config.retries = 0;
     }
-    const httpTransport = createHttpInvokeTransport({
-      baseUrl: this.config.baseUrl,
-      resolveBaseUrl: this.config.resolveBaseUrl,
-      timeout: this.config.timeout,
-      fetchFn: this.config.fetchFn,
-    });
+    const authDisabled =
+      this.config.authDisabled ??
+      process.env.FORST_INVOKE_AUTH?.trim().toLowerCase() === "off";
+    const httpTransport = createHttpInvokeTransport(
+      buildHttpInvokeTransportConfig({
+        baseUrl: this.config.baseUrl,
+        resolveBaseUrl: this.config.resolveBaseUrl,
+        resolveAuth:
+          "resolveAuth" in this.config ? this.config.resolveAuth : undefined,
+        boundaryRoot: this.config.boundaryRoot,
+        socketPath:
+          "socketPath" in this.config ? this.config.socketPath : undefined,
+        authDisabled,
+        timeout: this.config.timeout,
+        fetchFn: this.config.fetchFn,
+      })
+    );
     this.transport =
       this.config.reloadAware === false
         ? httpTransport

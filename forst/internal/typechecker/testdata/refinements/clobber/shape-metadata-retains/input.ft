@@ -1,0 +1,19 @@
+package main
+
+type Response = {
+	metadata: String
+	user: {
+		email: String
+	}
+}
+
+is (response Response) HasUserEmail {
+	ensure response.user.email is Min(1)
+}
+
+func check(response Response) {
+	ensure response is HasUserEmail()
+	response.metadata = "x"
+}
+
+func main() {}

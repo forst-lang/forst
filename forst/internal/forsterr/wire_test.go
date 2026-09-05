@@ -11,14 +11,14 @@ type sampleErr struct {
 }
 
 func (e sampleErr) Error() string  { return "taken" }
-func (e sampleErr) ForstErrorTag() string { return "CellTaken" }
+func (e sampleErr) ForstErrorTag() string { return "main/CellTaken" }
 
 func TestEncode_nominalError(t *testing.T) {
 	w, ok := Encode(sampleErr{Row: 1, Col: 2})
 	if !ok {
 		t.Fatal("expected ok")
 	}
-	if w.Tag != "CellTaken" {
+	if w.Tag != "main/CellTaken" {
 		t.Fatalf("tag = %q", w.Tag)
 	}
 	var payload map[string]int

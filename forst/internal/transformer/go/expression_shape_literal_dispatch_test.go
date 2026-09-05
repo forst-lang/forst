@@ -66,7 +66,7 @@ func TestDetermineStructType_prefersNamedExpectedTypeIncludingPointer(t *testing
 	namedExpr, err := transformer.determineStructType(shape, &ast.TypeNode{
 		Ident:    "User",
 		TypeKind: ast.TypeKindBuiltin,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("determineStructType(named): %v", err)
 	}
@@ -79,7 +79,7 @@ func TestDetermineStructType_prefersNamedExpectedTypeIncludingPointer(t *testing
 		Ident:      ast.TypePointer,
 		TypeKind:   ast.TypeKindBuiltin,
 		TypeParams: []ast.TypeNode{{Ident: "AppContext", TypeKind: ast.TypeKindBuiltin}},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("determineStructType(pointer): %v", err)
 	}

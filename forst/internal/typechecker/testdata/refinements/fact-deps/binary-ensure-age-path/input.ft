@@ -1,0 +1,12 @@
+package main
+
+type User = {
+	name: String
+	age: Int
+}
+
+func check(user User) {
+	ensure user.age is Min(18)
+}
+
+func main() {}

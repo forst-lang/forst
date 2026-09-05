@@ -22,12 +22,15 @@ func goIdentifierExported(name string) bool {
 	return gointerop.IdentifierExported(name)
 }
 
-func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
-	return gointerop.TypeToForstType(t)
+func (tc *TypeChecker) mapGoType(t types.Type) (ast.TypeNode, bool) {
+	if tc == nil {
+		return gointerop.TypeToForstType(t)
+	}
+	return gointerop.MapGoType(tc.goInteropHost(), t)
 }
 
-func goStructFieldTypeForForstName(recv types.Type, forstName string) (types.Type, bool) {
-	return gointerop.StructFieldTypeForForstName(recv, forstName)
+func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
+	return gointerop.TypeToForstType(t)
 }
 
 func goTypeAtFieldPath(recv types.Type, fieldPath []string) (types.Type, error) {
@@ -58,11 +61,12 @@ func (tc *TypeChecker) initGoImportPackages() {
 	}
 	loaded, err := goload.LoadByPkgPath(tc.goPackagesLoadDir(), missing)
 	if err != nil {
+		tc.recordGoPackagesLoadFailure(missing, err)
 		tc.log.WithFields(logrus.Fields{
 			"function": "initGoImportPackages",
 			"dir":      tc.goPackagesLoadDir(),
 			"missing":  missing,
-		}).WithError(err).Debug("go/packages load failed; skipping Forst↔Go boundary checks")
+		}).WithError(err).Debug("go/packages load failed")
 		return
 	}
 	tc.seedGoImportPackagesFromLoaded(loaded)
@@ -167,21 +171,17 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 		if tp == nil {
 			continue
 		}
-		if imp.Alias != nil && string(imp.Alias.ID) == "." {
-			if !tc.hasDotImportPath(tp.Path()) {
-				tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+		var local string
+		b := goBindingFromLoaded(imp, loaded)
+		if b.Skip {
+			if imp.Alias != nil && string(imp.Alias.ID) == "." {
+				if !tc.hasDotImportPath(tp.Path()) {
+					tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+				}
 			}
 			continue
 		}
-		var local string
-		if imp.Alias != nil {
-			local = string(imp.Alias.ID)
-		} else {
-			local = tp.Name()
-			if local == "" {
-				_, local = fallbackImportLocal(imp)
-			}
-		}
+		local = b.Local
 		if local == "" || local == "." {
 			continue
 		}
@@ -246,7 +246,7 @@ func (tc *TypeChecker) initSamePackageGoExports() {
 }
 
 func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, bool, error) {
-	if tc.samePackageGo == nil || !goIdentifierExported(funcName) {
+	if tc.samePackageGo == nil {
 		return nil, false, nil
 	}
 	ret, err := tc.checkGoFuncCall(tc.samePackageGo, funcName, funcName, e, argTypes, wantSingleValue)
@@ -265,15 +265,6 @@ func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallN
 		return nil, true, err
 	}
 	return ret, true, nil
-}
-
-func (tc *TypeChecker) registerImportLocalsFromAST() {
-	for _, imp := range tc.imports {
-		path, local := fallbackImportLocal(imp)
-		if local != "" && local != "." {
-			tc.importPathByLocal[local] = path
-		}
-	}
 }
 
 func (tc *TypeChecker) goPackageForImportLocal(local string) *types.Package {
@@ -350,7 +341,15 @@ func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName
 }
 
 func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return tc.checkGoFuncCall(pkg, pkgDisplay, funcName, e, argTypes, wantSingleValue)
+	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+		Pkg:             pkg,
+		QualDisplay:     pkgDisplay,
+		FuncName:        funcName,
+		Call:            e,
+		ArgTypes:        argTypes,
+		WantSingleValue: wantSingleValue,
+		RequireExported: true,
+	})
 }
 
 func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
@@ -385,13 +384,17 @@ func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fie
 		goTyp = o.Type()
 	case *types.Const:
 		goTyp = o.Type()
+	case *types.Func:
+		goTyp = o.Type()
+	case *types.TypeName:
+		return ast.TypeNode{}, fmt.Errorf("%s.%s is a type, not a value", local, fieldPath[0])
 	default:
 		return ast.TypeNode{}, fmt.Errorf("%s.%s is not a package variable", local, fieldPath[0])
 	}
 	if len(fieldPath) > 1 {
 		return tc.lookupFieldPathFromGoType(goTyp, fieldPath[1:])
 	}
-	ft, ok := goTypeToForstType(goTyp)
+	ft, ok := tc.mapGoType(goTyp)
 	if !ok {
 		return ast.TypeNode{}, fmt.Errorf("cannot map Go type %s", goTyp)
 	}
@@ -403,7 +406,7 @@ func (tc *TypeChecker) lookupFieldPathFromGoType(goBase types.Type, fieldPath []
 	if err != nil {
 		return ast.TypeNode{}, err
 	}
-	t, ok := goTypeToForstType(last)
+	t, ok := tc.mapGoType(last)
 	if !ok {
 		return ast.TypeNode{}, fmt.Errorf("cannot map Go type %s", last)
 	}
@@ -440,10 +443,6 @@ func (tc *TypeChecker) forstTypeForGoType(g types.Type) (ast.TypeNode, bool) {
 		return ast.TypeNode{}, false
 	}
 	pkgPath := pkg.Path()
-	modPath := goload.ModulePath(tc.GoWorkspaceDir)
-	if modPath == "" || !strings.HasPrefix(pkgPath, modPath+"/") {
-		return ast.TypeNode{}, false
-	}
 	typeName := named.Obj().Name()
 
 	if tc.samePackageGoImportPath == pkgPath {
@@ -452,23 +451,52 @@ func (tc *TypeChecker) forstTypeForGoType(g types.Type) (ast.TypeNode, bool) {
 		}
 	}
 
-	local, ok := tc.ImportLocalForPath(pkgPath)
-	if !ok {
-		return ast.TypeNode{}, false
-	}
-	qualified := ast.TypeIdent(local + "." + typeName)
+	modPath := goload.ModulePath(tc.GoWorkspaceDir)
+	if modPath != "" && strings.HasPrefix(pkgPath, modPath+"/") {
+		if tc.samePackageGoImportPath == pkgPath {
+			if _, ok := tc.Defs[ast.TypeIdent(typeName)]; ok {
+				return ast.TypeNode{Ident: ast.TypeIdent(typeName)}, true
+			}
+		}
 
-	if importMap := tc.importPathToForstPkgMap(); importMap != nil {
-		if importMap[pkgPath] == "" {
+		local, ok := tc.ImportLocalForPath(pkgPath)
+		if !ok {
+			return ast.TypeNode{}, false
+		}
+		qualified := ast.TypeIdent(local + "." + typeName)
+
+		if importMap := tc.importPathToForstPkgMap(); importMap != nil {
+			if importMap[pkgPath] == "" {
+				return ast.TypeNode{}, false
+			}
+			return ast.TypeNode{Ident: qualified}, true
+		}
+
+		if tc.goPackageForImportLocal(local) == nil {
 			return ast.TypeNode{}, false
 		}
 		return ast.TypeNode{Ident: qualified}, true
 	}
 
-	if tc.goPackageForImportLocal(local) == nil {
+	local, ok := tc.importLocalForGoPackagePath(pkgPath)
+	if !ok {
 		return ast.TypeNode{}, false
 	}
-	return ast.TypeNode{Ident: qualified}, true
+	return ast.TypeNode{Ident: ast.TypeIdent(local + "." + typeName)}, true
+}
+
+func (tc *TypeChecker) importLocalForGoPackagePath(pkgPath string) (string, bool) {
+	if local, ok := tc.ImportLocalForPath(pkgPath); ok {
+		return local, true
+	}
+	if tc.goPkgsByLocal != nil {
+		for local, p := range tc.goPkgsByLocal {
+			if p != nil && p.Path() == pkgPath {
+				return local, true
+			}
+		}
+	}
+	return "", false
 }
 
 func (tc *TypeChecker) goTypeForQualifiedImportTypeIdent(typeIdent ast.TypeIdent) types.Type {
@@ -541,7 +569,19 @@ func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 		if gt := tc.variableGoTypes[e.Ident.ID]; gt != nil {
 			return gt
 		}
+		parts := strings.Split(string(e.Ident.ID), ".")
+		if len(parts) > 1 {
+			if base := tc.variableGoTypes[ast.Identifier(parts[0])]; base != nil {
+				last, err := goTypeAtFieldPath(base, parts[1:])
+				if err == nil {
+					return last
+				}
+			}
+		}
 	case ast.FunctionCallNode:
+		if gt := tc.goTypeFromBuiltinNewCall(e); gt != nil {
+			return gt
+		}
 		if sig := tc.goFuncSignatureFromCall(e); sig != nil && sig.Results().Len() > 0 {
 			return sig.Results().At(0).Type()
 		}
@@ -570,6 +610,16 @@ func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 				return types.NewSlice(u.Elem())
 			}
 		}
+	case ast.ReferenceNode:
+		if inner := tc.goTypeForExpression(e.Value); inner != nil {
+			return types.NewPointer(inner)
+		}
+	case ast.ShapeNode:
+		if e.BaseType != nil {
+			if gt := tc.goTypeForQualifiedImportTypeIdent(*e.BaseType); gt != nil {
+				return gt
+			}
+		}
 	}
 	return nil
 }
@@ -588,25 +638,57 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if len(assign.RValues) != 1 {
 		return
 	}
-	fc, ok := assign.RValues[0].(ast.FunctionCallNode)
+	if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
+		if gt := tc.goTypeFromBuiltinNewCall(fc); gt != nil && len(assign.LValues) == 1 {
+			if vn, ok := assign.LValues[0].(ast.VariableNode); ok {
+				tc.variableGoTypes[vn.Ident.ID] = gt
+			}
+			return
+		}
+		sig := tc.goFuncSignatureFromCall(fc)
+		if sig == nil {
+			return
+		}
+		res := sig.Results()
+		if res.Len() != len(assign.LValues) {
+			// Arity mismatch (e.g. multi-return wrapped as Tuple): do not bind Go types.
+			return
+		}
+		for i, lv := range assign.LValues {
+			vn, ok := lv.(ast.VariableNode)
+			if !ok {
+				continue
+			}
+			tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+		}
+		return
+	}
+	if len(assign.LValues) != 1 {
+		return
+	}
+	vn, ok := assign.LValues[0].(ast.VariableNode)
 	if !ok {
 		return
 	}
-	sig := tc.goFuncSignatureFromCall(fc)
-	if sig == nil {
-		return
+	if gt := tc.goTypeForExpression(assign.RValues[0]); gt != nil {
+		tc.variableGoTypes[vn.Ident.ID] = gt
 	}
-	res := sig.Results()
-	if res.Len() != len(assign.LValues) {
-		return
+}
+
+// goTypeFromBuiltinNewCall returns *T when call is new(T) and T maps to a Go type.
+func (tc *TypeChecker) goTypeFromBuiltinNewCall(fc ast.FunctionCallNode) types.Type {
+	if string(fc.Function.ID) != "new" || len(fc.Arguments) != 1 {
+		return nil
 	}
-	for i, lv := range assign.LValues {
-		vn, ok := lv.(ast.VariableNode)
-		if !ok {
-			continue
-		}
-		tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+	te, ok := fc.Arguments[0].(ast.TypeExpressionNode)
+	if !ok {
+		return nil
 	}
+	elem := tc.goTypeForForstType(te.Type)
+	if elem == nil {
+		return nil
+	}
+	return types.NewPointer(elem)
 }
 
 func (tc *TypeChecker) goFuncSignatureFromCall(fc ast.FunctionCallNode) *types.Signature {
@@ -619,7 +701,7 @@ func (tc *TypeChecker) goFuncSignatureFromCall(fc ast.FunctionCallNode) *types.S
 		}
 		return tc.goFuncSignatureInPackage(gp, parts[1])
 	case 1:
-		if tc.samePackageGo == nil || !goIdentifierExported(parts[0]) {
+		if tc.samePackageGo == nil {
 			return nil
 		}
 		return tc.goFuncSignatureInPackage(tc.samePackageGo, parts[0])
@@ -643,3 +725,5 @@ func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName str
 	}
 	return sig
 }
+
+

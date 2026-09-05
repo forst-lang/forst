@@ -8,12 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"forst/internal/compiler"
 	"forst/internal/discovery"
 	"forst/internal/ftconfig"
+	"forst/internal/invokeserver"
 
 	"github.com/sirupsen/logrus"
 )
@@ -202,10 +204,16 @@ func TestDevServer_Start_respectsExplicitZeroHost(t *testing.T) {
 }
 
 func TestDevServer_Start_invalidPortReturnsError_andStartsWatchGenerate(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	s := testDevServer(t)
 	trueVal := true
 	s.config.Dev.WatchGenerate = &trueVal
 	s.port = "invalid-port"
+	cfg := s.invoke.Config()
+	cfg.Transport = "tcp"
+	cfg.Port = "invalid-port"
+	cfg.SocketPath = ""
+	s.invoke = invokeserver.New(cfg, s.devBackend, invokeserver.DefaultEmbeddedVersion(), s.log)
 	err := s.Start()
 	if err == nil {
 		t.Fatal("expected start error for invalid port")
@@ -217,10 +225,16 @@ func TestDevServer_Start_invalidPortReturnsError_andStartsWatchGenerate(t *testi
 }
 
 func TestDevServer_logStartupInfo_includesEndpoints(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	s := testDevServer(t)
 	buf := &bytes.Buffer{}
 	s.log.SetOutput(buf)
 	s.port = "8080"
+	cfg := s.invoke.Config()
+	cfg.Transport = "tcp"
+	cfg.SocketPath = ""
+	cfg.Port = "8080"
+	s.invoke = invokeserver.New(cfg, s.devBackend, invokeserver.DefaultEmbeddedVersion(), s.log)
 
 	s.logStartupInfo()
 
@@ -267,12 +281,29 @@ func TestStartDevServer_exitsOnConfigLoadFailure(t *testing.T) {
 }
 
 func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	level := "info"
 	err := StartDevServer("invalid-port", logger, "", t.TempDir(), &level, false, "")
 	if err == nil {
 		t.Fatal("expected error when listen address is invalid")
+	}
+}
+
+func TestStartDevServer_returnsErrorOnUnixSocketConflict(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix invoke is not the default on Windows")
+	}
+	t.Setenv("FORST_INVOKE_TRANSPORT", "unix")
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "info"
+	root := t.TempDir()
+	writeBlockingInvokeSocket(t, root)
+	err := StartDevServer("", logger, "", root, &level, false, "")
+	if err == nil {
+		t.Fatal("expected error when unix socket path is blocked")
 	}
 }
 
@@ -320,6 +351,7 @@ func TestDevServer_discoverFunctions_successUpdatesCache(t *testing.T) {
 }
 
 func TestDevServer_Start_logsWarningWhenInitialDiscoveryFails(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	s := testDevServer(t)
@@ -327,6 +359,11 @@ func TestDevServer_Start_logsWarningWhenInitialDiscoveryFails(t *testing.T) {
 	s.config.Dev.WatchGenerate = &trueVal
 	s.log = log
 	s.port = "invalid-port"
+	cfg := s.invoke.Config()
+	cfg.Transport = "tcp"
+	cfg.Port = "invalid-port"
+	cfg.SocketPath = ""
+	s.invoke = invokeserver.New(cfg, s.devBackend, invokeserver.DefaultEmbeddedVersion(), log)
 	// nil config in discoverer forces initial discovery failure; Start should warn and continue to listen path.
 	s.discoverer = discovery.NewDiscoverer(t.TempDir(), log, nil)
 

@@ -1,0 +1,5 @@
+{
+  "id": "clobber/lastViewedAt-retains-shippable",
+  "expect": "typecheck-ok",
+  "title": "lastViewedAt retains Shippable"
+}

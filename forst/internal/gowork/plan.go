@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"forst/internal/codegen/layout"
+	"forst/internal/ftconfig"
 	"forst/internal/goload"
 )
 
@@ -128,7 +129,7 @@ func isRunSandboxSession(sessionDir string) bool {
 }
 
 // WorkspaceUseDirs returns module directories for a Mode B go.work file.
-func WorkspaceUseDirs(boundaryRoot, sessionDir string, link ForstRuntimeLink) ([]string, error) {
+func WorkspaceUseDirs(_ string, sessionDir string, link ForstRuntimeLink) ([]string, error) {
 	if link.ReplaceDir == "" {
 		return nil, fmt.Errorf("workspace mode requires local forst runtime module")
 	}
@@ -185,7 +186,7 @@ func ChildEnv(base []string, plan LinkPlan, boundaryRoot string) []string {
 		out = append(out, "GOWORK=off")
 	}
 	if boundaryRoot != "" {
-		out = append(out, "FORST_BOUNDARY_ROOT="+boundaryRoot)
+		out = append(out, ftconfig.EnvRoot+"="+boundaryRoot)
 	}
 	return out
 }

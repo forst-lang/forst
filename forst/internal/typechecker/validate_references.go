@@ -11,6 +11,9 @@ import (
 // and function signatures was declared (after the collect pass). Catches typos like "Stringd"
 // that parse as identifiers but are not valid built-ins or defined types.
 func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
+	if err := tc.validateApplicationGuardReceivers(); err != nil {
+		return err
+	}
 	for _, def := range tc.Defs {
 		typeDef, ok := def.(ast.TypeDefNode)
 		if !ok {
@@ -20,6 +23,8 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 			if err := tc.validateTypeDefBinary(typeDef.Ident, bin); err != nil {
 				return err
 			}
+		} else if err := tc.validateLiteralUnionExpr(typeDef.Ident, typeDef.Expr); err != nil {
+			return err
 		}
 		payload, ok := ast.PayloadShape(typeDef.Expr)
 		if !ok {
@@ -36,6 +41,9 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 	}
 
 	for _, sig := range tc.Functions {
+		if err := tc.validateFunctionTypeParamConstraints(sig); err != nil {
+			return err
+		}
 		fnName := string(sig.Ident.ID)
 		for _, p := range sig.Parameters {
 			ctx := fmt.Sprintf("function %s parameter %q", fnName, p.GetIdent())
@@ -51,6 +59,32 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 		}
 	}
 
+	return nil
+}
+
+// validateApplicationGuardReceivers rejects `is (s String) Strong` style app guards.
+// Builtin constraints (String.Min) remain; only user type guards on builtins are banned.
+func (tc *TypeChecker) validateApplicationGuardReceivers() error {
+	for _, def := range tc.Defs {
+		var guard ast.TypeGuardNode
+		switch g := def.(type) {
+		case ast.TypeGuardNode:
+			guard = g
+		case *ast.TypeGuardNode:
+			if g == nil {
+				continue
+			}
+			guard = *g
+		default:
+			continue
+		}
+		subj := guard.Subject.GetType()
+		if tc.isBuiltinType(subj.Ident) {
+			return fmt.Errorf(
+				"refinement-guard-receiver-mismatch: application guard %s cannot use builtin receiver %s; declare `type Name = %s` and guard that type",
+				guard.Ident, subj.Ident.String(), subj.Ident.String())
+		}
+	}
 	return nil
 }
 
@@ -147,13 +181,18 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 			}
 			return nil
 		}
-		// Structural hash idents may only be registered during inference; skip until infer has run.
+		if t.IsTypeParam() {
+			return nil
+		}
 		if strings.HasPrefix(string(t.Ident), "T_") {
 			return nil
 		}
 		def, ok := tc.Defs[t.Ident]
 		if !ok {
 			return fmt.Errorf("%s: unknown type %q", ctx, t.Ident)
+		}
+		if tn, ok := def.(ast.TypeNode); ok && (tn.IsTypeParam() || tn.TypeKind == ast.TypeKindUserDefined) {
+			return nil
 		}
 		if _, ok := def.(ast.TypeDefNode); !ok {
 			return fmt.Errorf("%s: %q is not a type name", ctx, t.Ident)

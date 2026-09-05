@@ -8,6 +8,7 @@ type FunctionNode struct {
 	// Receiver is set for methods: func (recv Type) name(...).
 	Receiver    *SimpleParamNode
 	Ident       Ident
+	TypeParams  []TypeParamDecl
 	Params      []ParamNode
 	ReturnTypes []TypeNode
 	Body        []Node

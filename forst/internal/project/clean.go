@@ -16,7 +16,7 @@ type CleanResult struct {
 }
 
 // CleanGenerated removes compiler-generated output under boundaryRoot/.forst.
-// This includes run sandboxes, test emit dirs, executor temp modules, nodert sockets,
+// This includes run sandboxes, test emit dirs, executor temp modules, bridgert sockets,
 // and invoke ready markers. User config such as .forst-gomod/ is not touched.
 func CleanGenerated(boundaryRoot string, dryRun bool) (CleanResult, error) {
 	abs, err := filepath.Abs(boundaryRoot)

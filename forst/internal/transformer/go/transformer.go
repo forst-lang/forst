@@ -32,6 +32,9 @@ type Transformer struct {
 	// "x := pkg.F()" where F returns Result (Go (values..., error)). Scoped per transformFunction.
 	resultLocalSplit map[string]resultLocalSplit
 
+	// currentFnBody is the Forst function body being transformed (tuple slot use analysis).
+	currentFnBody []ast.Node
+
 	// emittedSealMethods records receiver+method pairs for nominal error union sealing (dedupe on re-emit).
 	emittedSealMethods map[string]struct{}
 
@@ -51,20 +54,23 @@ type Transformer struct {
 	// currentFnProvidersSlots is the slot set for the active function (for pass-through lowering).
 	currentFnProvidersSlots []typechecker.ProviderSlot
 
+	// inlineGenericShapeParams records function parameters lowered as inline struct{ ... T } (generic shape params).
+	inlineGenericShapeParams map[ast.Identifier]map[int]struct{}
+
 	// OmitPackageTypeDefs skips emitting package types when a lib shim already defines them.
 	OmitPackageTypeDefs bool
 	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
 	entryNodes []ast.Node
 
-	// NodeRuntimeOutput holds generated forst_node_runtime.gen.go content (nodert import, wrappers).
-	NodeRuntimeOutput *TransformerOutput
+	// BridgeRuntimeOutput holds generated forst_0_bridge_runtime.gen.go content (bridgert import, wrappers).
+	BridgeRuntimeOutput *TransformerOutput
 	nodeWrappersEmitted map[string]bool
 	nodeSeqTypesEmitted map[string]bool
 
 	// EmbedInvokeServer when true appends ForstInvokeWaitForShutdown() to main for long-lived binaries.
 	EmbedInvokeServer bool
-	// EmbedNodeHostMode when true emits ForstNodeWaitForShutdown for host-mode nodert binaries.
-	EmbedNodeHostMode bool
+	// EmbedBridgeHostMode when true emits ForstBridgeWaitForShutdown for host-mode bridgert binaries.
+	EmbedBridgeHostMode bool
 	// SandboxModulePath when set rewrites cross-package invoke imports (e.g. forst.run.temp/bcrypt).
 	SandboxModulePath string
 }
@@ -79,8 +85,9 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		TypeChecker:          tc,
 		Output:               &TransformerOutput{},
 		log:                  log,
-		functionsWithEnsure:  make(map[string]bool),
-		providersStructByKey: make(map[string]string),
+		functionsWithEnsure:        make(map[string]bool),
+		providersStructByKey:       make(map[string]string),
+		inlineGenericShapeParams:   make(map[ast.Identifier]map[int]struct{}),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {
@@ -114,6 +121,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			def := t.TypeChecker.Defs[name]
 			switch def := def.(type) {
 			case ast.TypeDefNode:
+				if t.shapeTypeDefUsesGenericTypeParams(def) {
+					continue
+				}
 				t.log.WithFields(logrus.Fields{
 					"typeDef":  def.GetIdent(),
 					"function": "TransformForstFileToGo",
@@ -184,7 +194,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.ImportNode:
-			if n.NodeOptIn {
+			if n.BridgeOptIn {
 				break
 			}
 			decl := t.transformImport(n)
@@ -285,7 +295,7 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 					"scope":    scope,
 					"function": "closestFunction",
 				}).Debug("Found function in scope stack")
-				return (*scope.Node).(ast.FunctionNode), nil
+				return *scope.Node, nil
 			}
 		}
 	}
@@ -527,6 +537,14 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def an
 			"function":  "emitTypeAndReferencedTypes",
 			"typeIdent": typeIdent,
 		}).Debug("[DEBUG] Type already emitted, skipping")
+		return nil
+	}
+
+	if typeDef, ok := def.(ast.TypeDefNode); ok && t.shapeTypeDefUsesGenericTypeParams(typeDef) {
+		t.log.WithFields(logrus.Fields{
+			"function":  "emitTypeAndReferencedTypes",
+			"typeIdent": typeIdent,
+		}).Debug("[DEBUG] Skipping generic shape type def emission (lowered inline at use sites)")
 		return nil
 	}
 

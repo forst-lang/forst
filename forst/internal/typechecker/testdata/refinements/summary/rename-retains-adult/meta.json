@@ -1,0 +1,5 @@
+{
+  "id": "summary/rename-retains-adult",
+  "expect": "typecheck-ok",
+  "title": "rename writes name, Adult remains"
+}

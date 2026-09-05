@@ -393,7 +393,7 @@ func Main() {
 
 	outputPath := filepath.Join(dir, "missing-dir", "out.go")
 	c := New(Args{
-		Command:    "build",
+		Command:    "run",
 		FilePath:   filePath,
 		OutputPath: outputPath,
 		LogLevel:   "error",
@@ -594,7 +594,7 @@ func TestGoModuleRootForRun_companionFiles(t *testing.T) {
 func TestRunGoProgram_companionImportsCompile(t *testing.T) {
 	forstCompilerModuleFromTest(t)
 	err := BuildGoProgram(
-		"package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n",
+		"package main\n\nimport _ \"forst/bridgert\"\n\nfunc main() {}\n",
 		"package main\n",
 		"",
 		nil,

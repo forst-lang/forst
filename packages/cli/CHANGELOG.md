@@ -1,5 +1,122 @@
 # Changelog
 
+## [0.9.0](https://github.com/forst-lang/forst/compare/cli-v0.8.1...cli-v0.9.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **interop:** node.loader is deprecated; use javascript.legacyModules.format. The default runtime mode is compiled JavaScript, not tsx-backed TypeScript source. Set javascript.legacyModules.format to typescript to restore the previous behavior.
+* **imports:** Migrate in one step — no compatibility shims remain. 1. Replace `import "./path" node` with `import "./path" js`. 2. Collapse `ftconfig.node` and `ftconfig.javascript` into `bridge` (use    `bridge.legacyModules.format` instead of `node.loader`). 3. `npm install @forst/runtime` and remove `@forst/node-runtime`. 4. Rename deploy env vars `FORST_NODE_*` to `FORST_BRIDGE_*`. 5. Point bootstrap defaults to `node_modules/@forst/runtime/dist/bootstrap.js`. 6. Replace CLI flag `-require-no-node` with `-require-no-bridge`.
+
+### Features
+
+* **imports:** safe local names for node imports with LSP quickfixes ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+* **interop:** support Bun and Deno as JavaScript bridge hosts ([#190](https://github.com/forst-lang/forst/issues/190)) ([608fb80](https://github.com/forst-lang/forst/commit/608fb8031d786e17eb85cdb262b63e185ca6ca6f))
+
+
+### Bug Fixes
+
+* **gointerop:** close mixed-package and stdlib gaps ([#196](https://github.com/forst-lang/forst/issues/196)) ([a918266](https://github.com/forst-lang/forst/commit/a918266709c1aa5cd72d66aa6e70ed2d5e0afc0c))
+
+## [0.8.1](https://github.com/forst-lang/forst/compare/cli-v0.8.0...cli-v0.8.1) (2026-08-18)
+
+
+### Features
+
+* **ftconfig:** resolve bare plugin cmds beside the compiler ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **generate:** project a semantic snapshot and run local plugins ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* Generator plugins ([#186](https://github.com/forst-lang/forst/issues/186)) ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+
+## [0.8.0](https://github.com/forst-lang/forst/compare/cli-v0.7.0...cli-v0.8.0) (2026-08-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* `forst build -o` no longer emits Go sources or a fixed `bin/forst-invoke` name. Use `forst generate` for Go output and exec the path in `manifest.binary` with `FORST_BOUNDARY_ROOT` set.
+* **examples:** FORST_INVOKE_ONLY was removed. Set FORST_SKIP_NODE_HOST=1 (or true) when running a hostMode built binary with Node external. manifest.json invokeOnlyDefault is now skipNodeHostDefault.
+
+### Features
+
+* add native program build with hostMode runtime ([#185](https://github.com/forst-lang/forst/issues/185)) ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+
+### Bug Fixes
+
+* **compiler:** remove legacy companions and tighten generate paths ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **examples:** refresh goldens with forst generate after build output change ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **invokeserver:** synchronize embedded server lifecycle ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **nodert:** respect invoke-only for hostMode and auth handoff ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+## [0.7.0](https://github.com/forst-lang/forst/compare/cli-v0.6.1...cli-v0.7.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **release:** @forst/cli will follow the Go compiler semver on the next linked release. The first publish after this change may jump from the old CLI line (for example 0.6.x) to the current compiler line.
+
+### Continuous Integration
+
+* **release:** couple @forst/cli with compiler via linked-versions ([e6d0349](https://github.com/forst-lang/forst/commit/e6d0349ba2423fc42d9d3e3bc887e3ca23281dcc))
+
+## [0.6.1](https://github.com/forst-lang/forst/compare/cli-v0.6.0...cli-v0.6.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **cli:** improve pin diagnostics and download errors ([335b3c8](https://github.com/forst-lang/forst/commit/335b3c8454575852061911355a992cd8d4a0edf1))
+
+## [0.6.0](https://github.com/forst-lang/forst/compare/cli-v0.5.0...cli-v0.6.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176))
+
+### Features
+
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176)) ([f053420](https://github.com/forst-lang/forst/commit/f053420bcfe8810a71ac55f037908230ed0c009e))
+
+## [0.5.0](https://github.com/forst-lang/forst/compare/cli-v0.4.1...cli-v0.5.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** @forst/cli/invoke no longer exports prepareConnectInvokeEnv, resolveHostInvokeAuthHandoff, startHostInvokeAuthRecvListener, or envInvokeAuthRecvFd. Use prepareInvokeConnect and getInvokeAuthHandoff instead.
+
+### Features
+
+* **cli:** shrink host invoke connect API ([#171](https://github.com/forst-lang/forst/issues/171)) ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+
+### Bug Fixes
+
+* **cli:** add explicit type for DEFAULT_EMBEDDED_INVOKE_BASE_URL ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+* **generate:** skip throw in emitted invoke auth handoff parsing ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+## [0.4.1](https://github.com/forst-lang/forst/compare/cli-v0.4.0...cli-v0.4.1) (2026-08-11)
+
+
+### Features
+
+* **generate:** prefer host auth handoff in emitted transport ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+* **invoke:** relay host-mode auth over inherited fds ([#168](https://github.com/forst-lang/forst/issues/168)) ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+
+### Bug Fixes
+
+* **cli:** safe host auth handoff parse and early recv listen ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+## [0.4.0](https://github.com/forst-lang/forst/compare/cli-v0.3.0...cli-v0.4.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166))
+
+### Features
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166)) ([cf593cb](https://github.com/forst-lang/forst/commit/cf593cb82f6aac4ee6fccd0ed0562cc5176c6fc0))
+
 ## [0.3.0](https://github.com/forst-lang/forst/compare/cli-v0.2.0...cli-v0.3.0) (2026-08-09)
 
 
@@ -26,8 +143,13 @@
 
 ### Features
 
-* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
+* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/runtime`.
 * **cli:** Declare `@forst/errors` as a runtime dependency so apps with `@forst/cli` can import shared invoke failure classes without adding Effect.
+* **cli:** Host-mode invoke auth handoff via `FORST_INVOKE_AUTH_RECV_FD` (`prepareInvokeConnect` / `getInvokeAuthHandoff`), plus shared `DEFAULT_EMBEDDED_INVOKE_PORT` and `DEFAULT_EMBEDDED_INVOKE_BASE_URL`.
+
+### Bug Fixes
+
+* **cli:** Parse host auth handoff JSON as `unknown` and reject non-object roots (including `null`) instead of throwing a TypeError.
 
 ## [0.1.2](https://github.com/forst-lang/forst/compare/cli-v0.1.1...cli-v0.1.2) (2026-07-20)
 
@@ -48,11 +170,11 @@
 
 ### ⚠ BREAKING CHANGES
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
 
 ### Features
 
-* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
+* **bridge-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
 
 ## [0.0.37](https://github.com/forst-lang/forst/compare/cli-v0.0.36...cli-v0.0.37) (2026-06-28)
 

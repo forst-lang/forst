@@ -1,0 +1,5 @@
+is (x X) Valid {
+    ensure x is A() else {
+        println("no")
+    }
+}

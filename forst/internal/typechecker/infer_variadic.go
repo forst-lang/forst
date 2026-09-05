@@ -17,6 +17,26 @@ func functionHasVariadicTail(params []ParameterSignature) (fixed int, elem ast.T
 	return len(params) - 1, last.Type, true
 }
 
+func expectedTypeForCallParam(params []ParameterSignature, argIndex int) *ast.TypeNode {
+	if len(params) == 0 {
+		return nil
+	}
+	fixed, elem, variadic := functionHasVariadicTail(params)
+	var pt ast.TypeNode
+	switch {
+	case variadic && argIndex >= fixed:
+		pt = elem
+	case argIndex < len(params):
+		pt = params[argIndex].Type
+	default:
+		return nil
+	}
+	if pt.IsTypeParam() {
+		return nil
+	}
+	return &pt
+}
+
 func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSignature, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) error {
 	fixed, elem, variadic := functionHasVariadicTail(sig.Parameters)
 	nArgs := len(argTypes)
@@ -37,6 +57,17 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 			if err := tc.checkUserCallArg(fn, i, param.Type, argTypes[i], e); err != nil {
 				return err
 			}
+		}
+		if err := tc.checkCallFactRequirements(fn, e); err != nil {
+			return err
+		}
+		tc.applyCallSummaryInvalidation(fn, e)
+		for _, arg := range e.Arguments {
+			sp := e.CallSpan
+			if !sp.IsSet() {
+				sp = e.Function.Span
+			}
+			tc.applyClosureEscapeInvalidation(arg, sp)
 		}
 		return nil
 	}

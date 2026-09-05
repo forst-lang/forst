@@ -65,26 +65,29 @@ func (c *Compiler) validateWatchConfig() error {
 }
 
 func (c *Compiler) compileAndRunOnce() {
-	mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := c.CompileWithNodeRuntime()
+	c.PreferPackageDirRunEmit()
+	mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		c.log.Error(err)
 		c.log.Warn("Not running program because of errors during compilation")
 		return
 	}
-	if err := c.runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports); err != nil {
+	if err := c.runCompiledOutput(mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports); err != nil {
 		c.log.Error(err)
 	}
 }
 
-func (c *Compiler) resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) (string, error) {
+func (c *Compiler) resolveOutputPathForRun(mainCode, bridgeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) (string, error) {
 	if c.Args.OutputPath != "" {
+		// Package-dir emit already wrote via CompileWithBridgeRuntime; only create a
+		// sandbox when companions are present but were not written (OutputPath empty path).
 		return c.Args.OutputPath, nil
 	}
-	return createTempOutputFileForWatch(mainCode, nodeRuntimeCode, invokeServerCode, extra, extraImports, RunBoundaryRoot(c.Args))
+	return createTempOutputFileForWatch(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports, RunBoundaryRoot(c.Args))
 }
 
-func (c *Compiler) runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) error {
-	outputPath, err := c.resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode, extra, extraImports)
+func (c *Compiler) runCompiledOutput(mainCode, bridgeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) error {
+	outputPath, err := c.resolveOutputPathForRun(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports)
 	if err != nil {
 		return err
 	}

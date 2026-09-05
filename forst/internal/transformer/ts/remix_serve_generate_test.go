@@ -11,7 +11,7 @@ import (
 func TestParseMergedTypecheckProject_remixServeNodeInterop(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", "..", ".."))
-	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "node-interop", "remix-serve")
+	exampleRoot := filepath.Join(projectRoot, "examples", "in", "rfc", "bridge-interop", "remix-serve")
 	mainFT := filepath.Join(exampleRoot, "main", "main.ft")
 
 	log := testutil.TestLogger(t, nil)
@@ -22,7 +22,7 @@ func TestParseMergedTypecheckProject_remixServeNodeInterop(t *testing.T) {
 	if len(chunks) != 1 {
 		t.Fatalf("chunks = %d", len(chunks))
 	}
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
 }

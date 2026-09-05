@@ -1,0 +1,5 @@
+{
+  "id": "collection/index-age-drops-alladults",
+  "expect": "typecheck-error",
+  "title": "users[0].age drops AllAdults"
+}

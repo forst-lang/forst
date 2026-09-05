@@ -1,0 +1,5 @@
+type ActiveStatus = String
+type Carrier = String
+is (x Carrier) Check {
+    ensure x is ActiveStatus
+}

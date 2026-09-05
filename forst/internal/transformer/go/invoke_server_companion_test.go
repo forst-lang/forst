@@ -39,6 +39,7 @@ func Echo(input EchoRequest) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_Echo",
 		"ForstInvokeWaitForShutdown",
@@ -47,6 +48,11 @@ func Echo(input EchoRequest) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
+	}
+	prepareIdx := strings.Index(out, "MustPrepareEmbeddedHostAuth")
+	startIdx := strings.Index(out, "MustStartEmbedded")
+	if prepareIdx < 0 || startIdx < 0 || prepareIdx >= startIdx {
+		t.Fatalf("expected MustPrepareEmbeddedHostAuth before MustStartEmbedded in:\n%s", out)
 	}
 }
 

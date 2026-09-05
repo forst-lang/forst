@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"forst/internal/hoverdoc"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
-// NodeHoverMarkdown returns hover text for a TypeScript export via node import (e.g. payment.create).
+// NodeHoverMarkdown returns hover text for a TypeScript export via JS import (e.g. payment.create).
 func (tc *TypeChecker) NodeHoverMarkdown(moduleLocal, exportName string) (string, bool) {
 	if tc == nil || moduleLocal == "" || exportName == "" {
 		return "", false
@@ -26,7 +26,7 @@ func (tc *TypeChecker) NodeHoverMarkdown(moduleLocal, exportName string) (string
 	return formatNodeExportAliasHover(*exp), true
 }
 
-// NodeImportPathHoverMarkdown returns TS-style hover for a node import path string literal.
+// NodeImportPathHoverMarkdown returns TS-style hover for a JS import path string literal.
 func (tc *TypeChecker) NodeImportPathHoverMarkdown(importPath string) (string, bool) {
 	if tc == nil || strings.TrimSpace(importPath) == "" {
 		return "", false
@@ -40,7 +40,7 @@ func (tc *TypeChecker) NodeImportPathHoverMarkdown(importPath string) (string, b
 	return "", false
 }
 
-// NodeModuleHoverMarkdown returns hover for a node import local name (e.g. payment).
+// NodeModuleHoverMarkdown returns hover for a JS import local name (e.g. payment).
 func (tc *TypeChecker) NodeModuleHoverMarkdown(moduleLocal string) (string, bool) {
 	if tc == nil || moduleLocal == "" {
 		return "", false
@@ -59,7 +59,7 @@ func formatNodeModulePathHover(absPath string) string {
 	return hoverdoc.TypeScriptModuleBlock(formatNodeModulePathDisplay(absPath))
 }
 
-func formatNodeExportAliasHover(exp nodeinterop.IndexExport) string {
+func formatNodeExportAliasHover(exp bridgeinterop.IndexExport) string {
 	return hoverdoc.TypeScriptBlock("(alias) " + formatTSExportSignatureBody(exp))
 }
 
@@ -74,7 +74,7 @@ func formatNodeModulePathDisplay(absPath string) string {
 	return filepath.ToSlash(absPath)
 }
 
-func formatTSExportSignatureBody(exp nodeinterop.IndexExport) string {
+func formatTSExportSignatureBody(exp bridgeinterop.IndexExport) string {
 	prefix := exportTSKeywordBody(exp.Kind)
 	params := make([]string, 0, len(exp.Parameters))
 	for _, p := range exp.Parameters {
@@ -90,24 +90,24 @@ func formatTSExportSignatureBody(exp nodeinterop.IndexExport) string {
 
 func exportTSKeywordBody(kind string) string {
 	switch kind {
-	case nodeinterop.ExportKindAsyncFunction:
+	case bridgeinterop.ExportKindAsyncFunction:
 		return "async function "
-	case nodeinterop.ExportKindGenerator:
+	case bridgeinterop.ExportKindGenerator:
 		return "function* "
-	case nodeinterop.ExportKindAsyncGenerator:
+	case bridgeinterop.ExportKindAsyncGenerator:
 		return "async function* "
 	default:
 		return "function "
 	}
 }
 
-func formatExportReturnTS(exp nodeinterop.IndexExport) string {
+func formatExportReturnTS(exp bridgeinterop.IndexExport) string {
 	switch exp.Kind {
-	case nodeinterop.ExportKindGenerator:
+	case bridgeinterop.ExportKindGenerator:
 		return formatGeneratorReturnTS("Generator", exp)
-	case nodeinterop.ExportKindAsyncGenerator:
+	case bridgeinterop.ExportKindAsyncGenerator:
 		return formatGeneratorReturnTS("AsyncGenerator", exp)
-	case nodeinterop.ExportKindAsyncFunction:
+	case bridgeinterop.ExportKindAsyncFunction:
 		if exp.ReturnType != nil {
 			return "Promise<" + formatIndexTypeTS(*exp.ReturnType) + ">"
 		}
@@ -120,14 +120,14 @@ func formatExportReturnTS(exp nodeinterop.IndexExport) string {
 	}
 }
 
-func formatGeneratorReturnTS(typeName string, exp nodeinterop.IndexExport) string {
+func formatGeneratorReturnTS(typeName string, exp bridgeinterop.IndexExport) string {
 	if exp.YieldType != nil {
 		return typeName + "<" + formatIndexTypeTS(*exp.YieldType) + ">"
 	}
 	return typeName
 }
 
-func formatIndexTypeTS(t nodeinterop.IndexType) string {
+func formatIndexTypeTS(t bridgeinterop.IndexType) string {
 	if t.Binary {
 		if t.Element != nil {
 			return "Buffer"

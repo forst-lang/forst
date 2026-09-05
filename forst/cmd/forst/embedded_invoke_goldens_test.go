@@ -32,6 +32,7 @@ func embeddedInvokeGoldenCases() []embeddedInvokeGoldenCase {
 				"func main()",
 			},
 			invokeMarkers: []string{
+				"invokeembed.MustPrepareEmbeddedHostAuth",
 				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_Echo",
 				"reg.RegisterMeta",
@@ -76,9 +77,9 @@ func compileEmbeddedInvokePackageForGolden(t *testing.T, opts compileEmbeddedInv
 		ExportStructFields: opts.ExportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
-		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
+		t.Fatalf("CompileWithBridgeRuntime(%s): %v", absEntry, err)
 	}
 	return embeddedInvokeCompileOutput{Main: mainCode, Invoke: invokeCode}
 }
@@ -87,9 +88,9 @@ func invokeServerGoldenPath(mainGoldenPath string) string {
 	ext := filepath.Ext(mainGoldenPath)
 	base := strings.TrimSuffix(mainGoldenPath, ext)
 	if ext == "" {
-		return base + "_forst_invoke_server.gen.go"
+		return base + "_forst_1_invoke_server.gen.go"
 	}
-	return base + "_forst_invoke_server.gen" + ext
+	return base + "_forst_1_invoke_server.gen" + ext
 }
 
 func verifyEmbeddedInvokePackageCompileGolden(t *testing.T, opts embeddedInvokeCompileVerifyOpts) {

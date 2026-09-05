@@ -1,0 +1,5 @@
+{
+  "expect": "parse-error",
+  "id": "failure/bare-block-requires-else",
+  "title": "bare ensure failure block without else rejected"
+}

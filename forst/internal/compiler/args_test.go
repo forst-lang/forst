@@ -121,22 +121,48 @@ func TestParseArgs_runSuccess(t *testing.T) {
 func TestParseArgs_buildSuccess(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	args := ParseArgsFrom([]string{"forst", "build", "-o", "out.go", "main.ft"}, log)
-	if args.Command != "build" || args.OutputPath != "out.go" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" {
+	args := ParseArgsFrom([]string{"forst", "build", "-o", "out-dir", "main.ft"}, log)
+	if args.Command != "build" || args.OutputPath != "out-dir" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" {
 		t.Fatalf("got %+v", args)
+	}
+}
+
+func TestParseArgs_buildGoOutputRejected(t *testing.T) {
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	args := ParseArgsFrom([]string{"forst", "build", "-o", "out.go", "main.ft"}, log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
+	}
+	if !strings.Contains(buf.String(), "generate --go-out") {
+		t.Fatalf("expected generate --go-out hint, got %q", buf.String())
+	}
+}
+
+func TestParseArgs_buildRequiresOutputDir(t *testing.T) {
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	args := ParseArgsFrom([]string{"forst", "build", "main.ft"}, log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
+	}
+	if !strings.Contains(buf.String(), "requires -o") {
+		t.Fatalf("expected -o required message, got %q", buf.String())
 	}
 }
 
 func TestParseArgs_requireNoNodeFlag(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	args := ParseArgsFrom([]string{"forst", "build", "-require-no-node", "main.ft"}, log)
-	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || !args.RequireNoNode {
+	args := ParseArgsFrom([]string{"forst", "build", "-o", "out", "-require-no-bridge", "main.ft"}, log)
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || !args.RequireNoBridge {
 		t.Fatalf("got %+v", args)
 	}
-	args = ParseArgsFrom([]string{"forst", "run", "-require-no-node", "main.ft"}, log)
-	if args.Command != "run" || !args.RequireNoNode {
-		t.Fatalf("run with -require-no-node: got %+v", args)
+	args = ParseArgsFrom([]string{"forst", "run", "-require-no-bridge", "main.ft"}, log)
+	if args.Command != "run" || !args.RequireNoBridge {
+		t.Fatalf("run with -require-no-bridge: got %+v", args)
 	}
 }
 

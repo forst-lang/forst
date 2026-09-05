@@ -1,0 +1,248 @@
+package bridgert
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"forst/internal/ftconfig"
+
+	logrus "github.com/sirupsen/logrus"
+)
+
+// HostProcessConfig configures parent-owned node host spawn (no RPC dial).
+type HostProcessConfig struct {
+	BoundaryRoot, WorkDir string
+	ModulesDir            string
+	NodePath              string
+	Bridge                ftconfig.Bridge
+	ModuleIDs             []string
+	ShimArgs              []string
+	SocketPath, ReadyPath string
+	HostAutoRegister      bool
+	HostAppReadyModule    string
+	FilesExclude, ExtraEnv []string
+	AuthRelay             *HostInvokeAuthRelay
+	ReadyTimeout          time.Duration
+	Log                   *logrus.Logger
+}
+
+// SpawnedHostProcess is a node host started by EnsureHostProcessRunning.
+type SpawnedHostProcess struct {
+	proc *managedProcess
+}
+
+// Terminate stops a host process spawned by EnsureHostProcessRunning.
+func (s *SpawnedHostProcess) Terminate() error {
+	if s == nil || s.proc == nil {
+		return nil
+	}
+	return s.proc.terminate()
+}
+
+// PID returns the spawned host pid, or 0 when unknown.
+func (s *SpawnedHostProcess) PID() int {
+	if s == nil || s.proc == nil || s.proc.cmd == nil || s.proc.cmd.Process == nil {
+		return 0
+	}
+	return s.proc.cmd.Process.Pid
+}
+
+// DefaultHostShutdownGrace is the wait before SIGKILL when terminating a host pid.
+func DefaultHostShutdownGrace() time.Duration {
+	return shutdownGracePeriod
+}
+
+// HostProcessConfigFromFTConfig builds spawn config from ftconfig.
+func HostProcessConfigFromFTConfig(cfg *ftconfig.Config, boundaryRoot string, log *logrus.Logger) (HostProcessConfig, error) {
+	if cfg == nil {
+		return HostProcessConfig{}, bridgeRuntimeErr("ftconfig is nil")
+	}
+	if !cfg.Bridge.HostMode {
+		return HostProcessConfig{}, bridgeRuntimeErr("hostMode is not enabled")
+	}
+	if len(cfg.Bridge.Args) == 0 {
+		return HostProcessConfig{}, bridgeRuntimeErr("hostMode requires non-empty bridge.args in ftconfig.json")
+	}
+
+	boundaryRoot = strings.TrimSpace(boundaryRoot)
+	if boundaryRoot == "" {
+		return HostProcessConfig{}, bridgeRuntimeErr("boundary root is empty")
+	}
+
+	nodeBinary, err := ResolveBridgeBinary(boundaryRoot, cfg.Bridge.Binary)
+	if err != nil {
+		return HostProcessConfig{}, err
+	}
+
+	socketPath, readyPath, err := ResolveHostSocketPath(boundaryRoot, cfg.Bridge.HostSocket)
+	if err != nil {
+		return HostProcessConfig{}, err
+	}
+
+	hostAppReadyModule := ""
+	if module := strings.TrimSpace(cfg.Bridge.HostAppReadyModule); module != "" {
+		hostAppReadyModule, err = resolveHostAppReadyModule(boundaryRoot, module)
+		if err != nil {
+			return HostProcessConfig{}, err
+		}
+	}
+
+	timeout := time.Duration(cfg.Bridge.HostReadyTimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+
+	bridge, err := ftconfig.EffectiveBridge(cfg)
+	if err != nil {
+		return HostProcessConfig{}, err
+	}
+
+	modulesDir := ""
+	if bridge.ModuleFormat == ftconfig.LegacyModuleCompiled {
+		modulesDir, err = ftconfig.ResolveModulesDir(boundaryRoot, cfg)
+		if err != nil {
+			return HostProcessConfig{}, fmt.Errorf("resolve compiled modules directory: %w", err)
+		}
+	}
+
+	workDir := boundaryRoot
+	return HostProcessConfig{
+		BoundaryRoot:       boundaryRoot,
+		WorkDir:            workDir,
+		ModulesDir:         modulesDir,
+		NodePath:           nodeBinary,
+		Bridge:             bridge,
+		ShimArgs:           append([]string(nil), cfg.Bridge.Args...),
+		SocketPath:         socketPath,
+		ReadyPath:          readyPath,
+		HostAutoRegister:   cfg.Bridge.EffectiveHostAutoRegister(),
+		HostAppReadyModule: hostAppReadyModule,
+		FilesExclude:       append([]string(nil), cfg.Files.Exclude...),
+		ReadyTimeout:       timeout,
+		Log:                log,
+	}, nil
+}
+
+// EnsureHostProcessRunning starts the node host when no live marker exists.
+// When the marker already references a live ready host, returns spawned=false
+// without dialing (the host accepts a single RPC client).
+func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *SpawnedHostProcess, err error) {
+	log := cfg.Log
+	if log == nil {
+		log = logrus.New()
+		log.SetLevel(logrus.ErrorLevel)
+	}
+
+	socketPath := cfg.SocketPath
+	readyPath := cfg.ReadyPath
+	if socketPath == "" || readyPath == "" {
+		var resolveErr error
+		socketPath, readyPath, resolveErr = ResolveHostSocketPath(cfg.BoundaryRoot, "")
+		if resolveErr != nil {
+			return false, nil, resolveErr
+		}
+	}
+
+	if skip := ReattachSkipReason(readyPath); skip == "" {
+		if cfg.AuthRelay == nil {
+			return false, nil, nil
+		}
+		if marker, ok := readHostReadyMarker(readyPath); ok && marker.PID > 0 {
+			if log != nil {
+				log.Infof("Restarting node host for invoke auth handoff (pid=%d)", marker.PID)
+			}
+			_ = TerminateHostPID(marker.PID, DefaultHostShutdownGrace())
+		}
+		cleanupHostSocketFiles(socketPath, readyPath)
+	}
+
+	if err := PrepareHostSocket(socketPath, readyPath); err != nil {
+		return false, nil, err
+	}
+
+	hostCmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot:       cfg.BoundaryRoot,
+		ModulesDir:         cfg.ModulesDir,
+		Executable:         cfg.NodePath,
+		ShimArgs:           cfg.ShimArgs,
+		WorkDir:            cfg.WorkDir,
+		Bridge:             cfg.Bridge,
+		ModuleIDs:          cfg.ModuleIDs,
+		SocketPath:         socketPath,
+		ReadyPath:          readyPath,
+		FilesExclude:       cfg.FilesExclude,
+		Env:                cfg.ExtraEnv,
+		HostAutoRegister:   cfg.HostAutoRegister,
+		HostAppReadyModule: cfg.HostAppReadyModule,
+		AuthRelay:          cfg.AuthRelay,
+	})
+	if err != nil {
+		return false, nil, err
+	}
+
+	timeout := cfg.ReadyTimeout
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	managed, err := spawnHostProcess(hostCmd, cfg.WorkDir, log)
+	if err != nil {
+		return false, nil, err
+	}
+
+	exitCh := make(chan error, 1)
+	go func() {
+		exitCh <- managed.wait()
+	}()
+
+	if err := waitForHostMarkerReady(ctx, readyPath, exitCh, managed.stderrTail); err != nil {
+		_ = managed.terminate()
+		cleanupHostSocketFiles(socketPath, readyPath)
+		return false, nil, err
+	}
+
+	go func() {
+		_ = managed.waitAsync(log)
+	}()
+
+	return true, &SpawnedHostProcess{proc: managed}, nil
+}
+
+func waitForHostMarkerReady(ctx context.Context, readyPath string, exitCh <-chan error, stderrTail func() string) error {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return hostReadyWaitError("host ready timeout", readyPath, nil, stderrTail)
+		case exitErr := <-exitCh:
+			return hostReadyWaitError("host process exited before ready", readyPath, exitErr, stderrTail)
+		case <-ticker.C:
+			if ReattachSkipReason(readyPath) == "" {
+				return nil
+			}
+		}
+	}
+}
+
+func hostReadyWaitError(reason, readyPath string, exitErr error, stderrTail func() string) error {
+	msg := fmt.Sprintf("bridge host: %s (ready=%s)", reason, readyPath)
+	if exitErr != nil {
+		msg += fmt.Sprintf("; exit=%v", exitErr)
+	}
+	if data, err := os.ReadFile(readyPath); err == nil && len(data) > 0 {
+		msg += fmt.Sprintf("; ready=%s", string(data))
+	}
+	if stderrTail != nil {
+		if tail := stderrTail(); tail != "" {
+			msg += fmt.Sprintf("; stderr=%q", tail)
+		}
+	}
+	return fmt.Errorf("%s", msg)
+}

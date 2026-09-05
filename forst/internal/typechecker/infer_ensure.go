@@ -10,8 +10,57 @@ func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (ast.TypeNode, err
 		return ast.TypeNode{}, err
 	}
 
+	// Phase 2: lower ensure RHS to Assertion IR (TypeTarget stays separate).
+	tc.recordEnsureIR(ensure)
+
+	if _, isType := ensure.Target.(ast.TypeTarget); isType {
+		if err := tc.validateEnsureTypeTarget(ensure, variableType); err != nil {
+			return ast.TypeNode{}, err
+		}
+		return variableType, nil
+	}
+	if p, ok := ensure.Target.(*ast.TypeTarget); ok && p != nil {
+		if err := tc.validateEnsureTypeTarget(ensure, variableType); err != nil {
+			return ast.TypeNode{}, err
+		}
+		return variableType, nil
+	}
+
+	// TypeTarget that names a type guard must use assertion parens: Strong() not Strong.
+	if ensure.Assertion.IsBareTypeShape() {
+		name := ensure.Assertion.BaseType
+		if name != nil {
+			if def, ok := tc.Defs[*name]; ok {
+				if _, isGuard := def.(ast.TypeGuardNode); isGuard {
+					return ast.TypeNode{}, diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+						"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
+						*name, *name)
+				}
+				if _, isGuard := def.(*ast.TypeGuardNode); isGuard {
+					return ast.TypeNode{}, diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+						"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
+						*name, *name)
+				}
+			}
+		}
+	}
+
+	if err := tc.rejectTypeNameAsAssertionCall(ensure.Assertion); err != nil {
+		return ast.TypeNode{}, err
+	}
+
 	if err := tc.validateAssertionNode(ensure.Assertion, variableType); err != nil {
 		return ast.TypeNode{}, err
+	}
+
+	// Runtime-only atoms (e.g. Min(n)): prove via IR only; do not build a static dependent type.
+	if ir := tc.lastEnsureIR.Assertion; HasRuntimeOnlyAtom(ir) {
+		path := tc.AccessPathForVariable(&ensure.Variable)
+		if tc.predicates != nil {
+			pred := tc.predicates.FromAssertion(ir)
+			tc.CurrentRefinementContext().Prove(path, pred)
+		}
+		return variableType, nil
 	}
 
 	// Assertion hover type is stored in infer.go after successor narrowing so `tc.Types` matches the

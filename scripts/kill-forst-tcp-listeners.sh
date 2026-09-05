@@ -50,3 +50,22 @@ done
 if [[ "$FORCE" == true ]]; then
   kill_remaining_listeners
 fi
+
+cleanup_stale_unix_socket() {
+  local root="${1:-.}"
+  local socket_path="${root%/}/.forst/invoke.sock"
+  if [[ ! -S "$socket_path" ]]; then
+    return 0
+  fi
+  local owner_pid=""
+  if owner_pid=$(lsof -t "$socket_path" 2>/dev/null | head -n 1); then
+    if ps -p "$owner_pid" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  rm -f "$socket_path"
+}
+
+if [[ "${FORST_CLEANUP_INVOKE_SOCKET:-}" == "1" ]]; then
+  cleanup_stale_unix_socket "${FORST_ROOT:-.}"
+fi

@@ -1,0 +1,6 @@
+{
+  "id": "e2e/json-normalize",
+  "expect": "emit-ok",
+  "title": "Object/json.RawMessage normalize",
+  "matrix": true
+}

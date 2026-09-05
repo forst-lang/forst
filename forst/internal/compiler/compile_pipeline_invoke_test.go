@@ -25,7 +25,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		PackageRoot: root,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -36,6 +36,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		t.Fatalf("main should call ForstInvokeWaitForShutdown when companion emitted:\n%s", mainCode)
 	}
 	for _, want := range []string{
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_Echo",
 		"ForstInvokeWaitForShutdown",
@@ -79,7 +80,7 @@ func main() {}
 		ReloadProfile: true,
 		LogLevel:      "error",
 	}, nil)
-	_, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	_, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -111,7 +112,7 @@ func main() {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -138,7 +139,11 @@ func main() {
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	if err := os.MkdirAll(bcryptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(`package bcrypt
 
 type HashInput = {password: String}
 
@@ -154,7 +159,7 @@ func Hash(input HashInput) {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -189,7 +194,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -205,9 +210,16 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()
@@ -215,7 +227,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -233,7 +245,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(nil, dir)
@@ -249,19 +261,19 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	c := New(Args{
 		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
@@ -272,6 +284,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -281,8 +294,8 @@ func ComparePassword(input ComparePasswordRequest) {
 	if !strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main should call shutdown when companion present:\n%s", mainCode)
 	}
-	if !strings.Contains(nodeRuntime, "forstNodeManifestJSON") {
-		t.Fatalf("node runtime missing manifest:\n%s", nodeRuntime)
+	if !strings.Contains(bridgeRuntime, "forstBridgeManifestJSON") {
+		t.Fatalf("node runtime missing manifest:\n%s", bridgeRuntime)
 	}
 }
 
@@ -304,7 +317,7 @@ func TestCompile_embeddedInvoke_devSession_crossPackageExports(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -314,13 +327,20 @@ func TestCompile_embeddedInvoke_devSession_crossPackageExports(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(ftconfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
 func main() {
 	println("ready")
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -338,12 +358,12 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	session := devcompile.NewSession(dir)
-	mainPath := filepath.Join(forstDir, "main.ft")
+	mainPath := filepath.Join(mainDir, "main.ft")
 	if _, err := session.ParseFile(nil, mainPath); err != nil {
 		t.Fatalf("prime session cache with entry file: %v", err)
 	}
@@ -356,7 +376,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		DevSession:    session,
 		LogLevel:      "error",
 	}, nil)
-	_, _, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	_, _, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -393,7 +413,7 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -409,9 +429,16 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()
@@ -419,7 +446,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -440,7 +467,7 @@ func ComparePassword(input {
 	return { valid: false }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(nil, dir)
@@ -456,19 +483,19 @@ func ComparePassword(input {
 	}
 	c := New(Args{
 		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke companion with cross-package handlers")
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion for host mode")
 	}
 	bcryptPkg, ok := extraPkgs["bcrypt"]
@@ -482,6 +509,7 @@ func ComparePassword(input {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -506,7 +534,7 @@ func TestCompile_hostModeWithoutInvoke_appendsNodeShutdown(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{
   "server": {"embedded": true},
-  "node": {
+  "bridge": {
     "hostMode": true,
     "binary": "node",
     "args": ["scripts/host.mjs"]
@@ -519,7 +547,7 @@ func TestCompile_hostModeWithoutInvoke_appendsNodeShutdown(t *testing.T) {
 	}
 	mainSrc := `package main
 
-import node host "./host"
+import host "./host" js
 
 func main() {
   ready := host.ping()
@@ -536,21 +564,21 @@ func main() {
 		PackageRoot: dir,
 		LogLevel:    "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	if invokeCode != "" {
 		t.Fatalf("expected no invoke companion, got:\n%s", invokeCode)
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion")
 	}
-	if !strings.Contains(nodeRuntime, "ForstNodeWaitForShutdown") {
-		t.Fatalf("node runtime missing shutdown helper:\n%s", nodeRuntime)
+	if !strings.Contains(bridgeRuntime, "ForstBridgeWaitForShutdown") {
+		t.Fatalf("node runtime missing shutdown helper:\n%s", bridgeRuntime)
 	}
-	if !strings.Contains(mainCode, "ForstNodeWaitForShutdown") {
-		t.Fatalf("main should call ForstNodeWaitForShutdown:\n%s", mainCode)
+	if !strings.Contains(mainCode, "ForstBridgeWaitForShutdown") {
+		t.Fatalf("main should call ForstBridgeWaitForShutdown:\n%s", mainCode)
 	}
 	if strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main must not call invoke shutdown without invoke companion:\n%s", mainCode)
@@ -558,7 +586,7 @@ func main() {
 }
 
 func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
-	root := filepath.Join("..", "..", "examples", "in", "rfc", "node-interop", "remix-serve")
+	root := filepath.Join("..", "..", "examples", "in", "rfc", "bridge-interop", "remix-serve")
 	mainPath := filepath.Join(root, "main", "main.ft")
 	if _, err := os.Stat(mainPath); err != nil {
 		t.Skip("remix-serve example not present:", err)
@@ -570,23 +598,24 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	_, nodeRuntime, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	_, bridgeRuntime, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	if nodeRuntime == "" {
+	if bridgeRuntime == "" {
 		t.Fatal("expected node runtime companion")
 	}
 	if invokeCode == "" {
 		t.Fatal("expected invoke server companion")
 	}
 	for _, want := range []string{
-		"forstNodeManifestJSON",
-		"nodert.CallSync",
+		"forstBridgeManifestJSON",
+		"bridgert.CallSync",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_ListTodos",
 	} {
-		body := nodeRuntime + invokeCode
+		body := bridgeRuntime + invokeCode
 		if !strings.Contains(body, want) {
 			t.Fatalf("missing %q in companions", want)
 		}
@@ -610,7 +639,7 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	}
 	ftconfig := `{
   "server": {"embedded": true, "port": "6321"},
-  "node": {
+  "bridge": {
     "enabled": true,
     "hostMode": true,
     "binary": "node",
@@ -626,9 +655,16 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import host "../host" js
 
 func main() {
 	ready := host.hostPing()
@@ -636,7 +672,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -654,7 +690,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -664,14 +700,14 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	outPath := filepath.Join(outDir, "main.go")
 	c := New(Args{
-		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		Command:            "run",
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		OutputPath:         outPath,
 		ExportStructFields: true,
 		LogLevel:           "error",
 	}, nil)
-	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	mainCode, bridgeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithBridgeRuntime()
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
@@ -686,7 +722,96 @@ func ComparePassword(input ComparePasswordRequest) {
 	if extraPkgs["bcrypt"] != string(bcryptDisk) {
 		t.Fatalf("written bcrypt package differs from compile output")
 	}
-	if err := BuildGoProgram(mainCode, nodeRuntime, invokeCode, extraPkgs, dir); err != nil {
+	if err := BuildGoProgram(mainCode, bridgeRuntime, invokeCode, extraPkgs, dir); err != nil {
 		t.Fatalf("BuildGoProgram with extras: %v", err)
+	}
+}
+
+func TestCompile_removesLegacyCompanionFilesOnWrite(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+	return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "out", "main.go")
+	legacyInvoke := legacyInvokeServerOutputPath(outPath)
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyInvoke, []byte("// legacy invoke companion"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := New(Args{
+		Command:     "run",
+		FilePath:    filepath.Join(dir, "main.ft"),
+		PackageRoot: dir,
+		OutputPath:  outPath,
+		LogLevel:    "error",
+	}, nil)
+	if _, err := c.CompileFile(); err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if _, err := os.Stat(legacyInvoke); !os.IsNotExist(err) {
+		t.Fatal("legacy invoke companion should be removed")
+	}
+	newInvoke := invokeServerOutputPath(outPath)
+	if _, err := os.Stat(newInvoke); err != nil {
+		t.Fatalf("new invoke companion missing at %s: %v", newInvoke, err)
+	}
+}
+
+func TestCompile_generate_neverEmitsInvokeCompanion(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module plainmaintest\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+  return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "main.gen.go")
+	c := New(Args{
+		Command:     "generate",
+		FilePath:    filepath.Join(dir, "main.ft"),
+		PackageRoot: dir,
+		OutputPath:  outPath,
+		LogLevel:    "error",
+	}, nil)
+	mainCode, _, invokeCode, _, _, err := c.CompileWithBridgeRuntime()
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if invokeCode != "" {
+		t.Fatalf("generate must not emit invoke companion, got:\n%s", invokeCode)
+	}
+	if strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
+		t.Fatalf("generate main must not call ForstInvokeWaitForShutdown:\n%s", mainCode)
+	}
+	if _, err := os.Stat(invokeServerOutputPath(outPath)); err == nil {
+		t.Fatal("generate must not write *_invoke_server*.gen.go beside --go-out")
 	}
 }

@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/binary-ensure-age-path",
+  "expect": "deps",
+  "title": "ensure user.age >= 18 depends on that path"
+}

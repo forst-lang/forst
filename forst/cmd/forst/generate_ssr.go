@@ -26,7 +26,7 @@ func writeSSRModule(
 
 	distDir := filepath.Join(outDir, "dist")
 	moduleDir := filepath.Dir(modulePath)
-	transportImport, err := relativeJSImport(moduleDir, filepath.Join(distDir, "transport"))
+	transportImport, err := relativeJSImport(moduleDir, filepath.Join(distDir, "transport", "runtime"))
 	if err != nil {
 		return fmt.Errorf("SSR transport import path: %w", err)
 	}
@@ -67,7 +67,7 @@ func writeSSRModule(
 	log.WithFields(logrus.Fields{
 		"ssrModule": ssrRelPath,
 		"path":      modulePath,
-	}).Info("Generated SSR invoke module")
+	}).Debug("Generated SSR invoke module")
 	return nil
 }
 

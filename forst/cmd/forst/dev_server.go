@@ -37,6 +37,7 @@ type DevServer struct {
 	devBackend     *invokeserver.DevBackend
 	host           string
 	port           string
+	rootDir        string
 	server         *http.Server
 	compiler       *compiler.Compiler
 	log            *logrus.Logger
@@ -71,7 +72,9 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 		WriteTimeout:   config.Server.WriteTimeout,
 		MaxRequestSize: config.Server.MaxRequestSize,
 		Runtime:        string(profile),
+		BoundaryRoot:   rootDir,
 	}
+	invokeserver.ApplyListenDefaults(&invokeCfg, rootDir)
 	version := invokeserver.VersionInfo{
 		Version:         Version,
 		Commit:          Commit,
@@ -79,11 +82,12 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 		ContractVersion: devHTTPContractVersion,
 		Runtime:         string(profile),
 	}
-	invokeServer := invokeserver.New(invokeCfg, backend, version, log)
+	invokeServer := invokeserver.New(invokeCfg, backend, version, invokeserver.NewLogrusLogger(log))
 
 	return &DevServer{
 		host:       listenHost,
 		port:       listenPort,
+		rootDir:    rootDir,
 		invoke:     invokeServer,
 		devBackend: backend,
 		fnExec:     fnExec,

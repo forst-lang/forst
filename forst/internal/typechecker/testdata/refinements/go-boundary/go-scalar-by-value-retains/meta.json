@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-scalar-by-value-retains",
+  "expect": "typecheck-ok",
+  "title": "Go func(int) does not drop age fact on a copy"
+}

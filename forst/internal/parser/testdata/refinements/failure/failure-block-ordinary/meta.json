@@ -1,0 +1,5 @@
+{
+  "id": "failure/failure-block-ordinary",
+  "expect": "parse-ok",
+  "title": "failure block in ordinary function"
+}

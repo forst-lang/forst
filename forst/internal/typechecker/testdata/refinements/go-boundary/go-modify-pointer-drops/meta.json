@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-modify-pointer-drops",
+  "expect": "typecheck-error",
+  "title": "Go Modify(&user) drops Adult"
+}

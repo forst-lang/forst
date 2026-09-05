@@ -1,0 +1,5 @@
+{
+  "id": "collection/reassign-slice-drops",
+  "expect": "typecheck-error",
+  "title": "users = other drops AllAdults"
+}

@@ -8,7 +8,3 @@ import "fmt"
 func createJunction(_, _ string) error {
 	return fmt.Errorf("junctions are only supported on windows")
 }
-
-func ensureJunctionTargetAbsent(_ string) error {
-	return nil
-}

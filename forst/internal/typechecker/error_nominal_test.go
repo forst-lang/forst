@@ -86,7 +86,7 @@ error NotPositive {
 
 func Test() {
 	n := 0
-	ensure n is GreaterThan(0) or NotPositive({
+	ensure n is GreaterThan(0) else NotPositive({
 		message: "n must be greater than 0",
 	})
 }

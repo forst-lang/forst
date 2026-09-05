@@ -1,0 +1,6 @@
+{
+  "id": "identity/path-interning",
+  "expect": "typecheck-ok",
+  "title": "deterministic AccessPath interning",
+  "matrix": true
+}

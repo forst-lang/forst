@@ -1,0 +1,24 @@
+package main
+
+type Status =
+	"Pending"
+	| "Processing"
+	| "Retrying"
+	| "Done"
+	| "Failed"
+
+type ActiveStatus =
+	"Pending"
+	| "Processing"
+	| "Retrying"
+
+error InvalidStatus {}
+
+func consumeActiveStatus(s ActiveStatus) {}
+
+func check(status Status) {
+	ensure status is ActiveStatus else InvalidStatus()
+	consumeActiveStatus(status)
+}
+
+func main() {}

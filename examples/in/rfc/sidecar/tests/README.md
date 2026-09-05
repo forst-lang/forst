@@ -44,10 +44,13 @@ npx tsx tests/runner.ts
 npm run dev
 ```
 
-## Test Files
+## Forst sources
 
-- `echo.ft`: Tests basic echo functionality
-- `type_safety.ft`: Tests type safety and validation
+Package `.ft` files live next to the sidecar example root (not under `tests/`):
+
+- `echo/echo.ft`: Tests basic echo functionality
+- `user/user.ft`: User-related handlers
+- `typesafety/typesafety.ft`: Tests type safety and validation
 
 ## HTTP API Endpoints
 

@@ -28,7 +28,7 @@ This `LoggedIn` guard requires an `AppContext` with both a session and a user.
 The declaration starts with `is`, followed by the value, its base type, and the
 guard name.
 
-```forst
+```ft
 is (subject BaseType) GuardName() {
     // checks
 }
@@ -36,11 +36,29 @@ is (subject BaseType) GuardName() {
 
 Use the guard anywhere you can use an `is` check.
 
-```forst
+```ft
 ensure ctx is LoggedIn()
 ```
 
 After this line, Forst knows that `ctx.sessionId` and `ctx.user` are present.
+
+## Attach a guard to a named type
+
+Guards must attach to a declared named type or struct shape, not to a bare primitive like `String` or `Int`.
+
+Define a nominal scalar type when you want to write guards for scalar values:
+
+```ft
+type Password = String
+
+is (p Password) Strong() {
+    ensure p is Min(12)
+    ensure p is Contains("#")
+}
+```
+
+This ensures that guard names belong to a specific domain concept (`Password`)
+rather than polluting all string or integer values across the program.
 
 ## Require fields on a shape
 
@@ -69,6 +87,14 @@ logged in user.
 The guard fails before task creation when the session or user is missing. After
 the check, the handler can safely read `op.input.name`.
 
+## Fail-closed behavior inside guards
+
+Guards must be deterministic and fail-closed.
+
+- Every path inside a guard body must evaluate checks cleanly. If an `if` condition in a guard body does not match and has no explicit `else`, the guard fails (evaluates to false).
+- A guard body cannot raise typed failures using `else CustomError()`. Typed failure errors belong at the `ensure` call site, not inside the guard definition.
+- Assertion `or` (such as `ensure password is Strong() or Passkey()`) is supported [inside a guard](/language/ensure-and-narrowing#accept-alternatives-with-or) to combine acceptable checks.
+
 ## Why a normal function is not enough
 
 A function that returns `Bool` can report whether a value passed. Its return
@@ -88,27 +114,30 @@ See the [roadmap](/resources/roadmap).
 A guard checks the value once at an `ensure` or `if`. Later changes do not run
 the guard again.
 
-Changing a field after the check can make the earlier result outdated.
+Changing a field after the check can make the earlier result outdated. The
+compiler drops refinement facts whose dependency paths overlap the write.
+Later uses that need those facts are errors; the write itself stays legal.
 
 ```ft
 ensure ctx is LoggedIn()
-ctx.sessionId = nil   // runtime: no longer logged in
-// compiler may still treat ctx as LoggedIn here
+ctx.sessionId = nil
+useSession(ctx.sessionId) // error: Present(sessionId) was invalidated by the write
 ```
 
-Pointer fields such as `sessionId: *String` need particular care. Clearing the
-pointer does not undo the narrowing. Scoped immutability for `ensure` may
-address this later.
+See [How refinements survive mutation](/language/ensure-and-narrowing#how-refinements-survive-mutation)
+in *Ensure and narrowing* for details on how field writes, pointer slots, and
+concurrency invalidate or preserve refined facts.
 
 <Warning>
-  Narrowing reflects a single check at compile time. It does not lock the value at runtime.
+  Narrowing is a compile-time fact about storage. A write that may change a
+  dependency drops the fact; re-`ensure` to restore it.
 </Warning>
 
 ### Prefer simple variables
 
 Narrowing works best when `ensure` checks a simple variable.
 
-```forst
+```ft
 ensure x is LoggedIn()
 ```
 
@@ -126,16 +155,13 @@ A guard only checks its subject and parameters. The same input must always
 produce the same result.
 
 Inside a guard you can use `if`, `else if`, `else`, `is`, and `ensure`. A guard
-cannot change values, use `return`, add an `or` clause, or read unrelated
+cannot change values, use `return`, add a typed `else` clause, or read unrelated
 variables.
 
 ### Shape guards verify fields
 
 A shape guard such as `Input(input Shape)` verifies that a field exists with the
 required shape. It never creates or fills that field.
-
-Changes to `op.input` or `op.ctx` after the guard are not tracked. Check the
-value again after changing it.
 
 ### Narrowing after branches
 
@@ -151,17 +177,13 @@ general narrowing limits.
 Generated Go uses functions or inline conditions for guard checks. An `ensure`
 that uses the guard follows the normal Go error return path.
 
-## Run the examples
+## Examples
 
-Run these commands from the Forst repository.
+See the type guard examples on GitHub
 
-```bash
-task example:shape-guard
-task example:basic-guard
-```
-
-The source files are in
-[`examples/in/rfc/guard/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/guard/).
+* [`examples/in/rfc/guard/shape_guard.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/rfc/guard/shape_guard.ft)
+* [`examples/in/rfc/guard/basic_guard.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/rfc/guard/basic_guard.ft)
+* [`examples/in/rfc/guard/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/guard/)
 
 ## Related
 

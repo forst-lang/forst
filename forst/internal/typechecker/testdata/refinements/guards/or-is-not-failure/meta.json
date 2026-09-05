@@ -1,0 +1,6 @@
+{
+  "id": "guards/or-is-not-failure",
+  "expect": "typecheck-error",
+  "title": "or is not the failure keyword",
+  "code": "refinement-legacy-failure-or"
+}

@@ -10,12 +10,12 @@ error NotPositive {message: String}
 func Test() {
 	n := 0
 	ensure n is GreaterThan(0)
-	    or NotPositive({message: "n must be greater than 0"})
+	    else NotPositive({message: "n must be greater than 0"})
 }
 
 func main() {
 	err := Test()
-	ensure !err {
+	ensure !err else {
 		fmt.Println(err)
 	}
 }

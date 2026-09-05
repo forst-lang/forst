@@ -42,6 +42,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     await client.healthCheck();
 
@@ -70,6 +71,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     const out = await client.discoverFunctions();
 
@@ -97,6 +99,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     await client.discoverFunctions();
     expect(client.getFunctionInfo("demo", "Echo")).toBeDefined();
@@ -118,6 +121,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     await client.invokeFunction("demo", "Echo", ["hello"]);
 
@@ -148,6 +152,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     try {
       await client.invokeFunction("demo", "Echo", []);
@@ -171,6 +176,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     try {
       await client.invokeFunction("demo", "Echo", []);
@@ -197,6 +203,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     try {
       await client.invokeFunction("main", "Nope", []);
@@ -228,6 +235,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     const v = await client.getVersion();
     expect(v.version).toBe("0.9.0");
@@ -249,6 +257,7 @@ describe("ForstSidecarClient", () => {
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
+      authDisabled: true,
     });
     await client.healthCheck();
 
@@ -308,6 +317,7 @@ describe("ForstSidecarClient", () => {
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
       reloadAware: true,
+      authDisabled: true,
     });
     const out = await client.invokeFunction("demo", "Echo", []);
     expect(out.result).toBe(42);
@@ -352,6 +362,7 @@ describe("ForstSidecarClient", () => {
 
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:6320",
+      authDisabled: true,
     });
     const out = await client.invokeFunction("demo", "Echo", []);
     expect(out.result).toBe(99);
@@ -366,6 +377,7 @@ describe("ForstSidecarClient", () => {
       baseUrl: "http://127.0.0.1:6320",
       retries: 2,
       reloadAware: false,
+      authDisabled: true,
     });
     await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow(
       DevServerRequestRetriesExhausted
@@ -390,6 +402,7 @@ describe("ForstSidecarClient", () => {
       retries: 0,
       reloadAware: false,
       timeout: 50,
+      authDisabled: true,
     });
     const start = Date.now();
     await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow();
@@ -417,6 +430,7 @@ describe("ForstSidecarClient", () => {
       baseUrl: "http://127.0.0.1:6320",
       retries: 0,
       reloadAware: false,
+      authDisabled: true,
     });
     await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow(
       DevServerHttpFailure

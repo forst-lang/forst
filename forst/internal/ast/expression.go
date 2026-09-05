@@ -30,6 +30,7 @@ type BinaryExpressionNode struct {
 type FunctionCallNode struct {
 	Function  Ident
 	Callee    ExpressionNode // non-nil for calls on arbitrary expressions (e.g. func literals)
+	TypeArgs  []TypeNode     // explicit type arguments for generic calls (e.g. identity[Int](42))
 	Arguments []ExpressionNode
 	CallSpan  SourceSpan   // from '(' through ')' of this call; zero if unset
 	ArgSpans  []SourceSpan // parallel to Arguments when set by parser
@@ -185,8 +186,20 @@ func (f FunctionCallNode) String() string {
 	for i, arg := range f.Arguments {
 		args[i] = arg.String()
 	}
+	typeArgStr := formatTypeArgsString(f.TypeArgs)
 	if f.Callee != nil {
-		return fmt.Sprintf("%s(%s)", f.Callee.String(), strings.Join(args, ", "))
+		return fmt.Sprintf("%s%s(%s)", f.Callee.String(), typeArgStr, strings.Join(args, ", "))
 	}
-	return fmt.Sprintf("{%s}(%s)", f.Function.ID, strings.Join(args, ", "))
+	return fmt.Sprintf("{%s}%s(%s)", f.Function.ID, typeArgStr, strings.Join(args, ", "))
+}
+
+func formatTypeArgsString(typeArgs []TypeNode) string {
+	if len(typeArgs) == 0 {
+		return ""
+	}
+	parts := make([]string, len(typeArgs))
+	for i, ta := range typeArgs {
+		parts[i] = ta.String()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
 }

@@ -1,0 +1,5 @@
+{
+  "id": "summary/setage-drops-adult",
+  "expect": "typecheck-error",
+  "title": "setAge writes age, Adult gone"
+}

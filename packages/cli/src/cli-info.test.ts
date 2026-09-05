@@ -8,11 +8,22 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { getCompilerArtifactName } from "./artifact.js";
+import type { FetchImpl } from "./http.js";
 import {
   printForstCliInfo,
   printForstCliVersion,
   printForstGoBuildInfo,
 } from "./cli-info.js";
+import { getBundledCompilerReleaseVersion } from "./version.js";
+
+const verifyOff = { FORST_CLI_VERIFY: "0" } as const;
+
+function seedCompilerModuleCache(cacheRoot: string, version: string): void {
+  mkdirSync(join(cacheRoot, version, "module", "cmd", "forst"), {
+    recursive: true,
+  });
+}
 
 describe("printForstCliInfo", () => {
   test.skipIf(process.platform === "win32")(
@@ -44,9 +55,82 @@ fi
 
     const flat = lines.join("\n");
     expect(flat).toContain("@forst/cli (npm):");
+    expect(flat).toContain("Pinned compiler release:");
+    expect(flat).toContain("(FORST_BINARY override)");
     expect(flat).toContain(fake);
     expect(flat).toContain("1.2.3");
   }
+  );
+
+  test.skipIf(process.platform === "win32")(
+    "warns when pinned release falls back to an older compiler",
+    async () => {
+      const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-info-fallback-"));
+      try {
+        const destName =
+          process.platform === "win32"
+            ? "forst-windows-amd64.exe"
+            : getCompilerArtifactName(process.platform, process.arch);
+        const pinned = getBundledCompilerReleaseVersion();
+        const fallback = "0.0.18";
+        const fakeBinary = Buffer.from(`#!/bin/sh
+if [ "$1" = "version" ]; then
+  echo "forst ${fallback} fakecommit fake-date"
+fi
+`);
+
+        const fetchImpl: FetchImpl = async (url) => {
+          const s = String(url);
+          if (s.includes("/repos/forst-lang/forst/releases?")) {
+            return new Response(
+              JSON.stringify([
+                { tag_name: `v${pinned}` },
+                { tag_name: `v${fallback}` },
+              ]),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
+          if (s.includes(`/download/v${pinned}/`)) {
+            return new Response(null, { status: 404, statusText: "Not Found" });
+          }
+          if (s.includes(`/download/v${fallback}/`)) {
+            return new Response(fakeBinary, { status: 200 });
+          }
+          if (s.includes("api.github.com")) {
+            return new Response(
+              JSON.stringify({ assets: [{ name: destName }] }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
+          throw new Error(`unexpected fetch: ${s}`);
+        };
+        seedCompilerModuleCache(cacheRoot, fallback);
+
+        const lines: string[] = [];
+        const origLog = console.log;
+        console.log = (...a: unknown[]) => {
+          lines.push(a.map(String).join(" "));
+        };
+        try {
+          await printForstCliInfo({
+            env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+            fetchImpl,
+            homedirFn: () => "/unused",
+          });
+        } finally {
+          console.log = origLog;
+        }
+
+        const flat = lines.join("\n");
+        expect(flat).toContain(`Pinned compiler release: ${pinned}`);
+        expect(flat).toContain(`Resolved compiler version: ${fallback}`);
+        expect(flat).toContain(
+          "Note: pinned release unavailable; resolved to an older compiler."
+        );
+      } finally {
+        rmSync(cacheRoot, { recursive: true, force: true });
+      }
+    }
   );
 });
 

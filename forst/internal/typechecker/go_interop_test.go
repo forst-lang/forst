@@ -12,6 +12,7 @@ import (
 	"forst/internal/lexer"
 	"forst/internal/parser"
 	"forst/internal/testutil"
+	"forst/internal/typechecker/gointerop"
 
 	"github.com/sirupsen/logrus"
 )
@@ -462,7 +463,7 @@ func TestGoTypeAtFieldPath_netURLPathField(t *testing.T) {
 	}
 }
 
-func TestGoTypeToForstType_namedGoTypeMapsToImplicit(t *testing.T) {
+func TestGoTypeToForstType_namedGoTypeMapsToImplicitWithoutHost(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
@@ -709,13 +710,9 @@ func main() {
 
 func TestForstAssignableToGoType_implicitRejectsUnmappedGoParam(t *testing.T) {
 	t.Parallel()
-	ch := types.NewChan(types.SendRecv, types.Typ[types.Int])
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	tc := New(log, false)
-	implicit := ast.TypeNode{Ident: ast.TypeImplicit}
-	if tc.forstAssignableToGoType(implicit, ch) {
-		t.Fatal("expected implicit not assignable when Go type has no Forst mapping")
+	_, ok := gointerop.TypeToForstType(types.Typ[types.UnsafePointer])
+	if ok {
+		t.Fatal("unsafe.Pointer should remain unmapped")
 	}
 }
 
@@ -747,7 +744,7 @@ func TestForstAssignableToGoType_implicitAssignsToGoSliceParam(t *testing.T) {
 	}
 }
 
-func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
+func TestForstAssignableToGoType_opaquePointerDoesNotSatisfyIOReader(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"io"})
@@ -768,8 +765,8 @@ func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
 	log.SetLevel(logrus.PanicLevel)
 	tc := New(log, false)
 	ptr := ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeImplicit}}}
-	if !tc.forstAssignableToGoType(ptr, readerIface) {
-		t.Fatalf("expected *implicit assignable to %s", readerIface.String())
+	if tc.forstAssignableToGoType(ptr, readerIface) {
+		t.Fatalf("expected *implicit not assignable to %s without a tracked Go receiver type", readerIface.String())
 	}
 }
 
@@ -899,7 +896,7 @@ func main() {
 	}
 }
 
-func TestSamePackageGoCall_unexportedGoFunc_notFound(t *testing.T) {
+func TestSamePackageGoCall_unexportedGoFunc_typechecks(t *testing.T) {
 	t.Parallel()
 	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
 	src := `package memos
@@ -919,9 +916,8 @@ func main() {
 	tc := New(log, false)
 	tc.GoWorkspaceDir = root
 	tc.SetSamePackageGoImportPath(importPath)
-	err = tc.CheckTypes(nodes)
-	if err == nil {
-		t.Fatal("expected type error for unexported same-package Go func")
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("expected same-package unexported Go call to typecheck: %v", err)
 	}
 }
 

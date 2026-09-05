@@ -1,0 +1,5 @@
+is (x X) Valid {
+    if x.kind == "login" {
+        ensure x is Login()
+    }
+}

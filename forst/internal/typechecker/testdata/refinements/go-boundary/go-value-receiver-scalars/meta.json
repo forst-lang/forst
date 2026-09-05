@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-value-receiver-scalars",
+  "expect": "typecheck-ok",
+  "title": "value receiver on scalar struct may retain top-level"
+}

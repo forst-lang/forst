@@ -189,11 +189,11 @@ func (p *printer) printTopLevel(node ast.Node) (string, error) {
 }
 
 func (p *printer) printImport(i ast.ImportNode) string {
-	if i.NodeOptIn && i.NodeOptInSource == "import_node" {
+	if i.BridgeOptIn && i.BridgeOptInSource == "import_js" {
 		if i.Alias != nil {
-			return fmt.Sprintf(`import node %s "%s"`, i.Alias.ID, i.Path)
+			return fmt.Sprintf(`import %s "%s" js`, i.Alias.ID, i.Path)
 		}
-		return fmt.Sprintf(`import node "%s"`, i.Path)
+		return fmt.Sprintf(`import "%s" js`, i.Path)
 	}
 	if i.SideEffectOnly {
 		return fmt.Sprintf(`import _ "%s"`, i.Path)
@@ -210,11 +210,11 @@ func (p *printer) printImportGroup(g ast.ImportGroupNode) string {
 	p.push()
 	for _, im := range g.Imports {
 		b.WriteString(p.prefix())
-		if im.NodeOptIn && im.NodeOptInSource == "import_node" {
+		if im.BridgeOptIn && im.BridgeOptInSource == "import_js" {
 			if im.Alias != nil {
-				fmt.Fprintf(&b, `node %s "%s"`, im.Alias.ID, im.Path)
+				fmt.Fprintf(&b, `%s "%s" js`, im.Alias.ID, im.Path)
 			} else {
-				fmt.Fprintf(&b, `node "%s"`, im.Path)
+				fmt.Fprintf(&b, `"%s" js`, im.Path)
 			}
 		} else if im.SideEffectOnly {
 			b.WriteString(`_ "` + im.Path + `"`)
@@ -261,12 +261,14 @@ func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
 }
 
 // maybeMultilineTypeDefAlias returns (formatted, true, nil) when the typedef is broken across lines.
+// Two-member unions stay inline when they fit the width; three or more members are always
+// multiline with a leading operator on every member (TECHNICAL-DESIGN).
 func (p *printer) maybeMultilineTypeDefAlias(name string, e ast.TypeDefExpr, singleLine string) (string, bool, error) {
 	op, members := flattenTypeDefSameOpChain(e)
 	if len(members) < 2 {
 		return "", false, nil
 	}
-	if len(singleLine) <= p.effectiveTypeDefLineWidth() {
+	if len(members) == 2 && len(singleLine) <= p.effectiveTypeDefLineWidth() {
 		return "", false, nil
 	}
 	body, err := p.printTypeDefExprLeadingOps(op, members)
@@ -354,12 +356,12 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 		if x == nil || x.Assertion == nil {
 			return "", fmt.Errorf("printer: empty type def assertion")
 		}
-		return p.formatAssertion(*x.Assertion), nil
+		return p.printTypeDefAssertion(*x.Assertion)
 	case ast.TypeDefAssertionExpr:
 		if x.Assertion == nil {
 			return "", fmt.Errorf("printer: empty type def assertion")
 		}
-		return p.formatAssertion(*x.Assertion), nil
+		return p.printTypeDefAssertion(*x.Assertion)
 	case ast.TypeDefBinaryExpr:
 		left, err := p.printTypeDefExpr(x.Left)
 		if err != nil {
@@ -387,6 +389,20 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 	}
 }
 
+// printTypeDefAssertion prints typedef members; bare Value(literal) prints as the literal.
+func (p *printer) printTypeDefAssertion(a ast.AssertionNode) (string, error) {
+	if a.BaseType == nil && len(a.OrChains) == 0 && len(a.Constraints) == 1 &&
+		a.Constraints[0].Name == ast.ValueConstraint && len(a.Constraints[0].Args) == 1 &&
+		a.Constraints[0].Args[0].Value != nil {
+		s, err := p.printExpr((*a.Constraints[0].Args[0].Value).(ast.ExpressionNode))
+		if err != nil {
+			return "", err
+		}
+		return s, nil
+	}
+	return p.formatAssertion(a), nil
+}
+
 func (p *printer) printFunction(fn ast.FunctionNode) (string, error) {
 	var b strings.Builder
 	b.WriteString("func ")
@@ -400,6 +416,20 @@ func (p *printer) printFunction(fn ast.FunctionNode) (string, error) {
 		b.WriteString(") ")
 	}
 	b.WriteString(string(fn.Ident.ID))
+	if len(fn.TypeParams) > 0 {
+		b.WriteByte('[')
+		for i, tp := range fn.TypeParams {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(string(tp.Name))
+			if tp.Constraint != nil {
+				b.WriteByte(' ')
+				b.WriteString(printType(*tp.Constraint))
+			}
+		}
+		b.WriteByte(']')
+	}
 	b.WriteByte('(')
 	for i, param := range fn.Params {
 		if i > 0 {
@@ -468,7 +498,15 @@ func (p *printer) printTypeGuard(tg ast.TypeGuardNode) (string, error) {
 func (p *printer) printParam(param ast.ParamNode) (string, error) {
 	switch x := param.(type) {
 	case ast.SimpleParamNode:
-		return string(x.Ident.ID) + " " + printType(x.Type), nil
+		var b strings.Builder
+		b.WriteString(string(x.Ident.ID))
+		if x.Variadic {
+			b.WriteString(" ...")
+		} else {
+			b.WriteByte(' ')
+		}
+		b.WriteString(printType(x.Type))
+		return b.String(), nil
 	case ast.DestructuredParamNode:
 		var b strings.Builder
 		b.WriteByte('{')
@@ -667,17 +705,34 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 			e.Assertion.BaseType != nil && *e.Assertion.BaseType == ast.TypeError {
 			b.WriteString("ensure !")
 			b.WriteString(v)
+		} else if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("ensure ")
+			b.WriteString(v)
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    is ")
+			b.WriteString(p.formatAssertionMeet(e.Assertion))
+			for _, alt := range e.Assertion.OrChains {
+				b.WriteString("\n")
+				b.WriteString(p.prefix())
+				b.WriteString("    or ")
+				b.WriteString(p.formatAssertionMeet(alt))
+			}
 		} else {
 			b.WriteString("ensure ")
 			b.WriteString(v)
 			b.WriteString(" is ")
-			b.WriteString(p.formatAssertion(e.Assertion))
+			if tt, ok := e.Target.(ast.TypeTarget); ok {
+				b.WriteString(string(tt.Name))
+			} else {
+				b.WriteString(p.formatAssertion(e.Assertion))
+			}
 		}
 	}
 	if e.Error != nil {
 		b.WriteString("\n")
 		b.WriteString(p.prefix())
-		b.WriteString("    or ")
+		b.WriteString("    else ")
 		switch err := (*e.Error).(type) {
 		case ast.EnsureErrorCall:
 			b.WriteString(err.ErrorType)
@@ -700,16 +755,31 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		}
 	}
 	if e.Block != nil && len(e.Block.Body) > 0 {
-		b.WriteString(" {\n")
-		p.push()
-		body, err := p.printBlock(e.Block.Body)
-		if err != nil {
-			return "", err
+		if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteString("    }")
+		} else {
+			b.WriteString(" else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteByte('}')
 		}
-		b.WriteString(body)
-		p.pop()
-		b.WriteString(p.prefix())
-		b.WriteByte('}')
 	}
 	return b.String(), nil
 }
@@ -924,7 +994,7 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 	case ast.VariableNode:
 		return string(x.Ident.ID), nil
 	case ast.IntLiteralNode:
-		return fmt.Sprintf("%d", x.Value), nil
+		return x.Source(), nil
 	case ast.FloatLiteralNode:
 		return fmt.Sprintf("%g", x.Value), nil
 	case ast.StringLiteralNode:
@@ -1060,7 +1130,25 @@ func (p *printer) printBinary(b ast.BinaryExpressionNode) (string, error) {
 
 func (p *printer) printCall(c ast.FunctionCallNode) (string, error) {
 	var b strings.Builder
-	b.WriteString(string(c.Function.ID))
+	if c.Callee != nil {
+		callee, err := p.printExpr(c.Callee)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(callee)
+	} else {
+		b.WriteString(string(c.Function.ID))
+	}
+	if len(c.TypeArgs) > 0 {
+		b.WriteByte('[')
+		for i, ta := range c.TypeArgs {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(printType(ta))
+		}
+		b.WriteByte(']')
+	}
 	b.WriteByte('(')
 	for i, a := range c.Arguments {
 		if i > 0 {
@@ -1184,9 +1272,20 @@ func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) 
 }
 
 // printShapeFieldEntry prints one shape member: method signatures omit the colon (`info(msg String)`).
+// Embedded fields print as a type-only member (`Inner`), matching Go-style anonymous embedding.
 func (p *printer) printShapeFieldEntry(name string, field ast.ShapeFieldNode, fieldIndent int) (string, error) {
 	if field.IsMethod {
 		return ast.FormatShapeMemberName(name, field), nil
+	}
+	if field.Embedded {
+		rhs, err := p.printShapeFieldRHS(field, fieldIndent)
+		if err != nil {
+			return "", err
+		}
+		if rhs == "" {
+			return name, nil
+		}
+		return rhs, nil
 	}
 	rhs, err := p.printShapeFieldRHS(field, fieldIndent)
 	if err != nil {

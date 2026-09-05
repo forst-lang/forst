@@ -1,0 +1,8 @@
+package main
+
+import "net/url"
+
+func main() {
+	u := &url.URL{Path: "/x"}
+	println(u.Path)
+}

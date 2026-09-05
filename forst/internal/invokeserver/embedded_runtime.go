@@ -2,7 +2,6 @@ package invokeserver
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"forst/internal/ftconfig"
@@ -12,7 +11,6 @@ import (
 type embeddedDeps struct {
 	resolveRoot func() (string, error)
 	loadConfig  func(dir string) (*ftconfig.Config, error)
-	writeReady  func(workDir string, cfg Config) error
 	newServer   func(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *Server
 }
 
@@ -20,7 +18,6 @@ func defaultEmbeddedDeps() embeddedDeps {
 	return embeddedDeps{
 		resolveRoot: resolveBoundaryRoot,
 		loadConfig:  ftconfig.LoadFromDir,
-		writeReady:  writeInvokeReady,
 		newServer:   New,
 	}
 }
@@ -29,6 +26,7 @@ func defaultEmbeddedDeps() embeddedDeps {
 type EmbeddedRuntime struct {
 	registry   *invokedispatch.Registry
 	server     *Server
+	serverMu   sync.Mutex
 	shutdown   chan struct{}
 	shutdownMu sync.Mutex
 	deps       embeddedDeps
@@ -69,17 +67,29 @@ func (r *EmbeddedRuntime) Start() error {
 		WriteTimeout:   cfg.Server.WriteTimeout,
 		MaxRequestSize: cfg.Server.MaxRequestSize,
 		Runtime:        "embedded",
+		BoundaryRoot:   workDir,
 	}
+	ApplyListenDefaults(&serverCfg, workDir)
 	backend := NewRegistryBackend(r.registryOrNew())
-	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), StderrLogger{})
-	if err := r.server.StartAsync(); err != nil {
+	srv := r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), DefaultLogger())
+	if err := srv.StartAsync(); err != nil {
 		return fmt.Errorf("invoke server: start: %w", err)
 	}
-	// StartAsync binds synchronously; record the real port when FORST_INVOKE_PORT=0.
-	if _, port, err := net.SplitHostPort(r.server.BoundAddr()); err == nil && port != "" {
-		serverCfg.Port = port
+	r.serverMu.Lock()
+	r.server = srv
+	r.serverMu.Unlock()
+	return nil
+}
+
+// Stop shuts down the embedded invoke server when running.
+func (r *EmbeddedRuntime) Stop() {
+	r.serverMu.Lock()
+	srv := r.server
+	r.server = nil
+	r.serverMu.Unlock()
+	if srv != nil {
+		_ = srv.Stop()
 	}
-	return r.deps.writeReady(workDir, serverCfg)
 }
 
 func (r *EmbeddedRuntime) startOnce() {
@@ -100,9 +110,7 @@ func (r *EmbeddedRuntime) shutdownCh() <-chan struct{} {
 // WaitForShutdown blocks until a signal or NotifyShutdown.
 func (r *EmbeddedRuntime) WaitForShutdown(wait func(<-chan struct{})) {
 	wait(r.shutdownCh())
-	if r.server != nil {
-		_ = r.server.Stop()
-	}
+	r.Stop()
 }
 
 // NotifyShutdown unblocks WaitForShutdown.

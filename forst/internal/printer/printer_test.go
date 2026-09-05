@@ -37,6 +37,52 @@ func TestPrintParam_destructured(t *testing.T) {
 	}
 }
 
+func TestPrintParam_variadic(t *testing.T) {
+	t.Parallel()
+	var p printer
+	p.cfg = DefaultConfig()
+	got, err := p.printParam(ast.SimpleParamNode{
+		Ident:    ast.Ident{ID: ast.Identifier("xs")},
+		Type:     ast.NewTypeParamType("T"),
+		Variadic: true,
+	})
+	if err != nil || got != "xs ...T" {
+		t.Fatalf("variadic: %q err=%v", got, err)
+	}
+}
+
+func TestFormatSource_genericVariadicParam_idempotent(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func ignore[T any](xs ...T): Bool {
+	return true
+}
+
+func main() {
+	println(ignore(1, 2, 3))
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "generic_variadic.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if !strings.Contains(out, "xs ...T") {
+		t.Fatalf("expected variadic param preserved, got:\n%s", out)
+	}
+	if strings.Contains(out, "xs T") && !strings.Contains(out, "xs ...T") {
+		t.Fatalf("fmt stripped variadic ellipsis:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "generic_variadic.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "generic_variadic.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
 func TestFormatSource_functionParams_goStyleNoColonBeforeType(t *testing.T) {
 	t.Parallel()
 	const src = `package main
@@ -296,12 +342,58 @@ func main() {
 	}
 }
 
+func TestFormatSource_multiAssertionEnsure_wrapsEachLine(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func f(password String, status String) {
+	ensure password is Strong() or Passkey() else InvalidCredential()
+	ensure status is Pending() or Processing() or Retrying() else InvalidCredential()
+	ensure status is Pending() or Processing()
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "ensure-multi.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+
+	expected := `package main
+
+func f(password String, status String) {
+	ensure password
+	    is Strong()
+	    or Passkey()
+	    else InvalidCredential()
+	ensure status
+	    is Pending()
+	    or Processing()
+	    or Retrying()
+	    else InvalidCredential()
+	ensure status
+	    is Pending()
+	    or Processing()
+}
+`
+	if out != expected {
+		t.Fatalf("unexpected formatted multi-assertion ensure output:\n--- got ---\n%s\n--- expected ---\n%s", out, expected)
+	}
+
+	l := lexer.New([]byte(out), "ensure-multi.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "ensure-multi.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
 func TestFormatSource_ensureOr_putsOrOnNextLineIndentedFour(t *testing.T) {
 	t.Parallel()
 	const src = `package main
 
 func f(name String) {
-	ensure name is Min(1) or TooShort("msg")
+	ensure name is Min(1) else TooShort("msg")
 }
 `
 	log := logrus.New()
@@ -310,11 +402,11 @@ func f(name String) {
 	if err != nil {
 		t.Fatalf("FormatSource: %v", err)
 	}
-	if !strings.Contains(out, "\n\t    or TooShort") {
-		t.Fatalf("expected `or` on the line after `ensure` with +4 column indent, got:\n%s", out)
+	if !strings.Contains(out, "\n\t    else TooShort") {
+		t.Fatalf("expected `else` on the line after `ensure` with +4 column indent, got:\n%s", out)
 	}
-	if strings.Contains(out, "Min(1) or ") {
-		t.Fatalf("did not expect `ensure` and `or` on one line, got:\n%s", out)
+	if strings.Contains(out, "Min(1) else TooShort") && !strings.Contains(out, "\n\t    else TooShort") {
+		t.Fatalf("did not expect `ensure` and `else` jammed on one line without indent break, got:\n%s", out)
 	}
 	l := lexer.New([]byte(out), "ensure-or.ft", log)
 	tokens := l.Lex()
@@ -331,7 +423,7 @@ func TestFormatSource_ensureNegatedBlock_noDoubleIndent(t *testing.T) {
 import "fmt"
 
 func main() {
-	ensure !err {
+	ensure !err else {
 		fmt.Printf("x")
 	}
 }

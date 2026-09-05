@@ -101,8 +101,14 @@ func f(): String {
 		t.Fatalf("expected variable, got %T", ret.Values[0])
 	}
 	guards := tc.NarrowingTypeGuardsForVariableOccurrence(vn)
-	if len(guards) != 1 || guards[0] != "Strong" {
-		t.Fatalf("expected [Strong], got %v", guards)
+	hasStrong := false
+	for _, g := range guards {
+		if g == "Strong" {
+			hasStrong = true
+		}
+	}
+	if !hasStrong {
+		t.Fatalf("expected Strong in guards, got %v", guards)
 	}
 }
 

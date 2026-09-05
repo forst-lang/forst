@@ -81,7 +81,7 @@ func TestTransformShapeNodeWithExpectedType_namedAndHashFallback(t *testing.T) {
 			"y": {Node: ast.IntLiteralNode{Value: 2}},
 		},
 	}
-	named, err := tr.transformShapeNodeWithExpectedType(shape, &ast.TypeNode{Ident: "Point", TypeKind: ast.TypeKindUserDefined})
+	named, err := tr.transformShapeNodeWithExpectedType(shape, &ast.TypeNode{Ident: "Point", TypeKind: ast.TypeKindUserDefined}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestTransformShapeNodeWithExpectedType_namedAndHashFallback(t *testing.T) {
 		t.Fatalf("named literal: %s", s)
 	}
 
-	hash, err := tr.transformShapeNodeWithExpectedType(shape, &ast.TypeNode{Ident: "T_abc", TypeKind: ast.TypeKindHashBased})
+	hash, err := tr.transformShapeNodeWithExpectedType(shape, &ast.TypeNode{Ident: "T_abc", TypeKind: ast.TypeKindHashBased}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,12 +192,13 @@ func TestTransformFunctionParamField_assertionBaseTypeOnly(t *testing.T) {
 	}
 	tr := setupTransformer(tc, log)
 	base := ast.TypeIdent("User")
-	field, err := tr.transformFunctionParamField("u", ast.TypeNode{
+	fields, err := tr.transformFunctionParamFields(ast.Identifier("_"), 0, "u", ast.TypeNode{
 		Assertion: &ast.AssertionNode{BaseType: &base},
 	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
+	field := fields[0]
 	if field.Type.(*goast.Ident).Name != "User" {
 		t.Fatalf("field = %#v", field)
 	}

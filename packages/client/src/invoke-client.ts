@@ -1,4 +1,9 @@
-import { ForstSidecar, ForstSidecarClient, readInvokeReadyUrl } from "@forst/sidecar";
+import {
+  ForstSidecar,
+  ForstSidecarClient,
+  readInvokeReadySocketPath,
+  readInvokeReadyUrl,
+} from "@forst/sidecar";
 import type {
   ForstSidecar as ForstSidecarType,
   InvokeSuccess,
@@ -65,9 +70,15 @@ function resolveBaseUrl(config?: ForstInvokeClientConfig): string | undefined {
   );
 }
 
+function boundaryRoot(config?: ForstInvokeClientConfig): string {
+  return config?.rootDir ?? process.cwd();
+}
+
 function shouldConnect(config?: ForstInvokeClientConfig): boolean {
   if (config?.transport === "http") {
-    return Boolean(resolveBaseUrl(config));
+    return Boolean(
+      resolveBaseUrl(config) || readInvokeReadySocketPath(boundaryRoot(config))
+    );
   }
   if (config?.transport === "dev") {
     return false;
@@ -87,6 +98,9 @@ function shouldConnect(config?: ForstInvokeClientConfig): boolean {
   if (readInvokeReadyUrl(config?.rootDir)) {
     return true;
   }
+  if (readInvokeReadySocketPath(boundaryRoot(config))) {
+    return true;
+  }
   return Boolean(resolveEnvBaseUrl());
 }
 
@@ -95,9 +109,11 @@ class HttpInvokeClient {
 
   constructor(config?: ForstInvokeClientConfig) {
     const resolveBaseUrlFn = createInvokeBaseUrlResolver(config);
+    const root = boundaryRoot(config);
     this.client = new ForstSidecarClient({
       baseUrl: resolveBaseUrlFn(),
       resolveBaseUrl: resolveBaseUrlFn,
+      boundaryRoot: root,
       timeout: config?.timeout ?? 30000,
       retries: config?.retries ?? 0,
       reloadAware: true,

@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-diagnostic-conservative-boundary",
+  "expect": "typecheck-error",
+  "title": "Go diagnostic is conservative boundary"
+}

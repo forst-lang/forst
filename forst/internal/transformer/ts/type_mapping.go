@@ -6,6 +6,7 @@ import (
 	"forst/internal/typechecker"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -221,6 +222,12 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 
 	// Assertion types (e.g. User(Match({ ... })), refinements) — reuse typechecker inference.
 	if forstType.Ident == ast.TypeAssertion {
+		// Named literal-union members: Value("todo") → `"todo"` in TypeScript.
+		if forstType.Assertion != nil {
+			if lit, ok := typechecker.LiteralValueFromAssertion(forstType.Assertion); ok {
+				return literalValueToTypeScript(lit), nil
+			}
+		}
 		if tm.typeChecker != nil && forstType.Assertion != nil {
 			inferred, err := tm.typeChecker.InferAssertionType(forstType.Assertion, false, "", nil)
 			if err == nil && len(inferred) > 0 {
@@ -248,7 +255,7 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 	// Named type that exists in the typechecker (user-defined, stable name)
 	if tm.typeChecker != nil && forstType.TypeKind == ast.TypeKindUserDefined && forstType.Ident != "" {
 		if _, ok := tm.typeChecker.Defs[forstType.Ident].(ast.TypeDefNode); ok {
-			return string(forstType.Ident), nil
+			return GeneratedTypeExport(string(forstType.Ident)), nil
 		}
 	}
 
@@ -259,8 +266,12 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 			AllowStructuralAlias: true,
 		})
 		if err == nil && aliasedName != "" {
-			// If we found an aliased name, use it
-			return aliasedName, nil
+			return GeneratedTypeExport(aliasedName), nil
+		}
+		if string(forstType.Ident) != "" {
+			if _, ok := tm.typeChecker.Defs[forstType.Ident].(ast.TypeDefNode); ok {
+				return GeneratedTypeExport(string(forstType.Ident)), nil
+			}
 		}
 
 		// If no aliased name found, try to resolve the underlying struct definition
@@ -337,4 +348,23 @@ func (tm *TypeMapping) shapeToInlineTypeScript(shape ast.ShapeNode) (string, err
 		return "{}", nil
 	}
 	return fmt.Sprintf("{\n%s\n}", strings.Join(lines, "\n")), nil
+}
+
+func literalValueToTypeScript(v ast.ValueNode) string {
+	switch x := v.(type) {
+	case ast.StringLiteralNode:
+		return strconv.Quote(x.Value)
+	case *ast.StringLiteralNode:
+		return strconv.Quote(x.Value)
+	case ast.IntLiteralNode:
+		return strconv.FormatInt(x.Value, 10)
+	case *ast.IntLiteralNode:
+		return strconv.FormatInt(x.Value, 10)
+	case ast.BoolLiteralNode:
+		return strconv.FormatBool(x.Value)
+	case *ast.BoolLiteralNode:
+		return strconv.FormatBool(x.Value)
+	default:
+		return "unknown"
+	}
 }

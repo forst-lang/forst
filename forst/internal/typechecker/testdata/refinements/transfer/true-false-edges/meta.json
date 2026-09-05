@@ -1,0 +1,6 @@
+{
+  "id": "transfer/true-false-edges",
+  "expect": "typecheck-ok",
+  "title": "true/false edge contexts",
+  "matrix": true
+}

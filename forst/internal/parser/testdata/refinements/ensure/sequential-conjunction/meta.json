@@ -1,0 +1,5 @@
+{
+  "id": "ensure/sequential-conjunction",
+  "expect": "parse-ok",
+  "title": "sequential conjunction in guard"
+}

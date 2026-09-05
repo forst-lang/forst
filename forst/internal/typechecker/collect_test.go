@@ -45,13 +45,15 @@ func TestCollect_typeGuardRegisteredInDefs(t *testing.T) {
 	log := setupTestLogger(nil)
 	src := `package main
 
-is (n Int) Positive() {
+type Score = Int
+
+is (n Score) Positive() {
 	ensure n is GreaterThan(0)
 }
 
 func main() {
 	v := 1
-	ensure v is Positive() {
+	ensure v is Positive() else {
 		println("bad")
 	}
 	println("ok")

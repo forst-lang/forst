@@ -1,0 +1,19 @@
+type User = { name: String, age: Int, role: String }
+type Order = { lastViewedAt: Int }
+type Period = { start: Int, end: Int }
+type Error = String
+type A = String
+type B = String
+type ActiveStatus = String
+type InvalidStatus = String
+type TaskStatus = String
+type BadStatus = String
+func testMain(user User, order Order, period Period, x String, status String, password String, inputAge Int): Error {
+    enum Status {
+        Pending
+        Processing
+    }
+    ensure status is Pending() else InvalidStatus()
+    return ""
+}
+type Error = String

@@ -1,0 +1,16 @@
+package main
+
+import "os"
+import host "../host" js
+
+func main() {
+	if os.Getenv("FORST_SKIP_NODE_HOST") == "1" {
+		println("multipackage-dev skip-node-host")
+	} else {
+		ready := host.hostPing()
+		ensure ready is Ok()
+		println("multipackage-dev ready: " + ready)
+	}
+}
+
+// reload-e2e-trigger

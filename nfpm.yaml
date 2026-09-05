@@ -4,6 +4,7 @@
 #   VERSION — e.g. "0.7.0" (git tag minus the leading "v")
 #   ARCH    — Debian arch: amd64 or arm64
 #   GO_BINARY — path to the pre-built Linux binary for that arch
+#   GO_PLUGINS_DIR — path to the pre-built official plugins for that arch
 #
 # Run as:
 #   nfpm package --packager deb --config nfpm.yaml --target dist/
@@ -27,6 +28,46 @@ license: MIT
 contents:
   - src: ${GO_BINARY}
     dst: /usr/bin/forst
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: ${GO_PLUGINS_DIR}/forst-gen-jsonschema
+    dst: /usr/bin/forst-gen-jsonschema
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: ${GO_PLUGINS_DIR}/forst-gen-orpc
+    dst: /usr/bin/forst-gen-orpc
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: ${GO_PLUGINS_DIR}/forst-gen-file-routes
+    dst: /usr/bin/forst-gen-file-routes
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: ${GO_PLUGINS_DIR}/forst-gen-react-router
+    dst: /usr/bin/forst-gen-react-router
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: ${GO_PLUGINS_DIR}/forst-gen-echo
+    dst: /usr/bin/forst-gen-echo
     expand: true
     file_info:
       mode: 0755

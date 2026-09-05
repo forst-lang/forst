@@ -1,0 +1,5 @@
+{
+  "id": "clobber/address-write-drops-shippable",
+  "expect": "typecheck-error",
+  "title": "address write drops Shippable"
+}

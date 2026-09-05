@@ -1,0 +1,5 @@
+{
+  "id": "guards/typed-else-rejected-in-guard",
+  "expect": "parse-error",
+  "title": "typed else rejected in type guard"
+}

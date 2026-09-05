@@ -148,6 +148,9 @@ func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 		for _, act := range providersQuickFixActions(params.TextDocument.URI, src, params.Context.Diagnostics) {
 			out = append(out, act)
 		}
+		for _, act := range importReservedLocalQuickFixActions(params.TextDocument.URI, src, params.Context.Diagnostics) {
+			out = append(out, act)
+		}
 	}
 
 	if codeActionKindsAllowFormat(params.Context.Only) {

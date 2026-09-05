@@ -2,8 +2,153 @@ package parser
 
 import (
 	"forst/internal/ast"
+	"strings"
 	"testing"
 )
+
+func TestParseEnsure_bareBoolSuggestsIsTrue(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+error Fail { msg: String }
+
+func check(ok Bool): Result(String, Error) {
+	ensure ok or Fail("no")
+	return "ok"
+}
+`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for bare ensure ok or …")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "ensure requires 'is'") {
+		t.Fatalf("expected 'ensure requires is' diagnostic, got: %v", err)
+	}
+	if !strings.Contains(msg, "ensure ok is True()") {
+		t.Fatalf("expected suggestion ensure ok is True(), got: %v", err)
+	}
+}
+
+func TestParseEnsure_isTrueLiteralSuggestsTrueConstraint(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+error Fail { msg: String }
+
+func check(flag Bool): Result(String, Error) {
+	ensure flag is true or Fail("no")
+	return "ok"
+}
+`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for ensure … is true")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "True()") {
+		t.Fatalf("expected True() suggestion, got: %v", err)
+	}
+	if !strings.Contains(msg, "boolean literal") {
+		t.Fatalf("expected boolean literal diagnostic, got: %v", err)
+	}
+}
+
+func TestParseEnsure_okIsTrueOrNamedError(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+error Fail { msg: String }
+
+func check(ok Bool): Result(String, Error) {
+	ensure ok is True() else Fail("no")
+	return "ok"
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if len(nodes) < 2 {
+		t.Fatalf("expected error typedef + function, got %d nodes", len(nodes))
+	}
+}
+
+func TestParseEnsure_ElseFailureBlockInMain(t *testing.T) {
+	t.Parallel()
+
+	// 1. main accepts ensure !err else { ... }
+	srcValid := `package main
+func main() {
+	err := false
+	ensure !err else {
+		println("failed")
+	}
+}
+`
+	_, err := NewTestParser(srcValid, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatalf("expected valid parse for ensure !err else { ... } in main, got: %v", err)
+	}
+
+	// 2. main rejects bare block ensure !err { ... }
+	srcBareBlock := `package main
+func main() {
+	err := false
+	ensure !err {
+		println("failed")
+	}
+}
+`
+	errBare := parseShouldFail(srcBareBlock)
+	if errBare == nil {
+		t.Fatal("expected parse error for bare block in main")
+	}
+	if !strings.Contains(errBare.Error(), "ensure failure block requires 'else'") {
+		t.Fatalf("expected 'ensure failure block requires else' message, got: %v", errBare)
+	}
+
+	// 3. main rejects typed else
+	srcTypedElse := `package main
+error Fail { msg: String }
+func main() {
+	err := false
+	ensure !err else Fail("no")
+}
+`
+	errTyped := parseShouldFail(srcTypedElse)
+	if errTyped == nil {
+		t.Fatal("expected parse error for typed else in main")
+	}
+	if !strings.Contains(errTyped.Error(), "typed failure in ensure statements is not allowed in main function") {
+		t.Fatalf("expected typed failure in main error message, got: %v", errTyped)
+	}
+}
+
+func TestParseEnsure_callSubjectRejected(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+error Fail { msg: String }
+
+func TransitionAllowed(from String, to String): Bool {
+	return true
+}
+
+func check(from String, to String): Result(Bool, Error) {
+	ensure TransitionAllowed(from, to) is True() else Fail("no")
+	return true
+}
+`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for ensure call subject")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "ensure subject must be an identifier") && !strings.Contains(msg, "refinement-non-place-subject") {
+		t.Fatalf("expected identifier-only diagnostic, got: %v", err)
+	}
+}
 
 func TestParseEnsure(t *testing.T) {
 	tests := []struct {

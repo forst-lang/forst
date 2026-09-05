@@ -1,0 +1,58 @@
+{
+  "generate": {
+    "packageName": "@forst/plugins-example",
+    "link": "never",
+    "plugins": [
+      {
+        "name": "jsonschema",
+        "cmd": "forst-gen-jsonschema",
+        "out": "generated/jsonschema",
+        "opt": { "draft": "2020-12" }
+      },
+      {
+        "name": "orpc",
+        "cmd": "forst-gen-orpc",
+        "out": "generated/orpc",
+        "opt": {
+          "markers": ["Router"],
+          "queries": ["catalog.Catalog.GetOrder"],
+          "style": "orpc"
+        }
+      },
+      {
+        "name": "file-routes",
+        "cmd": "forst-gen-file-routes",
+        "out": "generated/api",
+        "opt": {
+          "routesRoot": "app/api",
+          "paramStyle": "$id"
+        }
+      },
+      {
+        "name": "rr-ssr",
+        "cmd": "forst-gen-react-router",
+        "out": "generated/rr",
+        "opt": {
+          "routesRoot": "app/api",
+          "invoke": "package"
+        }
+      },
+      {
+        "name": "echo",
+        "cmd": "forst-gen-echo",
+        "out": "generated/echo"
+      }
+    ]
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/.forst/**",
+      "**/generated/**",
+      "**/*.skip.ft"
+    ],
+    "maxDepth": 10
+  }
+}

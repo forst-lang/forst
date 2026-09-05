@@ -8,29 +8,29 @@ import (
 	"go/token"
 )
 
-const forstNodeManifestVarName = "forstNodeManifestJSON"
+const forstBridgeManifestVarName = "forstBridgeManifestJSON"
 
-// EmitNeedsNodeRuntime reports whether generated Go should embed the Node manifest.
-func EmitNeedsNodeRuntime(tc *typechecker.TypeChecker) bool {
+// EmitNeedsBridgeRuntime reports whether generated Go should embed the Node manifest.
+func EmitNeedsBridgeRuntime(tc *typechecker.TypeChecker) bool {
 	if tc == nil {
 		return false
 	}
-	return tc.NeedsNodeRuntime()
+	return tc.NeedsBridgeRuntime()
 }
 
-// AppendNodeManifestDecl appends `var forstNodeManifestJSON string = ...` to output when manifestJSON is non-empty.
+// AppendNodeManifestDecl appends `var forstBridgeManifestJSON string = ...` to output when manifestJSON is non-empty.
 func AppendNodeManifestDecl(output *TransformerOutput, manifestJSON string) {
 	if output == nil || manifestJSON == "" {
 		return
 	}
-	if output.HasValueDecl(forstNodeManifestVarName) {
+	if output.HasValueDecl(forstBridgeManifestVarName) {
 		return
 	}
 	output.AddValueDecl(&goast.GenDecl{
 		Tok: token.VAR,
 		Specs: []goast.Spec{
 			&goast.ValueSpec{
-				Names: []*goast.Ident{goast.NewIdent(forstNodeManifestVarName)},
+				Names: []*goast.Ident{goast.NewIdent(forstBridgeManifestVarName)},
 				Type:  goast.NewIdent("string"),
 				Values: []goast.Expr{
 					&goast.BasicLit{
@@ -45,7 +45,7 @@ func AppendNodeManifestDecl(output *TransformerOutput, manifestJSON string) {
 
 // AppendNodeManifestIfNeeded embeds the manifest in the node runtime companion output.
 func (t *Transformer) AppendNodeManifestIfNeeded() {
-	if t == nil || t.TypeChecker == nil || !EmitNeedsNodeRuntime(t.TypeChecker) {
+	if t == nil || t.TypeChecker == nil || !EmitNeedsBridgeRuntime(t.TypeChecker) {
 		return
 	}
 	t.appendNodeManifestToRuntime()

@@ -86,7 +86,7 @@ is (p Password) Long() {
 }
 func main() {
 	s: Password = "abc"
-	ensure s is Long() {
+	ensure s is Long() else {
 		println("no")
 	}
 	println("done")
@@ -478,7 +478,7 @@ is (s S) NonEmpty() {
 }
 func main() {
 	v: S = "ok"
-	ensure v is NonEmpty() {
+	ensure v is NonEmpty() else {
 		println("no")
 	}
 	println("yes")

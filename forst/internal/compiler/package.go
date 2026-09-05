@@ -60,7 +60,7 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 				if _, statErr := os.Stat(filepath.Join(root.AbsPath(path), "go.mod")); statErr == nil {
 					return fs.SkipDir
 				}
-				// Nested ftconfig.json marks an isolated project (node-interop/promises, tictactoe, …).
+				// Nested ftconfig.json marks an isolated project (bridge-interop/promises, tictactoe, …).
 				if _, statErr := os.Stat(filepath.Join(root.AbsPath(path), "ftconfig.json")); statErr == nil {
 					return fs.SkipDir
 				}
@@ -90,6 +90,9 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 		return nil, fmt.Errorf("no .ft files for package %q under %s", pkg, rootDir)
 	}
 	sort.Strings(out)
+	if err := forstpkg.ValidateGoPackageLayout(map[string][]string{pkg: out}); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 

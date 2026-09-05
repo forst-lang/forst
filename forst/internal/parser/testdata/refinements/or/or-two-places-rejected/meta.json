@@ -1,0 +1,5 @@
+{
+  "id": "or/or-two-places-rejected",
+  "expect": "parse-error",
+  "title": "or across two places rejected"
+}

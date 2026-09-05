@@ -31,9 +31,28 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 		}
 		return nil, diag(sp, "go-call", "%s is not a function", qual)
 	}
+	if c.RequireExported && !fn.Exported() {
+		sp := c.Call.Function.Span
+		if !sp.IsSet() {
+			sp = c.Call.CallSpan
+		}
+		return nil, diag(sp, "go-call", "%s is not exported", qual)
+	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return nil, diag(c.Call.CallSpan, "go-call", "%s: invalid signature", qual)
+	}
+	if sig.TypeParams() != nil && sig.TypeParams().Len() > 0 {
+		argGoTypes := GoTypesFromForstArgs(host, c.ArgTypes)
+		instSig, err := InstantiateFuncSignature(fn, argGoTypes)
+		if err != nil {
+			sp := c.Call.Function.Span
+			if !sp.IsSet() {
+				sp = c.Call.CallSpan
+			}
+			return nil, diag(sp, "go-call", "%s: generic Go API: %v", qual, err)
+		}
+		sig = instSig
 	}
 	return CheckSignature(host, diag, SignatureCheck{
 		Sig:             sig,
@@ -140,7 +159,7 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 	}
 	out := make([]ast.TypeNode, res.Len())
 	for i := 0; i < res.Len(); i++ {
-		gt, ok := TypeToForstType(res.At(i).Type())
+		gt, ok := MapGoType(host, res.At(i).Type())
 		if !ok {
 			sp := c.Call.Function.Span
 			if !sp.IsSet() {
@@ -161,6 +180,13 @@ func CheckParamAssignability(host Host, diag Diagnose, p ParamAssignability) err
 	sp := spanForCallArg(p.Call.ArgSpans, p.ArgIdx, p.Call.Arguments, p.Call.CallSpan)
 	if len(p.ArgType) != 1 {
 		return diag(sp, "go-call", "%s argument %d must have a single type, got %d", p.Qual, p.Index+1, len(p.ArgType))
+	}
+	if p.ArgIdx >= 0 && p.ArgIdx < len(p.Call.Arguments) {
+		if argGo := host.GoTypeForExpression(p.Call.Arguments[p.ArgIdx]); argGo != nil {
+			if types.AssignableTo(argGo, p.GoParam) {
+				return nil
+			}
+		}
 	}
 	if !ForstAssignableToGoType(host, p.ArgType[0], p.GoParam) {
 		return diag(sp, "go-call", "%s argument %d: Forst type %s not assignable to Go parameter %s",

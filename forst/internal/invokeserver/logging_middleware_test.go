@@ -20,6 +20,10 @@ func (l *captureLogger) Infof(format string, args ...any) {
 	l.infos = append(l.infos, fmt.Sprintf(format, args...))
 }
 
+func (l *captureLogger) Warnf(format string, args ...any) {
+	l.infos = append(l.infos, fmt.Sprintf(format, args...))
+}
+
 func (l *captureLogger) Debugf(format string, args ...any) {
 	l.debugs = append(l.debugs, fmt.Sprintf(format, args...))
 }
@@ -44,11 +48,11 @@ func TestLoggingMiddleware_logsHealthRequest(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d", rr.Code)
 	}
-	if len(log.debugs) != 1 {
-		t.Fatalf("debugs = %v", log.debugs)
+	if len(log.infos) != 1 {
+		t.Fatalf("infos = %v", log.infos)
 	}
-	if !strings.Contains(log.debugs[0], "GET /health 200") {
-		t.Fatalf("unexpected log: %q", log.debugs[0])
+	if !strings.Contains(log.infos[0], "GET /health 200") {
+		t.Fatalf("unexpected log: %q", log.infos[0])
 	}
 }
 
@@ -63,15 +67,15 @@ func TestHandleInvoke_logsFunctionCall(t *testing.T) {
 	rr := httptest.NewRecorder()
 	body := strings.NewReader(`{"package":"mypkg","function":"Fn","args":[]}`)
 	handler := s.loggingMiddleware(http.HandlerFunc(s.handleInvoke))
-	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/invoke", body))
+	handler.ServeHTTP(rr, newInvokeHTTPRequest(http.MethodPost, "/invoke", body))
 
-	if len(log.debugs) < 2 {
+	if len(log.debugs) < 1 {
 		t.Fatalf("debugs = %v", log.debugs)
 	}
 	if !strings.Contains(log.debugs[0], "call mypkg.Fn streaming=false") {
 		t.Fatalf("missing call log: %v", log.debugs)
 	}
-	if !strings.Contains(log.debugs[1], "POST /invoke") {
-		t.Fatalf("missing http log: %v", log.debugs)
+	if len(log.infos) < 1 || !strings.Contains(log.infos[0], "POST /invoke") {
+		t.Fatalf("missing http log: infos=%v debugs=%v", log.infos, log.debugs)
 	}
 }

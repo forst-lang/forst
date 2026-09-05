@@ -9,7 +9,7 @@ import (
 )
 
 // Constraint types
-type ConstraintHandler func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error)
+type ConstraintHandler func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error)
 
 var (
 	builtinConstraintsOnce sync.Once
@@ -19,11 +19,11 @@ var (
 func initBuiltinConstraints() {
 	builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandler{
 	ast.TypePointer: {
-		NilConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		NilConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -33,11 +33,11 @@ func initBuiltinConstraints() {
 				Y:  goast.NewIdent(NilConstant),
 			}, nil
 		},
-		PresentConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		PresentConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -49,11 +49,11 @@ func initBuiltinConstraints() {
 		},
 	},
 	ast.TypeString: {
-		MinConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MinConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformStringBuiltinVariable(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -72,11 +72,11 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		MaxConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MaxConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformStringBuiltinVariable(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -95,7 +95,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		HasPrefixConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		HasPrefixConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			// Ensure the strings import is present
 			at.transformer.Output.EnsureImport("strings")
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -109,7 +109,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformStringBuiltinVariable(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -128,7 +128,7 @@ func initBuiltinConstraints() {
 				},
 			}), nil
 		},
-		ContainsConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		ContainsConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			// Ensure the strings import is present
 			at.transformer.Output.EnsureImport("strings")
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -142,7 +142,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformStringBuiltinVariable(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -161,11 +161,11 @@ func initBuiltinConstraints() {
 				},
 			}), nil
 		},
-		NotEmptyConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		NotEmptyConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformStringBuiltinVariable(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -183,7 +183,7 @@ func initBuiltinConstraints() {
 	},
 	// Slice/array: length constraints use len(...) like strings.
 	ast.TypeArray: {
-		MinConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MinConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -195,7 +195,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -214,7 +214,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		MaxConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MaxConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -226,7 +226,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -245,11 +245,11 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		NotEmptyConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		NotEmptyConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -266,7 +266,7 @@ func initBuiltinConstraints() {
 		},
 	},
 	ast.TypeInt: {
-		MinConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MinConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -278,7 +278,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -292,7 +292,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		MaxConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MaxConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -304,7 +304,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -318,7 +318,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		LessThanConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		LessThanConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -330,7 +330,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -344,7 +344,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		GreaterThanConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		GreaterThanConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -356,7 +356,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -372,7 +372,7 @@ func initBuiltinConstraints() {
 		},
 	},
 	ast.TypeFloat: {
-		MinConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MinConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -384,7 +384,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -398,7 +398,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		MaxConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		MaxConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -410,7 +410,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -424,7 +424,7 @@ func initBuiltinConstraints() {
 				Y:  argExpr,
 			}, nil
 		},
-		GreaterThanConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		GreaterThanConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -436,7 +436,7 @@ func initBuiltinConstraints() {
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -452,21 +452,21 @@ func initBuiltinConstraints() {
 		},
 	},
 	ast.TypeBool: {
-		TrueConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		TrueConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
 			return negateCondition(variableExpr), nil
 		},
-		FalseConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		FalseConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -474,11 +474,11 @@ func initBuiltinConstraints() {
 		},
 	},
 	ast.TypeError: {
-		NilConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		NilConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -488,11 +488,11 @@ func initBuiltinConstraints() {
 				Y:  goast.NewIdent(NilConstant),
 			}, nil
 		},
-		PresentConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		PresentConstraint: func(at *AssertionTransformer, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformer.transformExpression(subject)
 			if err != nil {
 				return nil, err
 			}
@@ -507,7 +507,7 @@ func initBuiltinConstraints() {
 }
 
 // TransformBuiltinConstraint transforms a builtin constraint
-func (at *AssertionTransformer) TransformBuiltinConstraint(typeIdent ast.TypeIdent, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+func (at *AssertionTransformer) TransformBuiltinConstraint(typeIdent ast.TypeIdent, subject ast.ExpressionNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 	builtinConstraintsOnce.Do(initBuiltinConstraints)
 	handlerMap, ok := builtinConstraints[typeIdent]
 	if !ok {
@@ -517,5 +517,5 @@ func (at *AssertionTransformer) TransformBuiltinConstraint(typeIdent ast.TypeIde
 	if !ok {
 		return nil, fmt.Errorf("unknown constraint: %s", constraint.Name)
 	}
-	return handler(at, variable, constraint)
+	return handler(at, subject, constraint)
 }

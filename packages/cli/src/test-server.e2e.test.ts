@@ -9,7 +9,9 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fetchAuthenticatedInvoke } from "./invoke-auth.js";
 import { startForstInvokeServer } from "./test-server.js";
+
 
 const enabled = process.env.FORST_CLI_INVOKE_E2E === "1";
 const repoRoot = resolve(import.meta.dir, "../../..");
@@ -39,8 +41,10 @@ describe("startForstInvokeServer e2e (opt-in)", () => {
     "spawns embedded-invoke, POST /invoke Echo, then stops with no orphan",
     async () => {
       expect(existsSync(join(exampleRoot, "main.ft"))).toBe(true);
-      // Stale ready files force the attach path. Remove so this test always spawns.
+      // Stale ready/token/socket files force the attach path. Remove so this test always spawns.
       rmSync(join(exampleRoot, ".forst", "invoke.ready"), { force: true });
+      rmSync(join(exampleRoot, ".forst", "invoke.token"), { force: true });
+      rmSync(join(exampleRoot, ".forst", "invoke.sock"), { force: true });
       const bin = resolveForstBinary();
       const cleanEnv: NodeJS.ProcessEnv = {
         PATH: process.env.PATH,
@@ -66,15 +70,20 @@ describe("startForstInvokeServer e2e (opt-in)", () => {
       expect(processAlive(pid)).toBe(true);
 
       try {
-        const res = await fetch(`${handle.baseUrl}/invoke`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const auth = handle.auth;
+        expect(auth).toBeDefined();
+        const res = await fetchAuthenticatedInvoke(
+          {
+            baseUrl: handle.baseUrl,
+            socketPath: handle.socketPath ?? undefined,
+          },
+          {
             package: "main",
             function: "Echo",
             args: [{ message: "hello" }],
-          }),
-        });
+          },
+          auth!
+        );
         expect(res.ok).toBe(true);
         const body = (await res.json()) as {
           success?: boolean;

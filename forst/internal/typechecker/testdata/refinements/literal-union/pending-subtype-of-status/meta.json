@@ -1,0 +1,5 @@
+{
+  "id": "literal-union/pending-subtype-of-status",
+  "expect": "typecheck-ok",
+  "title": "PendingStatus <: TaskStatus"
+}

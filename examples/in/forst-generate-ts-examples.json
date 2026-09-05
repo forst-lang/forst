@@ -2,15 +2,15 @@
   "examples": [
     {
       "path": "tictactoe",
-      "mustContain": ["GameState", "PlayMove", "export const main", "../transport.js", "./pkg/main.js"]
+      "mustContain": ["$GameState", "$MoveRequest", "PlayMove", "export const $main", "../transport/runtime.js", "./pkg/main.js"]
     },
     {
-      "path": "rfc/node-interop/remix-serve",
-      "mustContain": ["ListTodos", "AddTodo", "CompleteTodo", "GetDashboard", "export const main", "../transport.js", "./pkg/main.js"]
+      "path": "rfc/bridge-interop/remix-serve",
+      "mustContain": ["ListTodos", "AddTodo", "CompleteTodo", "GetDashboard", "export const $main", "../transport/runtime.js", "./pkg/main.js"]
     },
     {
       "path": "generate-effect",
-      "mustContain": ["Data.TaggedError", "ForstClientLive", "Effect.Effect", "from \"effect\"", "EmptyMessage", "DOMAIN_ERROR_REGISTRY", "@forst/generate-effect/EmptyMessage"]
+      "mustContain": ["Data.TaggedError", "ForstClientLive", "Effect.Effect", "from \"effect\"", "$EmptyMessage", "export function decodeDomainError", "@forst/generate-effect/main/EmptyMessage"]
     }
   ]
 }

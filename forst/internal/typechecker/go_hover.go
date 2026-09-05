@@ -9,6 +9,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/hoverdoc"
+	"forst/internal/typechecker/gointerop"
 )
 
 // IsImportedLocalName reports whether id is a Go import's local identifier in this file.
@@ -419,7 +420,7 @@ func goSignatureReturnsToForst(sig *types.Signature) []ast.TypeNode {
 	}
 	out := make([]ast.TypeNode, 0, res.Len())
 	for v := range res.Variables() {
-		t, ok := goTypeToForstType(v.Type())
+		t, ok := gointerop.MapGoType(nil, v.Type())
 		if !ok {
 			return nil
 		}

@@ -1,0 +1,5 @@
+{
+  "id": "or/or-second-alt-missing-parens",
+  "expect": "parse-error",
+  "title": "or alternative missing parens rejected"
+}

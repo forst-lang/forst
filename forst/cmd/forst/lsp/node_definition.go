@@ -5,10 +5,10 @@ import (
 	"unicode/utf8"
 
 	"forst/internal/ast"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
-func lspLocationPtrFromAbsPath(absPath string, loc nodeinterop.IndexSourceLocation) *LSPLocation {
+func lspLocationPtrFromAbsPath(absPath string, loc bridgeinterop.IndexSourceLocation) *LSPLocation {
 	if absPath == "" {
 		return nil
 	}
@@ -43,7 +43,7 @@ func lspLocationPtrFromAbsPath(absPath string, loc nodeinterop.IndexSourceLocati
 	}
 }
 
-func lspLocationPtrFromExportName(absPath string, loc nodeinterop.IndexSourceLocation, exportName string) *LSPLocation {
+func lspLocationPtrFromExportName(absPath string, loc bridgeinterop.IndexSourceLocation, exportName string) *LSPLocation {
 	if loc.IsSet() {
 		return lspLocationPtrFromAbsPath(absPath, loc)
 	}
@@ -73,7 +73,7 @@ func (s *LSPServer) definingLocationForNodeImportPath(ctx *forstDocumentContext,
 	if !ok {
 		return nil
 	}
-	return lspLocationPtrFromAbsPath(abs, nodeinterop.IndexSourceLocation{})
+	return lspLocationPtrFromAbsPath(abs, bridgeinterop.IndexSourceLocation{})
 }
 
 func (s *LSPServer) definingLocationForQualifiedNodeImport(ctx *forstDocumentContext, tokIdx int) *LSPLocation {
@@ -104,14 +104,14 @@ func (s *LSPServer) definingLocationForNodeImportLocal(ctx *forstDocumentContext
 		if !ok {
 			return nil
 		}
-		return lspLocationPtrFromAbsPath(abs, nodeinterop.IndexSourceLocation{})
+		return lspLocationPtrFromAbsPath(abs, bridgeinterop.IndexSourceLocation{})
 	}
 	if nodeImportAliasBindingAt(ctx.Tokens, tokIdx) {
 		abs, ok := tc.NodeImportAbsPath(moduleLocal)
 		if !ok {
 			return nil
 		}
-		return lspLocationPtrFromAbsPath(abs, nodeinterop.IndexSourceLocation{})
+		return lspLocationPtrFromAbsPath(abs, bridgeinterop.IndexSourceLocation{})
 	}
 	return nil
 }

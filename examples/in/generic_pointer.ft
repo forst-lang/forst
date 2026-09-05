@@ -1,0 +1,13 @@
+package main
+
+// Generic function with pointer parameter; type argument inferred from &n.
+// Golden output: ../out/generic_pointer.go
+func deref[T any](p *T): T {
+	return *p
+}
+
+func main() {
+	n := 7
+	x := deref(&n)
+	println(string(x))
+}

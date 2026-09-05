@@ -282,7 +282,9 @@ func main() {
 func TestEmitValidation_ensureTypeGuardCall(t *testing.T) {
 	src := `package main
 
-is (n Int) Positive {
+type Score = Int
+
+is (n Score) Positive {
 	ensure n is GreaterThan(0)
 }
 
@@ -334,6 +336,24 @@ func main() {
 	}
 	if !strings.Contains(out, `strconv.Itoa(i) + ":" + strconv.Itoa(v)`) {
 		t.Fatalf("expected Itoa concat for string(i) + \":\" + string(v):\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_stringBuiltinByteSlice(t *testing.T) {
+	src := `package main
+
+func main() {
+	b := []byte("hi")
+	println(string(b))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `string(b)`) {
+		t.Fatalf("expected Go string(b) for string([]byte):\n%s", out)
+	}
+	if strings.Contains(out, `strconv.Itoa`) {
+		t.Fatalf("expected no Itoa for string([]byte):\n%s", out)
 	}
 	assertGoParses(t, out)
 }

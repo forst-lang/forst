@@ -45,7 +45,7 @@ flowchart TB
 TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same on both sides of your stack:
 
 - **Go:** Ship native binaries with `go build` and typed boundaries layered on top. See [Go interop](/interop/go).
-- **Node:** Stay type-aligned with the frontend and migrate route by route without a big bang rewrite. See [Node interop](/interop/node).
+- **Node:** Stay type-aligned with the frontend and migrate route by route without a big bang rewrite. See [JavaScript interop](/interop/invoke).
 
 ## Feature comparison
 
@@ -57,11 +57,12 @@ How each stack talks to other languages and adopts code incrementally.
 
 | Capability | TypeScript | Go | Forst |
 | --- | --- | --- | --- |
-| Incremental migration | Adopt TS file by file | Mix packages over time | [Mix `.ft`, `.go`, and legacy JS/TS](/interop/node) |
+| Incremental migration | Adopt TS file by file | Mix packages over time | [Mix `.ft`, `.go`, and legacy JS/TS](/interop/invoke) |
 | Go module ecosystem | No (WASM only) | Native | [Import Go packages](/interop/go) |
-| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/node/call-javascript) via `import node` |
-| Call backend from Node | Same runtime | No | [Generated client + HTTP invoke](/interop/node/call-forst) |
-| Shared types (server ↔ client) | Straightforward | Manual / separate | [`forst generate`](/interop/node/generate-types) |
+| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/bridge) via `import "./path" js` |
+| Call backend from Node | Same runtime | No | [Generated client + HTTP invoke](/interop/invoke/call-forst) |
+| Shared types (server ↔ client) | Straightforward | Manual / separate | [`forst generate`](/interop/invoke/generate-types) |
+| OpenAPI, RPC, and route files | Separate codegen from schemas | `go generate` | [Plugins](/workflow/plugins) emit them from your `.ft` backend |
 
 ### Language
 
@@ -75,11 +76,12 @@ How each language models data, errors, and concurrency.
 | Validation on types | Schema library (Zod, etc.) | Manual checks | [Built-in constraints](/language/shapes-and-constraints) |
 | Error handling | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
 | Type narrowing | Discriminated unions, type guards, `asserts` | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing), [type guards](/language/type-guards) |
-| Exceptions | Yes (`try`/`catch`) | Yes (`panic`/`recover`) | No |
+| Exceptions | Yes (`try`/`catch`) | Yes (`panic`/`recover`) | No ([Go panics possible](/language/overview)) |
 | User-defined generics | Yes | Yes | No ([built-ins](/language/overview), [planned](/resources/roadmap)) |
 | Class inheritance | Yes | No (composition) | No ([shapes](/language/overview)) |
-| Goroutines | Via async/await | Native (`go`) | Native ([`go` / `defer`](/interop/go)) |
-| Channels | No | Native | No ([planned](/resources/roadmap)) |
+| Goroutines | Via async/await | Native (`go` / `defer`) | Native ([`go` / `defer`](/interop/go)) |
+| `switch` / `case` | Yes | Native | Yes (Go-faithful; type switches omitted) |
+| `select` / channels | No | Native | No ([planned](/resources/roadmap)) |
 | Runtime reflection | Limited | Native (`reflect`) | No (compile-time focus) |
 
 ### Infrastructure
@@ -95,7 +97,7 @@ How you ship, debug, and adopt each stack day to day.
 | Open source | Yes | Yes | Yes |
 
 <Info>
-  Go import loading, Node interop, Providers, and several invoke paths are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+  Go import loading, JS bridge interop, Providers, generate plugins, and several invoke paths are **experimental**. See the [roadmap](/resources/roadmap) for current status.
 </Info>
 
 ## What you get
@@ -107,8 +109,8 @@ How you ship, debug, and adopt each stack day to day.
   <Card title="Validation on the type" icon="shield-check" href="/language/shapes-and-constraints">
     Constraints on fields. The compiler checks known values at compile time and emits runtime checks at the boundary.
   </Card>
-  <Card title="Generate client types" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    **`forst generate`** emits **`.d.ts`** from the same **`.ft`** definitions the server uses.
+  <Card title="Generate client types" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
+    **`forst generate`** emits **`.d.ts`** from the same **`.ft`** definitions the server uses. Optional [plugins](/workflow/plugins) emit schemas, RPC contracts, and routes.
   </Card>
   <Card title="Production Go output" icon="/icons/golang.svg" href="/interop/go">
     Readable Go output. Ship with **`go build`**, existing modules, tests, and CI.
@@ -116,7 +118,7 @@ How you ship, debug, and adopt each stack day to day.
   <Card title="Explicit failures" icon="route" href="/language/errors-and-result">
     **`ensure`**, nominal **`error`** types, and **`Result`**. Failures are values you handle in control flow.
   </Card>
-  <Card title="Gradual adoption" icon="plug" href="/interop/node/call-forst">
+  <Card title="Gradual adoption" icon="plug" href="/interop/invoke/call-forst">
     Mix **`.ft`** with **`.go`**. Migrate route by route with **`forst dev`** or **`@forst/sidecar`**.
   </Card>
 </CardGroup>
@@ -140,7 +142,7 @@ How you ship, debug, and adopt each stack day to day.
     Import Go packages. Deploy with `go build`.
   </Card>
   <Card title="APIs for consumption" icon="plug">
-    Export types when full stack teams need shared shapes.
+    Export types and generate contracts when full stack teams need shared shapes.
   </Card>
 </CardGroup>
 

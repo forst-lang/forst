@@ -9,7 +9,7 @@ import (
 	"forst/internal/goload"
 	"forst/internal/gowork"
 	"forst/internal/logger"
-	"forst/nodert"
+	"forst/bridgert"
 	transformer_go "forst/internal/transformer/go"
 	"io"
 	"os"
@@ -103,7 +103,7 @@ func formatRunProgramError(err error, stderr string) error {
 	if strings.Contains(stderr, "go.mod") || strings.Contains(stderr, "module not found") {
 		hint = "Go module linking failed — add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 	} else if code == 1 {
-		hint = "node runtime or ensure check failed — verify tsx, @forst/node-runtime, and host shim args in ftconfig.json"
+		hint = "bridge runtime or ensure check failed — verify tsx, @forst/runtime, and host shim args in ftconfig.json"
 	}
 	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
@@ -161,11 +161,11 @@ func runGoSourceFilesList(outputPath string) ([]string, error) {
 // BuildGoProgram writes main and optional companion Go files and runs `go build` to verify they compile.
 // When extraPackages is non-empty, boundaryRoot must be the ftconfig project root so cross-package
 // invoke imports resolve under module forst.run.temp.
-func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, boundaryRoot string) error {
+func BuildGoProgram(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, boundaryRoot string) error {
 	if len(extraPackages) > 0 && boundaryRoot == "" {
 		return fmt.Errorf("go build: boundaryRoot required when extra invoke packages are present")
 	}
-	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, nil, boundaryRoot)
+	outputPath, err := CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, nil, boundaryRoot)
 	if err != nil {
 		return err
 	}
@@ -201,15 +201,15 @@ const envInvokePort = "FORST_INVOKE_PORT"
 
 func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered := make([]string, 0, len(env)+1)
-	prefix := nodert.EnvBoundaryRoot + "="
+	rootPrefix := bridgert.EnvRoot + "="
 	for _, entry := range env {
-		if !strings.HasPrefix(entry, prefix) {
+		if !strings.HasPrefix(entry, rootPrefix) {
 			filtered = append(filtered, entry)
 		}
 	}
-	filtered = append(filtered, prefix+boundaryRoot)
-	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
-		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
+	filtered = append(filtered, rootPrefix+boundaryRoot)
+	if v := os.Getenv(bridgert.EnvBridgeAttachOnly); v != "" {
+		filtered = appendRunEnvVar(filtered, bridgert.EnvBridgeAttachOnly, v)
 	}
 	if v := os.Getenv(envInvokePort); v != "" {
 		filtered = appendRunEnvVar(filtered, envInvokePort, v)
@@ -245,13 +245,13 @@ func RunBoundaryRoot(args Args) string {
 
 const errForstCompilerModuleRequired = "forst run: node runtime / invoke server require the forst runtime module; add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 
-func needsForstCompilerModule(nodeRuntimeCode, invokeServerCode string) bool {
-	return nodeRuntimeCode != "" || invokeServerCode != ""
+func needsForstCompilerModule(bridgeRuntimeCode, invokeServerCode string) bool {
+	return bridgeRuntimeCode != "" || invokeServerCode != ""
 }
 
 func tempDirHasForstCompanionFiles(tempDir string) bool {
 	for _, stem := range []string{
-		transformer_go.ForstNodeRuntimeFileName(),
+		transformer_go.ForstBridgeRuntimeFileName(),
 		transformer_go.ForstInvokeServerFileName(),
 	} {
 		if _, err := os.Stat(filepath.Join(tempDir, stem+".go")); err == nil {
@@ -311,27 +311,27 @@ func (c *Compiler) reportPhase(phase string) {
 }
 
 // CreateTempOutputFiles writes main and optional companion Go files into a temp dir for `go run`.
-func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string) (string, error) {
-	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{})
+func CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string) (string, error) {
+	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{})
 }
 
 // CreateTempOutputFilesProfiled writes temp output files and records sandbox write timing.
-func CreateTempOutputFilesProfiled(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, sandboxTiming *CompileSandboxTiming) (string, error) {
-	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{sandboxTiming: sandboxTiming})
+func CreateTempOutputFilesProfiled(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, sandboxTiming *CompileSandboxTiming) (string, error) {
+	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{sandboxTiming: sandboxTiming})
 }
 
 // CreateDevReloadOutputFiles writes into the stable dev sandbox and skips redundant go mod tidy.
-func CreateDevReloadOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, modTidyCache *SandboxModCache, sandboxTiming *CompileSandboxTiming) (string, error) {
-	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{
+func CreateDevReloadOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, modTidyCache *SandboxModCache, sandboxTiming *CompileSandboxTiming) (string, error) {
+	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{
 		stableDir:     true,
 		modTidyCache:  modTidyCache,
 		sandboxTiming: sandboxTiming,
 	})
 }
 
-func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, _ map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
+func createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, _ map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
 	sandboxStart := time.Now()
-	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
+	needsCompiler := needsForstCompilerModule(bridgeRuntimeCode, invokeServerCode)
 	var linkPlan gowork.LinkPlan
 	var tempDir string
 	var goModPath string
@@ -401,9 +401,9 @@ func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 			return "", fmt.Errorf("write extra package %q: %w", pkg, err)
 		}
 	}
-	if nodeRuntimeCode != "" {
-		runtimePath := filepath.Join(tempDir, transformer_go.ForstNodeRuntimeFileName()+".go")
-		if err := os.WriteFile(runtimePath, []byte(nodeRuntimeCode), 0644); err != nil {
+	if bridgeRuntimeCode != "" {
+		runtimePath := filepath.Join(tempDir, transformer_go.ForstBridgeRuntimeFileName()+".go")
+		if err := os.WriteFile(runtimePath, []byte(bridgeRuntimeCode), 0644); err != nil {
 			return "", fmt.Errorf("failed to write node runtime temp file: %v", err)
 		}
 	}
@@ -465,13 +465,13 @@ func tidyRunSandboxGoMod(goModPath, boundaryRoot string, plan gowork.LinkPlan) e
 }
 
 // CreateTempOutputFilesLegacy preserves the old 3-arg signature for gradual migration.
-func CreateTempOutputFilesLegacy(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
-	return CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, nil, nil, "")
+func CreateTempOutputFilesLegacy(mainCode, bridgeRuntimeCode, invokeServerCode string) (string, error) {
+	return CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, nil, nil, "")
 }
 
 // CreateTempOutputFile creates a temporary directory and file for the output.
 // When running inside the Forst Go module, files are placed under .forst/run so
-// generated code may import forst/nodert during `go run`.
+// generated code may import forst/bridgert during `go run`.
 func CreateTempOutputFile(code string) (string, error) {
 	return CreateTempOutputFiles(code, "", "", nil, nil, "")
 }

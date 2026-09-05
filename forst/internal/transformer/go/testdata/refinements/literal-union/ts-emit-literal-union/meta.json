@@ -1,0 +1,5 @@
+{
+  "id": "literal-union/ts-emit-literal-union",
+  "expect": "emit-ok",
+  "title": "Go emit literal union"
+}

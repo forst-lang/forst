@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/reflect-drops",
+  "expect": "typecheck-error",
+  "title": "reflect on user drops"
+}

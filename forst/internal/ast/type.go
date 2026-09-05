@@ -73,6 +73,7 @@ const (
 	TypeKindBuiltin     TypeKind = "TYPE_KIND_BUILTIN"
 	TypeKindUserDefined TypeKind = "TYPE_KIND_USER_DEFINED"
 	TypeKindHashBased   TypeKind = "TYPE_KIND_HASH_BASED"
+	TypeKindTypeParam   TypeKind = "TYPE_KIND_TYPE_PARAM"
 )
 
 // TypeNode represents a type in the Forst language
@@ -81,6 +82,8 @@ type TypeNode struct {
 	Node
 	Ident      TypeIdent
 	Assertion  *AssertionNode
+	// TypeParams holds element/key/value types for built-in type constructors (Array, Map, Pointer, etc.).
+	// Function type parameters use TypeKindTypeParam on the TypeNode itself, not entries here.
 	TypeParams []TypeNode // Generic type parameters
 	TypeKind   TypeKind
 	// ArrayLen, when non-nil, is the fixed length N for [N]T; nil means slice []T.
@@ -277,6 +280,40 @@ func (t *TypeNode) IsUserDefined() bool {
 	return t.TypeKind == TypeKindUserDefined
 }
 
+// IsTypeParam returns true when the type node is a function type parameter (T in func f[T any]).
+func (t *TypeNode) IsTypeParam() bool {
+	return t.TypeKind == TypeKindTypeParam
+}
+
+// TypeStorageClass describes how compiler state should normalize a TypeNode before storage.
+type TypeStorageClass int
+
+const (
+	// TypeStorageTypeParam: function type parameters are stored unchanged.
+	TypeStorageTypeParam TypeStorageClass = iota
+	// TypeStorageBuiltinOrStructural: builtins and hash-based structural types stay as-is.
+	TypeStorageBuiltinOrStructural
+	// TypeStorageNamedUserType: named user types get TypeKindUserDefined.
+	TypeStorageNamedUserType
+)
+
+// BuiltinIdentPredicate reports whether ident is a predeclared Forst type constructor name.
+type BuiltinIdentPredicate func(TypeIdent) bool
+
+// StorageClass picks the normalization branch for persisting t in Defs, symbols, or inferred types.
+func (t TypeNode) StorageClass(isBuiltinIdent BuiltinIdentPredicate) TypeStorageClass {
+	if t.IsTypeParam() {
+		return TypeStorageTypeParam
+	}
+	if t.IsHashBased() {
+		return TypeStorageBuiltinOrStructural
+	}
+	if t.IsGoBuiltin() || isBuiltinIdent(t.Ident) {
+		return TypeStorageBuiltinOrStructural
+	}
+	return TypeStorageNamedUserType
+}
+
 // NewBuiltinType creates a new TypeNode for a built-in type
 func NewBuiltinType(ident TypeIdent) TypeNode {
 	return TypeNode{
@@ -290,6 +327,14 @@ func NewUserDefinedType(ident TypeIdent) TypeNode {
 	return TypeNode{
 		Ident:    ident,
 		TypeKind: TypeKindUserDefined,
+	}
+}
+
+// NewTypeParamType creates a TypeNode for a function type parameter (T in func f[T any]).
+func NewTypeParamType(ident TypeIdent) TypeNode {
+	return TypeNode{
+		Ident:    ident,
+		TypeKind: TypeKindTypeParam,
 	}
 }
 
@@ -469,6 +514,17 @@ func typeNodesShallowEqualAST(a, b TypeNode) bool {
 		if !typeNodesShallowEqualAST(a.TypeParams[i], b.TypeParams[i]) {
 			return false
 		}
+	}
+	// Value("todo") vs Value("done") share Ident=TYPE_ASSERTION; compare assertion payload.
+	if a.Ident == TypeAssertion {
+		as, bs := "", ""
+		if a.Assertion != nil {
+			as = a.Assertion.String()
+		}
+		if b.Assertion != nil {
+			bs = b.Assertion.String()
+		}
+		return as == bs
 	}
 	return true
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 )
 
 func TestNodeImportAbsPath_returnsBindingPath(t *testing.T) {
@@ -25,7 +25,7 @@ func TestNodeImportPathAbsPath_matchesImportPath(t *testing.T) {
 	tc := New(nil, false)
 	tc.nodeImportsByLocal = map[string]nodeImportBinding{
 		"payment": {
-			Import:  ast.ImportNode{Path: "./legacy/payment", NodeOptIn: true},
+			Import:  ast.ImportNode{Path: "./legacy/payment", BridgeOptIn: true},
 			AbsPath: "/proj/legacy/payment.ts",
 		},
 	}
@@ -45,12 +45,12 @@ func TestNodeExportDefinitionLocation_withDefinitionSpan(t *testing.T) {
 		"payment": {
 			ModuleID: "legacy/payment.ts",
 			AbsPath:  tsPath,
-			Index: &nodeinterop.IndexV1{
+			Index: &bridgeinterop.IndexV1{
 				ModuleID: "legacy/payment.ts",
-				Exports: []nodeinterop.IndexExport{{
+				Exports: []bridgeinterop.IndexExport{{
 					Name: "create",
-					Kind: nodeinterop.ExportKindFunction,
-					Definition: &nodeinterop.IndexSourceLocation{
+					Kind: bridgeinterop.ExportKindFunction,
+					Definition: &bridgeinterop.IndexSourceLocation{
 						Line: 1, Column: 17, EndLine: 1, EndColumn: 23,
 					},
 				}},
@@ -72,12 +72,12 @@ func TestNodeExportDefinitionLocation_crossFileDefinition(t *testing.T) {
 		"barrel": {
 			ModuleID: "re-export-barrel.ts",
 			AbsPath:  filepath.Join(root, "re-export-barrel.ts"),
-			Index: &nodeinterop.IndexV1{
+			Index: &bridgeinterop.IndexV1{
 				ModuleID: "re-export-barrel.ts",
-				Exports: []nodeinterop.IndexExport{{
+				Exports: []bridgeinterop.IndexExport{{
 					Name: "greet",
-					Kind: nodeinterop.ExportKindFunction,
-					Definition: &nodeinterop.IndexSourceLocation{
+					Kind: bridgeinterop.ExportKindFunction,
+					Definition: &bridgeinterop.IndexSourceLocation{
 						File: "re-export-source.ts", Line: 1, Column: 17,
 					},
 				}},
@@ -99,9 +99,9 @@ func TestNodeExportDefinitionLocation_fallbackWithoutDefinition(t *testing.T) {
 		"payment": {
 			ModuleID: "legacy/payment.ts",
 			AbsPath:  tsPath,
-			Index: &nodeinterop.IndexV1{
+			Index: &bridgeinterop.IndexV1{
 				ModuleID: "legacy/payment.ts",
-				Exports:  []nodeinterop.IndexExport{{Name: "create", Kind: nodeinterop.ExportKindFunction}},
+				Exports:  []bridgeinterop.IndexExport{{Name: "create", Kind: bridgeinterop.ExportKindFunction}},
 			},
 		},
 	}

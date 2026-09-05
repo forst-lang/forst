@@ -1,0 +1,5 @@
+{
+  "id": "type-target/min-runtime-no-dependent-type",
+  "expect": "typecheck-ok",
+  "title": "Min(runtime) has no dependent type"
+}

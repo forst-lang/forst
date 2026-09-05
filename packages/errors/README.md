@@ -13,15 +13,15 @@ Invoke transport failures (`InvokeRejected`, `InvokeHttpFailure`, …), test har
 
 Built-in `_tag` values are namespaced under `@forst/errors/` (for example `@forst/errors/InvokeRejected`).
 
-Generated clients re-export these from `@forst/gen/errors` instead of emitting duplicate class definitions per project.
+Shared invoke, harness, and unknown-failure classes live in this package. Import them directly (`@forst/errors` in Promise mode, `@forst/errors/effect` in Effect mode). Generated clients expose optional domain error namespaces from `@forst/gen/$errors`.
 
 ## Usage
 
 Prefer matching on `_tag` in Effect code (`Effect.catchTag`). In Promise code, `instanceof` works because every generated client shares the same class definitions from this package.
 
 ```typescript
-import { isInvokeFailure, InvokeRejected } from "@forst/gen/errors";
-import { CellTaken } from "@forst/tictactoe";
+import { isInvokeFailure, InvokeRejected } from "@forst/errors";
+import { $CellTaken } from "@forst/tictactoe/main/errors";
 
 try {
   await client.main.Move({ row: 0, col: 0 });
@@ -29,13 +29,13 @@ try {
   if (error instanceof InvokeRejected) {
     // transport failure
   }
-  if (error instanceof CellTaken) {
+  if (error instanceof $CellTaken) {
     // domain error
   }
 }
 ```
 
-Domain errors (`error CellTaken { … }`) stay in the generated `@forst/gen/errors` module for each project.
+Domain errors (`error CellTaken { … }`) live in `@forst/gen/<forstPackage>/errors` for each project (also under `@forst/gen/$errors` as package namespaces).
 
 ## Development
 

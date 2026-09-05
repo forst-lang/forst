@@ -1,0 +1,3 @@
+is (x X) Valid {
+    ensure x is A() else Error()
+}

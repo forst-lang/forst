@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -11,7 +10,7 @@ import (
 	"time"
 
 	"forst/internal/gowork"
-	"forst/nodert"
+	"forst/bridgert"
 )
 
 const defaultGoProgramStopGrace = 5 * time.Second
@@ -35,29 +34,6 @@ type GoProgramProcess struct {
 	done   chan error
 }
 
-// BuildGoProgramInSandbox compiles generated Go sources to binPath without running.
-func BuildGoProgramInSandbox(mainGoPath, binPath, boundaryRoot string) error {
-	dir, sources, err := runGoSourceFiles(mainGoPath)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command("go", append([]string{"build", "-o", binPath}, sources...)...)
-	cmd.Dir = dir
-	env := os.Environ()
-	if boundaryRoot != "" {
-		env = setRunEnvBoundaryRoot(env, boundaryRoot)
-		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(mainGoPath))
-		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(mainGoPath), needsCompiler)
-		env = gowork.ChildEnv(env, plan, boundaryRoot)
-	}
-	cmd.Env = env
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go build in sandbox: %w\n%s", err, out)
-	}
-	return nil
-}
-
 // ExecBuiltProgram runs a prebuilt binary in the background (non-blocking).
 func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
 	cmd := exec.Command(binPath)
@@ -70,6 +46,7 @@ func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
 		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(binPath), needsCompiler)
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
+	env = attachGoInvokeAuthHandoff(cmd, env)
 	cmd.Env = env
 	proc := &GoProgramProcess{
 		cmd:  cmd,
@@ -91,7 +68,7 @@ const reloadStopGrace = 1 * time.Second
 
 // ReloadStopGrace returns the SIGTERM grace for dev reload child stop.
 func ReloadStopGrace() time.Duration {
-	if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+	if os.Getenv(bridgert.EnvBridgeAttachOnly) == "1" {
 		return reloadStopGrace
 	}
 	return defaultGoProgramStopGrace
@@ -183,6 +160,18 @@ func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
 		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(outputPath), needsCompiler)
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
-	cmd.Env = env
+	cmd.Env = attachGoInvokeAuthHandoff(cmd, env)
 	return cmd, nil
+}
+
+func attachGoInvokeAuthHandoff(cmd *exec.Cmd, env []string) []string {
+	if cmd == nil || !bridgert.SupportsInvokeAuthFDHandoff() {
+		return env
+	}
+	handoff, ok := bridgert.PrepareActiveGoInvokeAuthHandoff()
+	if !ok {
+		return env
+	}
+	cmd.ExtraFiles = []*os.File{handoff}
+	return appendRunEnvVar(env, "FORST_INVOKE_AUTH_FD", "3")
 }

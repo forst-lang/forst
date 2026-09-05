@@ -1,0 +1,5 @@
+// MATRIX stub: json.RawMessage normalize adapter
+// TODO(phase-3d): Go RawUser{ID json.RawMessage} normalize → String carrier then ensure UserID.
+package main
+
+func main() {}

@@ -1,0 +1,22 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+    metadata: map[String]String
+}
+
+is (user User) Tagged {
+    ensure user.metadata is Min(1)
+}
+
+func needTagged(user User) {}
+
+func check(user User) {
+    other := user
+    ensure user is Tagged()
+    other.metadata["x"] = "y"
+    needTagged(user)
+}
+
+func main() {}

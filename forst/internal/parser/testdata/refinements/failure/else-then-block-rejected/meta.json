@@ -1,0 +1,5 @@
+{
+  "id": "failure/else-then-block-rejected",
+  "expect": "parse-error",
+  "title": "else then block rejected"
+}

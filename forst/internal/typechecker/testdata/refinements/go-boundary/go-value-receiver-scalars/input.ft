@@ -1,0 +1,25 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+    role: String
+}
+
+is (user User) Adult {
+    ensure user.age is Min(18)
+}
+
+func acceptAdult(user User) {}
+
+func (u User) DisplayName(): String {
+    return u.name
+}
+
+func check(user User) {
+    ensure user is Adult()
+    user.DisplayName()
+    acceptAdult(user)
+}
+
+func main() {}

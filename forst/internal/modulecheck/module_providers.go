@@ -23,7 +23,7 @@ type Options struct {
 	SkipValidate bool
 	// ParsedFiles bypasses disk walk when non-nil (path -> AST nodes).
 	ParsedFiles map[string][]ast.Node
-	// BoundaryRoot is the ftconfig project root for node import resolution (defaults to ModuleRoot).
+	// BoundaryRoot is the ftconfig project root for JS import resolution (defaults to ModuleRoot).
 	BoundaryRoot string
 	// GoLoader overrides go/packages load for tests; nil uses default.
 	GoLoader goload.PackagesLoader
@@ -94,7 +94,7 @@ func findForstFiles(root string) ([]string, error) {
 				if _, statErr := os.Stat(filepath.Join(path, "go.mod")); statErr == nil {
 					return filepath.SkipDir
 				}
-				// Nested ftconfig.json marks an isolated project boundary (node-interop, tictactoe, …).
+				// Nested ftconfig.json marks an isolated project boundary (bridge-interop, tictactoe, …).
 				if _, statErr := os.Stat(filepath.Join(path, "ftconfig.json")); statErr == nil {
 					return filepath.SkipDir
 				}

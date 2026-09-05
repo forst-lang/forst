@@ -1,0 +1,5 @@
+{
+  "id": "ensure/field-path-subject",
+  "expect": "parse-ok",
+  "title": "field path is a valid place"
+}

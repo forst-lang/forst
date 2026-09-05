@@ -3,7 +3,7 @@ package typechecker
 import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
-	"forst/internal/nodeinterop"
+	"forst/internal/bridgeinterop"
 	"go/types"
 
 	"github.com/sirupsen/logrus"
@@ -50,8 +50,8 @@ type TypeChecker struct {
 	nodeImports []ast.ImportNode
 	// nodeImportsByLocal maps import local name (e.g. payment) to resolved TS module + index.
 	nodeImportsByLocal map[string]nodeImportBinding
-	// nodeIndexResolver holds in-memory forst-index-v1 data for node imports.
-	nodeIndexResolver *nodeinterop.IndexResolver
+	// nodeIndexResolver holds in-memory forst-index-v1 data for JS imports.
+	nodeIndexResolver *bridgeinterop.IndexResolver
 	// NodeBoundaryRoot is the project root for resolving TS import paths (defaults to GoWorkspaceDir).
 	NodeBoundaryRoot string
 	// ForstFileDir is the directory containing the Forst source file (for relative TS imports).
@@ -64,6 +64,8 @@ type TypeChecker struct {
 	goPkgsByLocal map[string]*types.Package
 	// dotImportPkgs lists packages imported with Go dot-import (import . "path"). Used to resolve unqualified calls like NewReader.
 	dotImportPkgs []*types.Package
+	// goImportLoadErrors records go/packages load failures keyed by import path.
+	goImportLoadErrors map[string]error
 	// importPathByLocal maps import local identifier -> Go import path (for hover even when go/packages failed).
 	importPathByLocal map[string]string
 	// Logger for the type checker
@@ -124,8 +126,42 @@ type TypeChecker struct {
 	typecheckNodes []ast.Node
 	// packageConsts tracks top-level const names (reject reassignment).
 	packageConsts map[ast.Identifier]struct{}
-	// nodeRuntime holds compile-time Node interop facts (needsNodeRuntime, manifest JSON).
-	nodeRuntime NodeRuntimeInfo
+	// bridgeRuntime holds compile-time bridge interop facts (needsBridgeRuntime, manifest JSON).
+	bridgeRuntime BridgeRuntimeInfo
+
+	// paths interns AccessPath values (phase 2a).
+	paths *PathInterner
+	// predicates interns canonical Predicate values (phase 2c).
+	predicates *PredicateInterner
+	// refinementCtx is the active program-point fact context (phase 2d); distinct from Scope.
+	refinementCtx *RefinementContext
+	// refinementFacts records facts with dependency paths (phase 4a).
+	refinementFacts []RefinementFact
+	// guardDepsCache caches relative dep steps per named type guard.
+	guardDepsCache map[string]AccessPaths
+	// droppedFacts records facts removed by writes (phase 4b diagnostics).
+	droppedFacts []droppedFact
+	// writeCollectorStack collects writes in if/loop bodies for join/backedge invalidation.
+	writeCollectorStack [][]collectedWrite
+	// functionSummaries maps function id → inferred effect summary (phase 4c).
+	functionSummaries map[ast.Identifier]*FunctionSummary
+	// currentInferFn / currentInferParams track the function body being inferred for summaries.
+	currentInferFn     ast.Identifier
+	currentInferParams []ast.Identifier
+	// aliasCtx owns may-alias / points-to state (phase 4d).
+	aliasCtx *AliasContext
+	// closureCaptures maps a local holding a function literal → capture write paths (phase 4g).
+	closureCaptures map[ast.Identifier][]*AccessPath
+	// capturingClosure, when true, records outer writes into pendingClosureWrites instead of invalidating.
+	capturingClosure     bool
+	pendingClosureWrites []*AccessPath
+
+	ensureIR       map[string]ensureIRRecord
+	guardBodyIR    map[ast.Identifier]Assertion
+	ifIsIR         []Assertion
+	lastEnsureIR   ensureIRRecord
+	lastGuardBodyIR Assertion
+	lastIfIsIR     Assertion
 }
 
 // New creates a new TypeChecker.
@@ -154,6 +190,11 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log:                                         log,
 		reportPhases:                                reportPhases,
 		scopeOwners:                                 newScopeOwners(),
+		paths:                                       NewPathInterner(),
+		predicates:                                  NewPredicateInterner(),
+		refinementCtx:                               NewRefinementContext(),
+		aliasCtx:                                    newAliasContext(),
+		closureCaptures:                             make(map[ast.Identifier][]*AccessPath),
 	}
 
 	return tc
@@ -202,7 +243,9 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	if err := tc.resolveNodeImports(); err != nil {
 		return err
 	}
-	tc.preloadGoImportPackages()
+	if err := tc.preloadGoImportPackages(); err != nil {
+		return err
+	}
 	return tc.InferTypes(nodes)
 }
 
@@ -214,7 +257,7 @@ func (tc *TypeChecker) ResolveNodeImportsAfterCollect() error {
 // preloadGoImportPackages batch-loads Go packages for import lines collected in CollectTypes.
 // LSP and single-file CheckTypes use the same path as module-wide typechecking so qualified
 // calls like exec.Command resolve when go/packages is available.
-func (tc *TypeChecker) preloadGoImportPackages() {
+func (tc *TypeChecker) preloadGoImportPackages() error {
 	loaded, err := BatchLoadGoPackagesForModule(tc.goPackagesLoadDir(), []*TypeChecker{tc})
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{
@@ -222,7 +265,9 @@ func (tc *TypeChecker) preloadGoImportPackages() {
 			"dir":      tc.goPackagesLoadDir(),
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
+	tc.RecordUnloadedGoImportPaths(loaded, err)
 	tc.InitGoPackagesFromBatch(loaded)
+	return tc.validateGoImportLocalsAfterLoad(loaded)
 }
 
 // TypecheckNodes returns the nodes slice from the last CheckTypes call.

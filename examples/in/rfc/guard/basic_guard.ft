@@ -8,7 +8,7 @@ is (password Password) Strong {
 
 func main() {
 	var password: Password = "12345abc"
-	ensure password is Strong() {
+	ensure password is Strong() else {
 		println("Detected password as too weak, exiting...")
 	}
 	println("We have a strong password, continuing...")

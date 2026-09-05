@@ -179,6 +179,7 @@ func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
 			return err
 		}
 	}
+	tc.popScope()
 
 	for i := range n.ElseIfs {
 		if err := tc.collectExplicitTypes(&n.ElseIfs[i]); err != nil {
@@ -192,7 +193,6 @@ func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
 		}
 	}
 
-	tc.popScope()
 	return nil
 }
 
@@ -233,12 +233,22 @@ func (tc *TypeChecker) collectFunctionNode(scopeNode ast.Node, n ast.FunctionNod
 		}
 	}
 
+	tpSet := newTypeParamSet(n.TypeParams)
+	for _, tp := range n.TypeParams {
+		tpType := ast.NewTypeParamType(ast.TypeIdent(tp.Name))
+		tc.storeSymbol(tp.Name, []ast.TypeNode{tpType}, SymbolVariable)
+	}
+
 	for _, param := range n.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
+			paramType := normalizeTypesWithTypeParams(p.Type, tpSet)
+			if p.Variadic {
+				paramType = ast.NewArrayType(paramType)
+			}
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{paramType}, SymbolVariable)
 		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolVariable)
+			tc.registerDestructuredParamSymbols(p.Fields, normalizeTypesWithTypeParams(p.Type, tpSet), SymbolVariable)
 		}
 	}
 

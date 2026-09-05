@@ -1,0 +1,6 @@
+{
+  "id": "or/pipe-rejected-in-is",
+  "expect": "parse-error",
+  "title": "pipe rejected in is assertion",
+  "code": "refinement-pipe-in-assertion"
+}

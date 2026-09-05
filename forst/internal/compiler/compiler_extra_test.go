@@ -19,11 +19,11 @@ import (
 func TestParseArgs_delegatesToOsArgs(t *testing.T) {
 	old := os.Args
 	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst", "build", "-o", "out.go", "main.ft"}
+	os.Args = []string{"forst", "build", "-o", "out-dir", "main.ft"}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	args := ParseArgs(log)
-	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || args.OutputPath != "out.go" {
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || args.OutputPath != "out-dir" {
 		t.Fatalf("args = %+v", args)
 	}
 }
@@ -173,7 +173,7 @@ func main() {}
 		t.Fatal(err)
 	}
 	outPath := filepath.Join(outDir, "gen.go")
-	c := New(Args{Command: "build", FilePath: ft, OutputPath: outPath, LogLevel: "error"}, silentCompilerTestLogger())
+	c := New(Args{Command: "run", FilePath: ft, OutputPath: outPath, LogLevel: "error"}, silentCompilerTestLogger())
 	if _, err := c.CompileFile(); err == nil || !strings.Contains(err.Error(), "writing output file") {
 		t.Fatalf("err = %v", err)
 	}
@@ -248,5 +248,15 @@ func main() {
 	}
 	if runs.Load() < 2 {
 		t.Fatalf("expected recompile on write, runs=%d", runs.Load())
+	}
+}
+
+func TestEnsureGoSourceOutputPath_rejectsNonGoExtension(t *testing.T) {
+	abs := filepath.Join(t.TempDir(), "out")
+	if err := ensureGoSourceOutputPath(abs); err == nil {
+		t.Fatal("expected error for absolute path without .go extension")
+	}
+	if err := ensureGoSourceOutputPath(filepath.Join(t.TempDir(), "main.go")); err != nil {
+		t.Fatalf("unexpected error for .go path: %v", err)
 	}
 }

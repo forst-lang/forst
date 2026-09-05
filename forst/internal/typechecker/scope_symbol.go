@@ -73,16 +73,7 @@ func (tc *TypeChecker) RestoreScope(node ast.Node) error {
 
 // storeSymbol stores a symbol definition in the current scope
 func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	// Ensure types have correct TypeKind
-	processedTypes := make([]ast.TypeNode, len(types))
-	for i, typ := range types {
-		// For user-defined types, ensure they're marked as user-defined
-		if typ.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(typ.Ident) {
-			processedTypes[i] = ensureUserDefinedType(typ)
-		} else {
-			processedTypes[i] = typ
-		}
-	}
+	processedTypes := tc.normalizeTypesForStorage(types)
 
 	currentScope := tc.CurrentScope()
 	currentScope.Symbols[ident] = Symbol{
@@ -91,6 +82,7 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 		Kind:       kind,
 		Scope:      currentScope,
 		Position:   tc.path,
+		ID:         currentScope.allocSymbolID(),
 	}
 
 	tc.log.WithFields(logrus.Fields{

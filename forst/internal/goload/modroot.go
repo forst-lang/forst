@@ -37,7 +37,7 @@ func IsForstCompilerModule(dir string) bool {
 }
 
 // ForstCompilerModuleRoot returns the filesystem root of the Forst compiler Go module
-// (module forst). Used when generated companion Go imports forst/nodert or forst/internal/*.
+// (module forst). Used when generated companion Go imports forst/bridgert or forst/internal/*.
 func ForstCompilerModuleRoot() string {
 	if forstCompilerRootHook != nil {
 		return forstCompilerRootHook()
@@ -196,7 +196,7 @@ func MissingGoModuleSetupHint(boundaryRoot string) string {
 		return ""
 	}
 	return "create .forst-gomod/go.mod at " + filepath.Clean(boundaryRoot) +
-		" with require for Go imports and replace forst => ... (see docs/interop/node/call-forst.mdx)"
+		" with require for Go imports and replace forst => ... (see docs/interop/invoke/call-forst.mdx)"
 }
 
 // GoImportTypesNotLoadedMsg formats the go-import diagnostic for unloaded Go package types.

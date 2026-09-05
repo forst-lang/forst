@@ -9,6 +9,8 @@
  */
 export {
   COMPILER_RELEASES_BASE,
+  DEFAULT_EMBEDDED_INVOKE_BASE_URL,
+  DEFAULT_EMBEDDED_INVOKE_PORT,
   FORST_CLI_INFO_FLAG,
   FORST_CLI_GO_BUILDINFO_FLAG,
   FORST_CLI_VERSION_FLAGS,
@@ -74,7 +76,11 @@ export async function spawnForst(
   spawnOptions: SpawnOptions = {},
   resolveOptions?: ResolveForstBinaryOptions
 ): Promise<ReturnType<typeof spawn>> {
-  const { bin, env } = await buildForstSpawnEnv(resolveOptions);
+  const { bin, env } = await buildForstSpawnEnv({
+    ...resolveOptions,
+    argv: args,
+    cwd: spawnOptions.cwd?.toString() ?? process.cwd(),
+  });
   return spawn(bin, args, {
     stdio: "inherit",
     ...spawnOptions,

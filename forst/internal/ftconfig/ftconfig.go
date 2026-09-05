@@ -17,6 +17,15 @@ import (
 
 const configFileName = "ftconfig.json"
 
+// EnvRoot is the ftconfig project root for runtime discovery (.forst/, invoke.ready, bridgert).
+// `forst run -root …` sets this on child processes; it may also be set explicitly.
+const EnvRoot = "FORST_ROOT"
+
+// RootFromEnv returns the project root from FORST_ROOT when set.
+func RootFromEnv() string {
+	return strings.TrimSpace(os.Getenv(EnvRoot))
+}
+
 // Config represents the configuration for the Forst dev server (ftconfig.json).
 type Config struct {
 	Compiler CompilerConfig `json:"compiler"`
@@ -24,58 +33,42 @@ type Config struct {
 	Files    FilesConfig    `json:"files"`
 	Output   OutputConfig   `json:"output"`
 	Dev      DevConfig      `json:"dev"`
-	Node     NodeConfig     `json:"node"`
-	Generate GenerateConfig `json:"generate"`
+	Bridge   BridgeConfig   `json:"bridge"`
+	Generate   GenerateConfig   `json:"generate"`
 }
 
 // GenerateConfig controls TypeScript client package generation (forst generate).
 type GenerateConfig struct {
-	PackageName    string `json:"packageName"`
-	OutDir         string `json:"outDir"`
-	Link           string `json:"link"`
-	Emit           string `json:"emit"`
-	TestingSubpath string `json:"testingSubpath"`
-	Effect         bool   `json:"effect"`
-	SSRModule      string `json:"ssrModule"`
+	PackageName    string           `json:"packageName"`
+	OutDir         string           `json:"outDir"`
+	Link           string           `json:"link"`
+	Emit           string           `json:"emit"`
+	TestingSubpath string           `json:"testingSubpath"`
+	Effect         bool             `json:"effect"`
+	SSRModule      string           `json:"ssrModule"`
+	Go             GenerateGoConfig `json:"go"`
+	// SkipClient skips TypeScript client generation (Go-only or custom pipelines).
+	SkipClient bool `json:"skipClient"`
 	// OmitStubs emits commented stubs for provider-gated omissions in package modules (SPEC §12).
 	OmitStubs bool `json:"omitStubs"`
+	// Plugins lists local semantic plugin executables run after typecheck (forst generate only).
+	Plugins []GeneratePluginConfig `json:"plugins"`
 }
 
-// NodeRPCConfig represents Node stdio RPC limits.
-type NodeRPCConfig struct {
-	MaxMessageBytes    int `json:"maxMessageBytes"`
-	CallTimeoutSeconds int `json:"callTimeoutSeconds"`
+// GeneratePluginConfig configures one semantic plugin runner entry.
+type GeneratePluginConfig struct {
+	Name string          `json:"name"`
+	Cmd  string          `json:"cmd"`
+	Out  string          `json:"out"`
+	Opt  json.RawMessage `json:"opt,omitempty"`
 }
 
-// NodeConfig represents TypeScript / Node runtime interop settings.
-type NodeConfig struct {
-	Enabled                 bool          `json:"enabled"`
-	ImportPolicy            string        `json:"importPolicy"`
-	RuntimeEnabled          bool          `json:"runtimeEnabled"`
-	HostMode                bool          `json:"hostMode"`
-	Binary                  string        `json:"binary"`
-	Args                    []string      `json:"args"`
-	HostSocket              string        `json:"hostSocket"`
-	HostReadyTimeoutSeconds int           `json:"hostReadyTimeoutSeconds"`
-	HostAutoRegister        *bool         `json:"hostAutoRegister,omitempty"`
-	// HostAppReadyModule is an optional module to import before signaling nodert readiness.
-	// Use a tiny side-effect-free module for third-party shims (e.g. remix-serve). Do not
-	// point this at a full server bundle — import side effects can break host registration.
-	HostAppReadyModule      string        `json:"hostAppReadyModule"`
-	Bootstrap               string        `json:"bootstrap"`
-	Loader                  string        `json:"loader"`
-	GoRuntimeModule         string        `json:"goRuntimeModule"`
-	GoRuntimeVersion        string        `json:"goRuntimeVersion"`
-	RPC                     NodeRPCConfig `json:"rpc"`
-}
-
-// EffectiveHostAutoRegister reports whether nodert should inject host/register.mjs on spawn.
-// Defaults to true when hostMode is enabled.
-func (n NodeConfig) EffectiveHostAutoRegister() bool {
-	if n.HostAutoRegister != nil {
-		return *n.HostAutoRegister
-	}
-	return n.HostMode
+// GenerateGoConfig controls optional Go source emission from forst generate.
+// Go emission is active when both entry and out are set.
+type GenerateGoConfig struct {
+	Entry string `json:"entry"`
+	Out   string `json:"out"`
+	Root  string `json:"root"`
 }
 
 // CompilerConfig represents compiler-specific settings.
@@ -134,6 +127,8 @@ func (s ServerConfig) EffectiveInvokePort() string {
 }
 
 // FilesConfig represents file discovery settings.
+// Include/exclude globs are resolved from the ftconfig boundary root. Package layout still
+// requires one directory per Forst package name for the Go target (see forstpkg.ValidateOneDirectoryPerPackage).
 type FilesConfig struct {
 	Include  []string `json:"include"`
 	Exclude  []string `json:"exclude"`
@@ -193,7 +188,7 @@ func Default() *Config {
 		},
 		Files: FilesConfig{
 			Include:  []string{"**/*.ft"},
-			Exclude:  []string{"**/node_modules/**", "**/.git/**"},
+			Exclude:  []string{"**/node_modules/**", "**/.git/**", "**/build/**", "**/.forst/**"},
 			MaxDepth: 10,
 		},
 		Output: OutputConfig{
@@ -209,16 +204,16 @@ func Default() *Config {
 			LogLevel:    "info",
 			Verbose:     false,
 		},
-		Node: NodeConfig{
+		Bridge: BridgeConfig{
 			Enabled:        false,
 			ImportPolicy:   "explicit",
 			RuntimeEnabled: false,
+			Host:           BridgeHostNode,
 			Binary:         "node",
-			Bootstrap:      "node_modules/@forst/node-runtime/dist/bootstrap.js",
-			Loader:         "tsx",
-			HostSocket:     ".forst/node.sock",
+			Bootstrap:      "node_modules/@forst/runtime/dist/bootstrap.js",
+			HostSocket:     ".forst/bridge.sock",
 			HostReadyTimeoutSeconds: 120,
-			RPC: NodeRPCConfig{
+			RPC: BridgeRPCConfig{
 				MaxMessageBytes:    16 << 20,
 				CallTimeoutSeconds: 120,
 			},
@@ -263,8 +258,11 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	normalizeServerMaxRequestSize(config)
-	normalizeNodeConfig(config)
-	if err := validateNodeConfig(config); err != nil {
+	normalizeBridgeConfig(config)
+	if err := validateBridgeConfig(config); err != nil {
+		return nil, err
+	}
+	if _, err := EffectiveBridge(config); err != nil {
 		return nil, err
 	}
 	return config, nil
@@ -304,17 +302,17 @@ func ExportStructFieldsFromDir(startDir string) bool {
 	return cfg.Compiler.ExportStructFields
 }
 
-// ImportPolicyFromDir returns node.importPolicy from ftconfig.json found by walking
+// ImportPolicyFromDir returns bridge.importPolicy from ftconfig.json found by walking
 // upward from startDir, or "explicit" when no config is found or the field is empty.
 func ImportPolicyFromDir(startDir string) string {
 	cfg, err := LoadFromDir(startDir)
 	if err != nil || cfg == nil {
 		return "explicit"
 	}
-	if cfg.Node.ImportPolicy == "" {
+	if cfg.Bridge.ImportPolicy == "" {
 		return "explicit"
 	}
-	return cfg.Node.ImportPolicy
+	return cfg.Bridge.ImportPolicy
 }
 
 func normalizeServerMaxRequestSize(config *Config) {
@@ -323,33 +321,30 @@ func normalizeServerMaxRequestSize(config *Config) {
 	}
 }
 
-func normalizeNodeConfig(config *Config) {
-	if config.Node.Binary == "" {
-		config.Node.Binary = "node"
+func normalizeBridgeConfig(config *Config) {
+	if config.Bridge.Binary == "" {
+		config.Bridge.Binary = "node"
 	}
-	if config.Node.Bootstrap == "" {
-		config.Node.Bootstrap = "node_modules/@forst/node-runtime/dist/bootstrap.js"
+	if config.Bridge.Bootstrap == "" {
+		config.Bridge.Bootstrap = "node_modules/@forst/runtime/dist/bootstrap.js"
 	}
-	if config.Node.Loader == "" {
-		config.Node.Loader = "tsx"
+	if config.Bridge.RPC.MaxMessageBytes <= 0 {
+		config.Bridge.RPC.MaxMessageBytes = 16 << 20
 	}
-	if config.Node.RPC.MaxMessageBytes <= 0 {
-		config.Node.RPC.MaxMessageBytes = 16 << 20
+	if config.Bridge.RPC.CallTimeoutSeconds <= 0 {
+		config.Bridge.RPC.CallTimeoutSeconds = 120
 	}
-	if config.Node.RPC.CallTimeoutSeconds <= 0 {
-		config.Node.RPC.CallTimeoutSeconds = 120
+	if config.Bridge.HostSocket == "" {
+		config.Bridge.HostSocket = ".forst/bridge.sock"
 	}
-	if config.Node.HostSocket == "" {
-		config.Node.HostSocket = ".forst/node.sock"
-	}
-	if config.Node.HostReadyTimeoutSeconds <= 0 {
-		config.Node.HostReadyTimeoutSeconds = 120
+	if config.Bridge.HostReadyTimeoutSeconds <= 0 {
+		config.Bridge.HostReadyTimeoutSeconds = 120
 	}
 }
 
-func validateNodeConfig(config *Config) error {
-	if config.Node.HostMode && len(config.Node.Args) == 0 {
-		return fmt.Errorf("node.hostMode requires non-empty node.args")
+func validateBridgeConfig(config *Config) error {
+	if config.Bridge.HostMode && len(config.Bridge.Args) == 0 {
+		return fmt.Errorf("bridge.hostMode requires non-empty bridge.args")
 	}
 	return nil
 }
@@ -379,6 +374,12 @@ func (c *Config) FindForstFiles(rootDir string) ([]string, error) {
 			return walkErr
 		}
 		if d.IsDir() {
+			if path != "." {
+				absPath := root.AbsPath(path)
+				if c.matchesExcludePatterns(absPath) {
+					return fs.SkipDir
+				}
+			}
 			return nil
 		}
 		absPath := root.AbsPath(path)

@@ -36,15 +36,9 @@ func (tc *TypeChecker) isTypeCompatibleImpl(actual ast.TypeNode, expected ast.Ty
 			}
 			return tc.IsTypeCompatible(actual.TypeParams[0], expected.TypeParams[0])
 		case ast.TypeUnion, ast.TypeIntersection:
-			if len(actual.TypeParams) != len(expected.TypeParams) {
-				return false
-			}
-			for i := range actual.TypeParams {
-				if !tc.IsTypeCompatible(actual.TypeParams[i], expected.TypeParams[i]) {
-					return false
-				}
-			}
-			return true
+			// Subtyping uses union/intersection covariance rules below (not pairwise identity).
+		case ast.TypeAssertion:
+			return assertionTypesCompatible(actual.Assertion, expected.Assertion)
 		case ast.TypeFunc:
 			return tc.checkFunctionTypeCompatible(actual, expected)
 		default:
@@ -338,6 +332,16 @@ func isIntFamilyIdent(id ast.TypeIdent) bool {
 	}
 }
 
+func isByteSliceType(t ast.TypeNode) bool {
+	if t.Ident == ast.TypeBytes {
+		return true
+	}
+	if t.Ident != ast.TypeArray || len(t.TypeParams) != 1 {
+		return false
+	}
+	return t.TypeParams[0].Ident == ast.TypeIdent("byte")
+}
+
 // getShapeFromTypeDef extracts the shape from a TypeDefNode if it is shape-backed (ordinary shape or error payload).
 func (tc *TypeChecker) getShapeFromTypeDef(def ast.Node) (*ast.ShapeNode, bool) {
 	if typeDef, ok := def.(ast.TypeDefNode); ok {
@@ -405,13 +409,16 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		case ast.TypeInt, ast.TypeBool:
 			return []ast.TypeNode{fn.ReturnType}, nil
 		default:
+			if isByteSliceType(argType[0]) {
+				return []ast.TypeNode{fn.ReturnType}, nil
+			}
 			if argType[0].Ident == ast.TypeResult {
 				if idx, ok := args[0].(ast.IndexExpressionNode); ok && tc.isMapIndexRValue(idx) {
 					return nil, diagnosticf(sp, "builtin-call",
 						"map lookup has type Result(V, Error); use `ensure x is Ok()` (or bind and handle the Result) before using string()")
 				}
 			}
-			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].Ident)
+			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].String())
 		}
 	}
 	if fn.Name == "[]byte" && len(args) == 1 {

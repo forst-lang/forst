@@ -13,9 +13,6 @@
       "theme": {
         "light": "github-light-default",
         "dark": "dark-plus"
-      },
-      "languages": {
-        "custom": ["/languages/forst.json"]
       }
     }
   },
@@ -29,7 +26,13 @@
             "pages": [
               "index",
               "why",
-              "language/overview"
+              {
+                "group": "Language overview",
+                "root": "language/overview",
+                "pages": [
+                  "resources/roadmap"
+                ]
+              }
             ]
           },
           {
@@ -56,18 +59,27 @@
             ]
           },
           {
-            "group": "Interop",
+            "group": "Interoperability",
             "pages": [
               "interop/go",
               {
-                "group": "Node",
-                "root": "interop/node",
+                "group": "Call Forst from JavaScript",
+                "root": "interop/invoke",
                 "pages": [
-                  "interop/node/generate-types",
-                  "interop/node/call-forst",
-                  "interop/node/testing",
-                  "interop/node/effect",
-                  "interop/node/call-javascript"
+                  "interop/invoke/generate-types",
+                  "interop/invoke/call-forst",
+                  "interop/invoke/security",
+                  "interop/invoke/testing",
+                  "interop/invoke/effect"
+                ]
+              },
+              {
+                "group": "Call JavaScript from Forst",
+                "root": "interop/bridge",
+                "pages": [
+                  "interop/bridge/import-and-calls",
+                  "interop/bridge/build-and-runtime",
+                  "interop/bridge/security"
                 ]
               }
             ]
@@ -77,6 +89,7 @@
             "pages": [
               "workflow/cli",
               "workflow/dev-server",
+              "workflow/plugins",
               "workflow/editor"
             ]
           }
@@ -154,18 +167,93 @@
   },
   "redirects": [
     {
+      "source": "/interop/node",
+      "destination": "/interop/invoke",
+      "permanent": true
+    },
+    {
       "source": "/interop/typescript",
-      "destination": "/interop/node/generate-types",
+      "destination": "/interop/invoke/generate-types",
       "permanent": true
     },
     {
       "source": "/interop/typescript-client",
-      "destination": "/interop/node/call-forst",
+      "destination": "/interop/invoke/call-forst",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/generate-types",
+      "destination": "/interop/invoke/generate-types",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/call-forst",
+      "destination": "/interop/invoke/call-forst",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/invoke-security",
+      "destination": "/interop/invoke/security",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/testing",
+      "destination": "/interop/invoke/testing",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/effect",
+      "destination": "/interop/invoke/effect",
+      "permanent": true
+    },
+    {
+      "source": "/interop/node/call-javascript",
+      "destination": "/interop/bridge/import-and-calls",
       "permanent": true
     },
     {
       "source": "/interop/typescript-runtime",
-      "destination": "/interop/node/call-javascript",
+      "destination": "/interop/bridge/import-and-calls",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/call-javascript",
+      "destination": "/interop/bridge/import-and-calls",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/import-and-setup",
+      "destination": "/interop/bridge/import-and-calls",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/sync-async-generators",
+      "destination": "/interop/bridge/import-and-calls",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/build-and-deploy",
+      "destination": "/interop/bridge/build-and-runtime",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/runtime-modes",
+      "destination": "/interop/bridge/build-and-runtime",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/types-and-codegen",
+      "destination": "/interop/bridge/build-and-runtime",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/security",
+      "destination": "/interop/bridge/build-and-runtime",
+      "permanent": true
+    },
+    {
+      "source": "/interop/bridge/troubleshooting",
+      "destination": "/interop/bridge/build-and-runtime",
       "permanent": true
     },
     {

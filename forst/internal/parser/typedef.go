@@ -87,6 +87,21 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 
 	if p.current().Type == ast.TokenLBrace {
 		shape := p.parseShapeTypeAllowEmpty()
+		if p.current().Type == ast.TokenDot {
+			base := ast.TypeShape
+			assertion := ast.AssertionNode{
+				BaseType: &base,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{Shape: &shape}},
+				}},
+			}
+			for p.current().Type == ast.TokenDot {
+				p.advance()
+				assertion.Constraints = append(assertion.Constraints, p.parseConstraint())
+			}
+			return ast.TypeDefAssertionExpr{Assertion: &assertion}
+		}
 		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 
@@ -105,7 +120,9 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 	}
 
 	var left ast.TypeDefExpr
-	if p.peek().Type == ast.TokenDot {
+	if lit, ok := p.tryParseTypeDefLiteralMember(); ok {
+		left = lit
+	} else if p.peek().Type == ast.TokenDot {
 		assertion := p.parseAssertionChain(true)
 		left = ast.TypeDefAssertionExpr{
 			Assertion: &assertion,
@@ -132,5 +149,46 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		Left:  left,
 		Op:    operator.Type,
 		Right: right,
+	}
+}
+
+// tryParseTypeDefLiteralMember parses a string/int/bool literal as a typedef
+// member (`type T = "a" | "b"`). Float and other deferred forms are rejected.
+func (p *Parser) tryParseTypeDefLiteralMember() (ast.TypeDefExpr, bool) {
+	tok := p.current()
+	switch tok.Type {
+	case ast.TokenStringLiteral, ast.TokenIntLiteral, ast.TokenTrue, ast.TokenFalse,
+		ast.TokenMinus: // negative int literal in a union member
+		if tok.Type == ast.TokenMinus {
+			next := p.peek()
+			if next.Type != ast.TokenIntLiteral {
+				return nil, false
+			}
+		}
+		lit := p.parseLiteral()
+		switch lit.(type) {
+		case ast.StringLiteralNode, ast.IntLiteralNode, ast.BoolLiteralNode:
+			return typeDefExprFromLiteral(lit), true
+		default:
+			p.FailWithParseError(tok, "refinement-unsupported-union: only string, int, and bool literals are allowed in named literal unions")
+			return nil, false
+		}
+	case ast.TokenFloatLiteral:
+		p.FailWithParseError(tok, "refinement-unsupported-union: float literals are not allowed in named literal unions")
+		return nil, false
+	default:
+		return nil, false
+	}
+}
+
+func typeDefExprFromLiteral(lit ast.LiteralNode) ast.TypeDefExpr {
+	var vn ast.ValueNode = lit
+	return ast.TypeDefAssertionExpr{
+		Assertion: &ast.AssertionNode{
+			Constraints: []ast.ConstraintNode{{
+				Name: ast.ValueConstraint,
+				Args: []ast.ConstraintArgumentNode{{Value: &vn}},
+			}},
+		},
 	}
 }

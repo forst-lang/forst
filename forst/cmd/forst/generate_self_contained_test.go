@@ -45,8 +45,8 @@ func TestGenerate_defaultOutDirIsDotForstClient(t *testing.T) {
 		".forst-generated",
 		"dist/index.js",
 		"dist/index.d.ts",
-		"dist/transport.js",
-		"dist/transport.d.ts",
+		"dist/transport/runtime.js",
+		"dist/transport/runtime.d.ts",
 		"dist/types.d.ts",
 		"dist/core/main.js",
 		"dist/core/main.d.ts",
@@ -157,7 +157,7 @@ func TestGenerateClientPackage_noImportEscapesOutDir(t *testing.T) {
 }
 
 func TestGenerateClientPackageJSON_hasErrorsDependency(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatalf("package.json not valid JSON: %v\n%s", err, j)
@@ -196,7 +196,7 @@ func TestGenerateClientPackageJSON_hasErrorsDependency(t *testing.T) {
 
 func TestGenerateClientPackageJSON_usesConfigPackageName(t *testing.T) {
 	cfg := ftconfig.GenerateConfig{PackageName: "@acme/api-client"}
-	j := generateClientPackageJSON(cfg, nil)
+	j := generateClientPackageJSON(cfg, nil, nil)
 	if !strings.Contains(j, `"name": "@acme/api-client"`) {
 		t.Fatalf("expected configured package name, got:\n%s", j)
 	}
@@ -240,11 +240,14 @@ func TestGenerate_writesSSRModuleWhenConfigured(t *testing.T) {
 	if !strings.Contains(text, "getDefaultInvokeClient") {
 		t.Fatalf("SSR module missing getDefaultInvokeClient:\n%s", text)
 	}
-	if !strings.Contains(text, "transport.js") {
+	if !strings.Contains(text, "transport/runtime.js") {
 		t.Fatalf("SSR module should import inlined transport:\n%s", text)
 	}
-	if !strings.Contains(text, "export async function Echo") {
-		t.Fatalf("SSR module missing Echo export:\n%s", text)
+	if !strings.Contains(text, "export const $main = {") {
+		t.Fatalf("SSR module missing bound $main namespace:\n%s", text)
+	}
+	if !strings.Contains(text, "$main.Echo") && !strings.Contains(text, "Echo: async") {
+		t.Fatalf("SSR module missing Echo member:\n%s", text)
 	}
 }
 
@@ -264,7 +267,7 @@ func TestGenerate_printsResolvedSpecifierAndExampleImport(t *testing.T) {
 	if !strings.Contains(out, "generate: wrote "+ftconfig.DefaultPackageName+" -> .forst/client") {
 		t.Fatalf("missing resolved specifier line, got:\n%s", out)
 	}
-	if !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
+	if !strings.Contains(out, `import { $main } from "@forst/gen/main"`) {
 		t.Fatalf("missing example import, got:\n%s", out)
 	}
 }
@@ -272,13 +275,13 @@ func TestGenerate_printsResolvedSpecifierAndExampleImport(t *testing.T) {
 func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 	idx := transformerts.EmitIndexESM([]string{"catalog", "orders"}, "6321", nil, transformerts.RuntimePromise)
 	for _, frag := range []string{
-		`from "./transport.js"`,
+		`from "./transport/runtime.js"`,
 		"createInvokeClient",
-		`import { catalog } from "./pkg/catalog.js"`,
-		`import { orders } from "./pkg/orders.js"`,
+		`import { $catalog as $catalogCore } from "./core/catalog.js"`,
+		`import { $orders as $ordersCore } from "./core/orders.js"`,
 		"createForstClient",
-		"catalog: catalog(client)",
-		"orders: orders(client)",
+		"catalog: $catalogCore(client)",
+		"orders: $ordersCore(client)",
 	} {
 		if !strings.Contains(idx, frag) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)
@@ -288,21 +291,16 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 	if !strings.Contains(dts, `export type * from "./types.js"`) {
 		t.Fatalf("index.d.ts must re-export types:\n%s", dts)
 	}
-	for _, frag := range []string{"ForstUnknownFailure", `from "./errors.js"`} {
-		if !strings.Contains(idx, frag) {
-			t.Fatalf("index.js must re-export domain errors (%q missing):\n%s", frag, idx)
-		}
-		if !strings.Contains(dts, frag) {
-			t.Fatalf("index.d.ts must re-export domain errors (%q missing):\n%s", frag, dts)
-		}
-	}
-	for _, banned := range []string{"InvokeRejected", "isInvokeFailure", "invoke-errors.js"} {
+	for _, banned := range []string{"InvokeRejected", "isInvokeFailure", "invoke-errors.js", "ForstUnknownFailure"} {
 		if strings.Contains(idx, banned) {
 			t.Fatalf("index.js must not re-export invoke errors (%q present):\n%s", banned, idx)
 		}
 		if strings.Contains(dts, banned) {
 			t.Fatalf("index.d.ts must not re-export invoke errors (%q present):\n%s", banned, dts)
 		}
+	}
+	if strings.Contains(idx, `from "./$errors.js"`) {
+		t.Fatalf("index.js must not import from infra errors module:\n%s", idx)
 	}
 	for _, banned := range []string{"../generated", "@forst/client", ".client", "export { catalog, List }", "from './catalog.js'"} {
 		if strings.Contains(idx, banned) {
@@ -334,7 +332,7 @@ func TestWriteSSRModule_usesRelativeTransportImports(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(got)
-	if !strings.Contains(text, "../../.forst/client/dist/transport.js") {
+	if !strings.Contains(text, "../../.forst/client/dist/transport/runtime.js") {
 		t.Fatalf("expected relative transport import, got:\n%s", text)
 	}
 	if strings.Contains(text, "@forst/client") || strings.Contains(text, "generated/types") {

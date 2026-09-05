@@ -38,7 +38,7 @@ func TestCheckSignature_multiReturnMapsToTuple(t *testing.T) {
 	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(), results, false)
 
 	host := stubHost{}
-	diag := func(span ast.SourceSpan, code, format string, args ...any) error {
+	diag := func(_ ast.SourceSpan, _, _ string, _ ...any) error {
 		return nil
 	}
 	got, err := gointerop.CheckSignature(host, diag, gointerop.SignatureCheck{
@@ -56,14 +56,22 @@ func TestCheckSignature_multiReturnMapsToTuple(t *testing.T) {
 
 type stubHost struct{}
 
-func (stubHost) ForstTypeForGoType(g types.Type) (ast.TypeNode, bool) {
+func (stubHost) ForstTypeForGoType(_ types.Type) (ast.TypeNode, bool) {
 	return ast.TypeNode{}, false
 }
 
-func (stubHost) IsTypeCompatible(a, b ast.TypeNode) bool {
+func (stubHost) IsTypeCompatible(_, _ ast.TypeNode) bool {
 	return false
 }
 
-func (stubHost) InferExpressionType(expr ast.ExpressionNode) ([]ast.TypeNode, error) {
+func (stubHost) GoTypeForForstType(_ ast.TypeNode) types.Type {
+	return nil
+}
+
+func (stubHost) InferExpressionType(_ ast.ExpressionNode) ([]ast.TypeNode, error) {
 	return nil, nil
+}
+
+func (stubHost) GoTypeForExpression(_ ast.ExpressionNode) types.Type {
+	return nil
 }

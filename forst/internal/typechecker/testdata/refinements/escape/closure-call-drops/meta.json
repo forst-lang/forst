@@ -1,0 +1,5 @@
+{
+  "id": "escape/closure-call-drops",
+  "expect": "typecheck-error",
+  "title": "calling the closure drops"
+}

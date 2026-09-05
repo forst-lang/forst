@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/adult-deps-age-only",
+  "expect": "deps",
+  "title": "Adult depends on user.age only"
+}

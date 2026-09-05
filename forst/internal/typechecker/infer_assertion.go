@@ -19,7 +19,7 @@ const ConstraintMatch = "Match"
 func isBuiltinAssertionConstraintName(name string) bool {
 	switch name {
 	case "Min", "Max", "LessThan", "GreaterThan", "HasPrefix", "Contains",
-		"True", "False", "Nil", "Present", "NotEmpty", ast.ValueConstraint:
+		"True", "False", "Nil", "Present", "NotEmpty", "Router", ast.ValueConstraint:
 		return true
 	default:
 		return false
@@ -134,10 +134,16 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 
 		// Push a new scope for the type guard's body
 		var guardNode ast.TypeGuardNode
-		if ptr, ok := guardDef.(*ast.TypeGuardNode); ok {
-			guardNode = *ptr
-		} else {
-			guardNode = guardDef.(ast.TypeGuardNode)
+		switch g := guardDef.(type) {
+		case *ast.TypeGuardNode:
+			guardNode = *g
+		case ast.TypeGuardNode:
+			guardNode = g
+		default:
+			if isBuiltinAssertionConstraintName(constraint.Name) {
+				continue
+			}
+			return nil, fmt.Errorf("type guard %s not found (defs has %T)", constraint.Name, guardDef)
 		}
 
 		tc.log.WithFields(logrus.Fields{
@@ -418,7 +424,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 	typeIdent := hash.ToTypeIdent()
 
 	// Register the hash-based type and its fields
-	RegisterHashBasedType(tc, typeIdent, mergedFields)
+	RegisterHashBasedType(tc, typeIdent, tc.markGenericTypeParamShapeFields(mergedFields))
 
 	// Robust named type preservation: If BaseType is a named type and compatible, use it
 	if assertion.BaseType != nil && !strings.HasPrefix(string(*assertion.BaseType), "T_") {

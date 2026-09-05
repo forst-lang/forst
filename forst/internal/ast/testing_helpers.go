@@ -1,6 +1,10 @@
 package ast
 
 import (
+	"bytes"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -194,11 +198,35 @@ type TestLoggerOptions struct {
 	ForceLevel logrus.Level
 }
 
-// setupTestLogger is extracted so tests can cover the verbose branch without requiring -test.v.
-func setupTestLogger(opts *TestLoggerOptions, verbose func() bool) *logrus.Logger {
-	logger := logrus.New()
+// compilerTestLogsEnabled reports whether FORST_TEST_LOG requests live Debug logs.
+// Values: 1|true|debug|all. Not tied to go test -v (that flag only affects test names).
+func compilerTestLogsEnabled() bool {
+	switch strings.ToLower(os.Getenv("FORST_TEST_LOG")) {
+	case "1", "true", "debug", "all":
+		return true
+	default:
+		return false
+	}
+}
 
-	if verbose() {
+func compilerTestLogsOnFail() bool {
+	switch strings.ToLower(os.Getenv("FORST_TEST_LOG")) {
+	case "fail", "onfail":
+		return true
+	default:
+		return false
+	}
+}
+
+// setupTestLogger is extracted so tests can cover the enabled branch without env.
+// Quiet by default (Panic + Discard) so Debug/Trace call sites skip formatting/I/O.
+func setupTestLogger(opts *TestLoggerOptions, enableDebug func() bool) *logrus.Logger {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	logger.SetLevel(logrus.PanicLevel)
+
+	if enableDebug() {
+		logger.SetOutput(os.Stderr)
 		logger.SetLevel(logrus.DebugLevel)
 	}
 
@@ -209,7 +237,27 @@ func setupTestLogger(opts *TestLoggerOptions, verbose func() bool) *logrus.Logge
 	return logger
 }
 
-// SetupTestLogger creates a test logger
+// SetupTestLogger creates a quiet test logger.
+// Set FORST_TEST_LOG=1 for Debug on stderr. Prefer SetupTestLoggerFor to dump on failure.
 func SetupTestLogger(opts *TestLoggerOptions) *logrus.Logger {
-	return setupTestLogger(opts, testing.Verbose)
+	return setupTestLogger(opts, compilerTestLogsEnabled)
+}
+
+// SetupTestLoggerFor is SetupTestLogger plus optional failure capture.
+// With FORST_TEST_LOG=fail, buffers Debug logs and prints them via tb.Log if the test fails.
+func SetupTestLoggerFor(tb testing.TB, opts *TestLoggerOptions) *logrus.Logger {
+	tb.Helper()
+	log := SetupTestLogger(opts)
+	if !compilerTestLogsOnFail() {
+		return log
+	}
+	var buf bytes.Buffer
+	log.SetLevel(logrus.DebugLevel)
+	log.SetOutput(&buf)
+	tb.Cleanup(func() {
+		if tb.Failed() && buf.Len() > 0 {
+			tb.Logf("compiler logs (FORST_TEST_LOG=fail):\n%s", buf.String())
+		}
+	})
+	return log
 }

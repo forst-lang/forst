@@ -7,8 +7,8 @@ REPO="${REPO:-$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel 2>/dev/null
 REPO="$(cd "$REPO" && pwd)"
 
 FORST_BINARY="${FORST_BINARY:-$REPO/bin/forst}"
-FT_ROOT="$REPO/examples/in/rfc/node-interop/multi-package-dev"
-HOST_READY="$FT_ROOT/.forst/node.sock.ready"
+FT_ROOT="$REPO/examples/in/rfc/bridge-interop/multi-package-dev"
+HOST_READY="$FT_ROOT/.forst/bridge.sock.ready"
 RELOAD_MARKER="$FT_ROOT/.forst/reloading"
 
 FORST_PID=""
@@ -50,7 +50,7 @@ cleanup() {
     wait "$FORST_PID" 2>/dev/null || true
   fi
   if [[ -n "$MAIN_FT_BACKUP" && -f "$MAIN_FT_BACKUP" ]]; then
-    cp "$MAIN_FT_BACKUP" "$FT_ROOT/main.ft"
+    cp "$MAIN_FT_BACKUP" "$FT_ROOT/main/main.ft"
     rm -f "$MAIN_FT_BACKUP"
   fi
   free_port
@@ -62,27 +62,28 @@ if [[ ! -x "$FORST_BINARY" ]]; then
   echo "forst binary missing: $FORST_BINARY" >&2
   exit 1
 fi
-if [[ ! -f "$REPO/packages/node-runtime/dist/host.js" ]]; then
-  echo "node-runtime not built: $REPO/packages/node-runtime/dist/host.js" >&2
+if [[ ! -f "$REPO/packages/runtime/dist/host.js" ]]; then
+  echo "runtime not built: $REPO/packages/runtime/dist/host.js" >&2
   exit 1
 fi
 
 free_port
 rm -rf "$FT_ROOT/.forst"
 MAIN_FT_BACKUP="$(mktemp)"
-cp "$FT_ROOT/main.ft" "$MAIN_FT_BACKUP"
+cp "$FT_ROOT/main/main.ft" "$MAIN_FT_BACKUP"
 
 export FORST_REPO_ROOT="$REPO"
-export FORST_BOUNDARY_ROOT="$FT_ROOT"
+export FORST_ROOT="$FT_ROOT"
+export FORST_INVOKE_TRANSPORT=tcp
 "$FORST_BINARY" dev \
   -export-struct-fields \
   -root "$FT_ROOT" \
-  -entry main.ft \
+  -entry main/main.ft \
   -log-level error &
 FORST_PID=$!
 
 bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6321/health invoke 60
-bash "$SCRIPT_DIR/wait-for-file.sh" "$HOST_READY" node.sock.ready 60
+bash "$SCRIPT_DIR/wait-for-file.sh" "$HOST_READY" bridge.sock.ready 60
 
 read_host_pid() {
   python3 - <<'PY' "$HOST_READY"
@@ -102,7 +103,7 @@ if ! kill -0 "$pid0" 2>/dev/null; then
   exit 1
 fi
 
-printf '\n// reload-e2e-trigger\n' >> "$FT_ROOT/main.ft"
+printf '\n// reload-e2e-trigger\n' >> "$FT_ROOT/main/main.ft"
 
 gen=0
 for _ in $(seq 1 90); do

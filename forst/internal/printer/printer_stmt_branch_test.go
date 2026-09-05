@@ -222,8 +222,8 @@ func TestPrintEnsure_Branches(t *testing.T) {
 	if !strings.Contains(withError, "ensure x is Error.NotNil()") {
 		t.Fatalf("missing ensure head in %q", withError)
 	}
-	if !strings.Contains(withError, "or boom") {
-		t.Fatalf("missing ensure error var in %q", withError)
+	if !strings.Contains(withError, "else boom") {
+		t.Fatalf("missing ensure else error var in %q", withError)
 	}
 	if strings.Contains(withError, "{\n") {
 		t.Fatalf("empty ensure block should not render braces: %q", withError)
@@ -246,7 +246,7 @@ func TestPrintEnsure_Branches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("print ensure with error call: %v", err)
 	}
-	if !strings.Contains(callOut, "or TooSmall(1)") {
+	if !strings.Contains(callOut, "else TooSmall(1)") {
 		t.Fatalf("missing ensure error call in %q", callOut)
 	}
 }

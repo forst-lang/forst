@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -36,6 +37,8 @@ var (
 	absPathForGenerate              = filepath.Abs
 	mergeTypeScriptOutputsHook      = transformerts.MergeTypeScriptOutputs
 	generateTSOutputsByPackageHook  = transformerts.GenerateTypeScriptOutputsByPackage
+	buildSemanticSnapshotHook       = buildSemanticSnapshot
+	runSemanticPluginsHook          = runSemanticPlugins
 	validateDiscoveredFileStemsHook = transformerts.ValidateDiscoveredFileStems
 	generateClientPackageHook       = generateClientPackage
 	pruneStaleClientModulesHook     = pruneStaleClientModules
@@ -108,17 +111,30 @@ type generateOptions struct {
 	allowStemMismatch bool
 	watch             bool
 	listJSON          bool
+	logLevel          string
 	target            string
+	targetIsDir       bool
+	goEntry           string
+	goOut             string
+	goRoot            string
+	skipClient        bool
+	dumpSemantic      bool
 }
 
 func parseGenerateArgs(args []string) (generateOptions, error) {
 	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	configPath := fs.String("config", "", "Path to ftconfig.json")
-	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name")
+	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name (does not relax one-directory-one-package layout)")
 	watch := fs.Bool("watch", false, "Regenerate when .ft files change")
 	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
 	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
+	logLevel := fs.String("log-level", "", "Log level (trace, debug, info, warn, error)")
+	goEntry := fs.String("go-entry", "", "Override generate.go.entry")
+	goOut := fs.String("go-out", "", "Override generate.go.out")
+	goRoot := fs.String("go-root", "", "Override generate.go.root")
+	skipClient := fs.Bool("skip-client", false, "Skip TypeScript client generation (generate.skipClient)")
+	dumpSemantic := fs.Bool("dump-semantic", false, "Print semantic snapshot JSON to stdout and exit")
 	if err := fs.Parse(args); err != nil {
 		return generateOptions{}, err
 	}
@@ -126,13 +142,52 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	if len(tail) < 1 {
 		return generateOptions{}, fmt.Errorf("generate command requires a target file or directory")
 	}
+	target := tail[0]
+	targetIsDir := false
+	if st, err := os.Stat(target); err == nil {
+		targetIsDir = st.IsDir()
+	}
 	return generateOptions{
 		configPath:        *configPath,
 		allowStemMismatch: *allowStemMismatch,
 		watch:             *watch,
 		listJSON:          *list || *listJSON,
-		target:            tail[0],
+		logLevel:          *logLevel,
+		target:            target,
+		targetIsDir:       targetIsDir,
+		goEntry:           *goEntry,
+		goOut:             *goOut,
+		goRoot:            *goRoot,
+		skipClient:        *skipClient,
+		dumpSemantic:      *dumpSemantic,
 	}, nil
+}
+
+func configureGenerateLogger(log *logrus.Logger, opts generateOptions, cfg *ForstConfig) {
+	logLevel := opts.logLevel
+	if logLevel == "" {
+		logLevel = cfg.Dev.LogLevel
+	}
+	setLogLevel(log, logLevel)
+}
+
+func generateTSOptions(cfg *ForstConfig) *transformerts.GenerateTSOptions {
+	return &transformerts.GenerateTSOptions{
+		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
+		ReportPhases:             cfg.Compiler.ReportPhases,
+	}
+}
+
+func logGeneratePhase(log *logrus.Logger, reportPhases bool, phase string, start time.Time) {
+	fields := logrus.Fields{
+		"phase":      phase,
+		"durationMs": time.Since(start).Milliseconds(),
+	}
+	if reportPhases {
+		log.WithFields(fields).Info("generate phase")
+	} else {
+		log.WithFields(fields).Debug("generate phase")
+	}
 }
 
 // generateCommand handles the "forst generate" command
@@ -153,6 +208,7 @@ func generateCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+	configureGenerateLogger(log, opts, cfg)
 
 	if opts.watch {
 		return watchGenerate(opts, cfg, fileInfo.IsDir(), log)
@@ -166,7 +222,11 @@ func generateCommand(args []string) error {
 
 // runGenerateList discovers exports and prints a JSON manifest without writing client output.
 func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	reportPhases := cfg.Compiler.ReportPhases
+
+	discoverStart := time.Now()
 	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	logGeneratePhase(log, reportPhases, "discover", discoverStart)
 	if err != nil {
 		return err
 	}
@@ -182,12 +242,13 @@ func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
 		return printGenerateManifest(boundaryRoot, genCfg, nil, log)
 	}
+	// Pipeline: discover → stem validation → typecheck (modulecheck enforces Go package layout) → manifest.
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
-	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
-		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
-	})
+	typecheckStart := time.Now()
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, generateTSOptions(cfg))
+	logGeneratePhase(log, reportPhases, "typecheck_emit", typecheckStart)
 	if err != nil {
 		return err
 	}
@@ -196,7 +257,11 @@ func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 // runGenerateOnce performs a single generate pass into outDir/dist/.
 func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	reportPhases := cfg.Compiler.ReportPhases
+
+	discoverStart := time.Now()
 	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	logGeneratePhase(log, reportPhases, "discover", discoverStart)
 	if err != nil {
 		return err
 	}
@@ -209,6 +274,16 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err := genCfg.Validate(); err != nil {
 		return fmt.Errorf("generate config: %w", err)
 	}
+	goPlan, err := resolveGenerateGoPlan(opts, cfg, boundaryRoot)
+	if err != nil {
+		return err
+	}
+	if goPlan.active {
+		log.WithFields(logrus.Fields{
+			"entry": goPlan.entryPath,
+			"out":   goPlan.outPath,
+		}).Debug("Resolved generate Go target")
+	}
 	log.WithFields(logrus.Fields{
 		"packageName": genCfg.PackageName,
 		"outDir":      genCfg.OutDir,
@@ -216,41 +291,81 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		"link":        genCfg.ShouldLink(boundaryRoot),
 		"emit":        genCfg.Emit,
 		"effect":      genCfg.Effect,
-	}).Info("Resolved generate config")
+	}).Debug("Resolved generate config")
 
-	if len(forstFiles) == 0 {
+	if len(forstFiles) == 0 && !goPlan.active {
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
 		return nil
 	}
 
-	log.Infof("Found %d Forst files", len(forstFiles))
+	if goPlan.active {
+		if err := runGenerateGoSources(goPlan, cfg, log); err != nil {
+			return err
+		}
+	}
+	if shouldSkipClientGenerate(opts, cfg) && len(forstFiles) == 0 && !goPlan.active {
+		log.Debug("TypeScript client generation skipped (generate.skipClient)")
+		return nil
+	}
+
+	if len(forstFiles) == 0 {
+		if goPlan.active {
+			return nil
+		}
+		log.Warn("No .ft files found for TypeScript generation (check ftconfig include/exclude)")
+		return nil
+	}
+
+	log.Debugf("Found %d Forst files", len(forstFiles))
 
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
 
-	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
-		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
-	})
+	typecheckStart := time.Now()
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, generateTSOptions(cfg))
+	logGeneratePhase(log, reportPhases, "typecheck_emit", typecheckStart)
 	if err != nil {
 		return err
 	}
+
+	snapshotStart := time.Now()
+	snapshot, err := buildSemanticSnapshotHook(forstFiles, boundaryRoot, log)
+	logGeneratePhase(log, reportPhases, "semantic_snapshot", snapshotStart)
+	if err != nil {
+		return fmt.Errorf("semantic snapshot: %w", err)
+	}
+	if opts.dumpSemantic {
+		return dumpSemanticSnapshot(snapshot)
+	}
+	if len(genCfg.Plugins) > 0 {
+		pluginStart := time.Now()
+		var pluginStats generateWriteStats
+		if err := runSemanticPluginsHook(boundaryRoot, snapshot, genCfg.Plugins, log, &pluginStats); err != nil {
+			return err
+		}
+		logGeneratePhase(log, reportPhases, "semantic_plugins", pluginStart)
+		log.WithFields(logrus.Fields{
+			"filesWritten": pluginStats.Written,
+			"filesSkipped": pluginStats.Skipped,
+		}).Debug("Semantic plugin write summary")
+	}
+
+	if shouldSkipClientGenerate(opts, cfg) {
+		log.Debug("TypeScript client generation skipped (generate.skipClient)")
+		return nil
+	}
+
 	reportProviderOmissions(outputs, log)
 
 	// Guards run before any emit so a failing project leaves no partial output.
 	packageNames := transformerts.PackageNames(outputs)
-	if err := transformerts.ValidateReservedSubpaths(packageNames, genCfg.ReservedSubpaths()); err != nil {
-		log.WithFields(logrus.Fields{
-			"reserved": transformerts.FormatReservedSubpathKeys(genCfg.ReservedSubpaths()),
-		}).Error(err.Error())
+	if err := transformerts.ValidateForstPackageNames(packageNames); err != nil {
+		log.Error(err.Error())
 		return err
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)
 	if runtime == transformerts.RuntimeEffect {
-		if err := transformerts.ValidateServiceClassNames(packageNames); err != nil {
-			log.Error(err.Error())
-			return err
-		}
 		if err := requireEffectRuntime(boundaryRoot); err != nil {
 			log.Error(err.Error())
 			return err
@@ -282,20 +397,25 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 	var stats generateWriteStats
 
+	writeStart := time.Now()
 	clientOutputs := runnableClientOutputs(outputs)
 	if err := writeGeneratedDistModules(distDir, coreDir, pkgDir, merged, clientOutputs, genCfg, runtime, invokePort, log, &stats); err != nil {
 		return err
 	}
 
 	activePackages := make(map[string]struct{}, len(clientOutputs))
+	activePackageErrors := make(map[string]struct{}, len(clientOutputs))
 	for _, out := range clientOutputs {
 		activePackages[out.PackageName] = struct{}{}
+		if len(out.DomainErrors) > 0 {
+			activePackageErrors[out.PackageName] = struct{}{}
+		}
 	}
-	if err := pruneStaleClientModulesHook(distDir, activePackages, genCfg.TestingSubpath, log); err != nil {
+	if err := pruneStaleClientModulesHook(distDir, activePackages, activePackageErrors, genCfg.TestingSubpath, log); err != nil {
 		return fmt.Errorf("prune stale client modules: %w", err)
 	}
 
-	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, invokePort, log, &stats); err != nil {
+	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, activePackageErrors, invokePort, log, &stats); err != nil {
 		return fmt.Errorf("generate client package: %w", err)
 	}
 
@@ -308,10 +428,13 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err := writeForstGeneratedMarker(outDir, boundaryRoot, genCfg.PackageName, &stats); err != nil {
 		return err
 	}
+	logGeneratePhase(log, reportPhases, "write", writeStart)
 
+	linkStart := time.Now()
 	if err := maybeLinkGeneratedClient(boundaryRoot, outDir, genCfg, log); err != nil {
 		return err
 	}
+	logGeneratePhase(log, reportPhases, "link", linkStart)
 	warnMissingLifecycleScript(boundaryRoot, genCfg, log)
 
 	printGenerateSummary(genCfg, clientOutputs)
@@ -319,12 +442,8 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	log.WithFields(logrus.Fields{
 		"filesWritten": stats.Written,
 		"filesSkipped": stats.Skipped,
-	}).Info("Generate write summary")
-	log.WithFields(logrus.Fields{
-		"filesWritten": stats.Written,
-		"filesSkipped": stats.Skipped,
-	}).Debug("Generate write summary (debug)")
+	}).Debug("Generate write summary")
 
-	log.Info("TypeScript client generation completed")
+	log.Debug("TypeScript client generation completed")
 	return nil
 }

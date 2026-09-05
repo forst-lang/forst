@@ -1,0 +1,6 @@
+{
+  "id": "clobber/diagnostic-on-use-not-write",
+  "expect": "typecheck-error",
+  "title": "diagnostic on use not write",
+  "code": "refinement-invalidated-by-write"
+}

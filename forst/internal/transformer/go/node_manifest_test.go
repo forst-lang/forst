@@ -10,22 +10,22 @@ import (
 	"forst/internal/typechecker"
 )
 
-func TestEmitNeedsNodeRuntime_falseByDefault(t *testing.T) {
+func TestEmitNeedsBridgeRuntime_falseByDefault(t *testing.T) {
 	t.Parallel()
-	if EmitNeedsNodeRuntime(typechecker.New(nil, false)) {
-		t.Fatal("expected false without node imports")
+	if EmitNeedsBridgeRuntime(typechecker.New(nil, false)) {
+		t.Fatal("expected false without JS imports")
 	}
-	if EmitNeedsNodeRuntime(nil) {
+	if EmitNeedsBridgeRuntime(nil) {
 		t.Fatal("expected false for nil checker")
 	}
 }
 
-func TestEmitNeedsNodeRuntime_trueWhenSet(t *testing.T) {
+func TestEmitNeedsBridgeRuntime_trueWhenSet(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(nil, false)
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
-	if !EmitNeedsNodeRuntime(tc) {
-		t.Fatal("expected true when NeedsNodeRuntime set")
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{NeedsBridgeRuntime: true})
+	if !EmitNeedsBridgeRuntime(tc) {
+		t.Fatal("expected true when NeedsBridgeRuntime set")
 	}
 }
 
@@ -35,7 +35,7 @@ func TestAppendNodeManifestDecl_emitsVar(t *testing.T) {
 	manifest := `{"version":1,"exports":[]}`
 	AppendNodeManifestDecl(out, manifest)
 
-	if !out.HasValueDecl(forstNodeManifestVarName) {
+	if !out.HasValueDecl(forstBridgeManifestVarName) {
 		t.Fatal("expected manifest var decl")
 	}
 	file, err := out.GenerateFile()
@@ -47,7 +47,7 @@ func TestAppendNodeManifestDecl_emitsVar(t *testing.T) {
 		t.Fatalf("format: %v", err)
 	}
 	code := buf.String()
-	if !strings.Contains(code, "var forstNodeManifestJSON string") {
+	if !strings.Contains(code, "var forstBridgeManifestJSON string") {
 		t.Fatalf("missing manifest var: %s", code)
 	}
 	if !strings.Contains(code, `\"version\":1`) {
@@ -79,12 +79,12 @@ func TestAppendNodeManifestIfNeeded_onlyWhenNeeded(t *testing.T) {
 		t.Fatal("expected no manifest without node runtime")
 	}
 
-	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{
-		NeedsNodeRuntime: true,
+	tc.SetBridgeRuntimeInfo(typechecker.BridgeRuntimeInfo{
+		NeedsBridgeRuntime: true,
 		ManifestJSON:     `{"version":1,"exports":[]}`,
 	})
 	tr.appendNodeManifestToRuntime()
-	if tr.NodeRuntimeOutput == nil || !tr.NodeRuntimeOutput.HasValueDecl(forstNodeManifestVarName) {
-		t.Fatal("expected manifest var in node runtime output when needsNodeRuntime")
+	if tr.BridgeRuntimeOutput == nil || !tr.BridgeRuntimeOutput.HasValueDecl(forstBridgeManifestVarName) {
+		t.Fatal("expected manifest var in bridge runtime output when needsBridgeRuntime")
 	}
 }

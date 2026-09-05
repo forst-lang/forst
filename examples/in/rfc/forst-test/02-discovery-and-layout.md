@@ -65,7 +65,8 @@ auth/
 
 ## Merge rules
 
-- All `.ft` files in a package directory merge into **one** typecheck unit (same as `forst run` on merged packages).
+- All `.ft` files in a **package directory** merge into **one** typecheck unit (same as `forst run` on merged packages).
+- **Strict layout (Go target):** one directory holds one Forst package name, and one package name lives in one directory. Multiple `.ft` files in that directory are allowed. The same `package` name in sibling directories is a compile error. Multiple package names in one directory are rejected (external test packages `foo` + `foo_test` excepted).
 - Test files contribute `Test*` functions; production files contribute code under test.
 - **`Needs(f)`** computed across full merged package — test-only `use` sites in helpers propagate like production code.
 

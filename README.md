@@ -7,33 +7,30 @@
 [coveralls]: https://coveralls.io/github/forst-lang/forst?branch=main
 [License]: https://img.shields.io/github/license/forst-lang/forst
 
-**Forst is a programming language that brings TypeScript's type safety and developer experience to Go.**
+**A programming language that helps you move TypeScript backends to Golang.**
 
-Its primary goal is to help you move away from TypeScript on the backend:
+To accomplish this, Forst supports you in four key ways:
 
-- Generate instantly re-usable TypeScript types from backend endpoints – enabling full-stack development without build steps.
-- Strong static typing with aggressive inference and smart narrowing – so you move fast while staying safe.
-- Data schemas acting as guards, automatically validating deeply nested input data through type definitions – to keep untrusted user input out of your application logic.
-
-See also [ROADMAP.md](./ROADMAP.md) for planned work and **feature parity**.
+| Benefit | How it works |
+| --- | --- |
+| Go ecosystem | Compiles directly to Go. You get full access to the Go package ecosystem, standard library and build tools. |
+| TypeScript integration | Generates native TS definitions and a client directly from your backend source. No need for intermediate languages like GraphQL or Protobuf just for type safety. |
+| Node.js interop | Call existing Node.js code directly from Forst to keep your existing tools and libraries during migration. |
+| Incremental migration | Allows you to move small parts of your code at a time while your existing codebase keeps running, so you can keep shipping during migration. |
 
 ## Why?
 
-We love TypeScript's efficiency in structuring data.
+Building backend APIs often forces a trade off between runtime performance and developer speed. Maintaining separate schema contracts leads to lots of glue code. Full backend rewrites into more performant languages are often impossible to do safely.
 
-We love Go's efficiency at compile and runtime.
-
-We want the best of both worlds.
-
-We want to be to Go what TypeScript is to JavaScript.
+Forst exists to remove that friction. You can migrate incrementally or write completely new backends with native performance and an ergonomic DX by design.
 
 ## Examples
 
-Place an order: validate input, attach domain failures, assert invariants with `ensure`, and narrow `Result` values at call sites. The snippets follow one **catalog order** story (`StockKeepingUnit` + `Quantity`, stock check, order id). For more samples, see [`examples/in/`](examples/in/).
+Forst code builds on Go foundations. Here is how a handler evolves from a basic executable to full interop and type generation.
 
 ### Hello World
 
-*Before (Go)* and *After (Forst)* — Forst is a superset of Go for ordinary programs: the same `package main` source can be built with the standard Go toolchain or compiled with Forst, so a minimal executable looks identical on both sides. Use a **`.ft`** file for the Forst CLI (`forst run`, `forst generate`, …); `go build` expects the usual **`.go`** name if you compile the same text with Go.
+Forst files use the `.ft` extension and support standard Go source structure.
 
 ```golang
 package main
@@ -45,205 +42,155 @@ func main() {
 }
 ```
 
-### Input shape
+### Validation and nominal errors
 
-*Before (Go)* — You declare a request struct with plain `string` and `int` fields, then enforce stock-keeping unit length and quantity range with hand-written `if` checks and generic errors such as `errors.New`. The types themselves do not carry those constraints; validation lives entirely in imperative code.
-
-```golang
-type PlaceOrderInput struct {
-	StockKeepingUnit string
-	Quantity         int
-}
-
-func placeOrder(in PlaceOrderInput) (string, error) {
-	if len(in.StockKeepingUnit) < 1 || len(in.StockKeepingUnit) > 64 {
-		return "", errors.New("invalid stock keeping unit")
-	}
-	if in.Quantity < 1 || in.Quantity > 99 {
-		return "", errors.New("invalid quantity")
-	}
-	// function body continues...
-}
-```
-
-*After (Forst)* — With Forst, you put constraints directly on the fields themselves. No need for manual validation as invalid inputs are rejected automatically.
+Constraints on types validate boundary data automatically. You declare structured domain errors with `error` and check invariants with `ensure`.
 
 ```golang
 type PlaceOrderInput = {
 	stockKeepingUnit: String.Min(1).Max(64),
-	quantity: Int.Min(1).Max(99),
+	quantity:         Int.Min(1).Max(99),
 }
-
-func placeOrder(in: PlaceOrderInput) {
-	// in is already validated; invariants enforced by typechecker
-}
-```
-
-### Nominal errors
-
-*Before (Go)* — Each failure kind is a distinct struct type implementing `error`, with `Error()` returning a human-readable string. Callers who need structure use `errors.As`, type switches, or sentinel comparisons; there is no single dedicated syntax for “named” domain errors beyond conventions.
-
-```golang
-type UnknownStockKeepingUnit struct{}
-
-func (e UnknownStockKeepingUnit) Error() string { return "unknown stock keeping unit" }
-
-type InsufficientStock struct {
-	StockKeepingUnit string
-	Requested        int
-	Available        int
-}
-
-func (e InsufficientStock) Error() string {
-	return fmt.Sprintf("insufficient stock for %s: need %d, have %d",
-		e.StockKeepingUnit, e.Requested, e.Available)
-}
-```
-
-*After (Forst)* — `error Name { … }` introduces a nominal failure with an explicit payload shape. The language treats it as a first-class error variant, so you get a dedicated declaration instead of bolting domain meaning onto generic structs and `Error()` strings alone.
-
-```golang
-error UnknownStockKeepingUnit {}
 
 error InsufficientStock {
-	stockKeepingUnit: String,
-	requested:        Int,
-	available:        Int,
+	requested: Int,
+	available: Int,
+}
+
+func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
+	ensure in.quantity is Max(available) or InsufficientStock({
+		requested: in.quantity,
+		available: available,
+	})
+	return "ORDER-123"
 }
 ```
 
-### Catalog lookup and stock
+### Go interop
 
-*Before (Go)* — Map lookup returns a value plus a boolean: you use `value, ok := catalog[key]` to tell “missing key” from “present but zero”, then branch with `if` statements and construct `error` returns yourself.
+Call standard Go packages or existing Go functions directly in Forst source.
 
 ```golang
-avail, ok := catalog[in.StockKeepingUnit]
-if !ok {
-	return "", UnknownStockKeepingUnit{}
+import "fmt"
+
+func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
+	ensure in.quantity is Max(available) or InsufficientStock({
+		requested: in.quantity,
+		available: available,
+	})
+	orderID := fmt.Sprintf("ORDER-%d", 123)
+	return orderID
 }
-if in.Quantity > avail {
-	return "", InsufficientStock{
-		StockKeepingUnit: in.StockKeepingUnit,
-		Requested:        in.Quantity,
-		Available:        avail,
-	}
+```
+
+### Node.js interop
+
+Import existing JavaScript or TypeScript modules into Forst with `import "./path" node` during migration.
+
+```golang
+import "./legacy/payment" js
+
+func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
+	ensure in.quantity is Max(available) or InsufficientStock({
+		requested: in.quantity,
+		available: available,
+	})
+	receipt := payment.Charge({ amount: in.quantity * 10 })
+	return receipt.id
 }
 ```
 
-*After (Forst)* — A **map read** `catalog[key]` has type **`Result(V, Error)`**: a missing key becomes the failure side of that `Result` (generated code uses comma-ok under the hood). You **must** handle failure before using the success value—the usual pattern is **`ensure x is Ok()`**, which narrows `x` to `V`. **Comma-ok assignment (`v, ok := m[k]`) is not supported** as Forst syntax. See [`examples/in/map_catalog.ft`](examples/in/map_catalog.ft) for `ensure avail is Ok()` after a lookup.
+### TypeScript client generation
 
-```golang
-avail := catalog[in.stockKeepingUnit]
-ensure avail is Ok()
-ensure in.quantity is Max(avail) or InsufficientStock({
-	stockKeepingUnit: in.stockKeepingUnit,
-	requested:        in.quantity,
-	available:        avail,
-})
-```
-
-`ensure … or …` is not allowed in `func main` (parser rule); put guards that use `or` in a non-`main` function if needed.
-
-### Caller — success path and narrowing
-
-*Before (Go)* — The API returns `(string, error)`. The caller must test `err != nil` before using the order id, then decide how to log, wrap, or branch on concrete error types—standard Go error discipline, with no automatic narrowing of the success value.
-
-```golang
-id, err := PlaceOrder(PlaceOrderInput{
-	StockKeepingUnit: "ITEM-1",
-	Quantity:         2,
-})
-if err != nil {
-	// switch on type, wrap, log, etc.
-	return
-}
-_ = id
-```
-
-*After (Forst)* — `placeOrder` yields a `Result`-style value. `ensure x is Ok()` refines `x` to the success payload (here the order id), so the following code can treat it as that value without a separate `if err != nil` block. The call site passes a single anonymous record `{ stockKeepingUnit, quantity }`, usually wrapped by `Mutation.Input`, instead of naming a separate struct type for this invocation.
-
-```golang
-x := placeOrder({
-	stockKeepingUnit: "ITEM-1",
-	quantity:         2,
-})
-ensure x is Ok() or x
-// use success value from x (order id / narrowed payload per compiler)
-```
-
-If `placeOrder` accepts a bare record, use `placeOrder({ stockKeepingUnit: "ITEM-1", quantity: 2 })` instead.
-
-### Types across the wire
-
-*Before (TypeScript)* — *You have to define TypeScript interfaces manually to describe the structured data being passed around. These interfaces use broad types like `string` or `number`, which means the input is only type-checked in a very basic way—e.g., every string is accepted, not just valid SKUs or positive quantities. To provide runtime validation (for example, checking `quantity > 0` or `stockKeepingUnit` matches a pattern), you’d need extra schema validators like Zod or Effect.Schema.*
+Run `forst generate` to create typed client packages for your frontend. Callers receive end to end type safety without writing schema glue code.
 
 ```typescript
-interface PlaceOrderInput {
-  stockKeepingUnit: string; // any string: not validated further by TypeScript
-  quantity: number;         // any number: not automatically checked for positivity, etc.
-}
+import { $orders } from "@forst/gen/orders";
+
+const order = await $orders.PlaceOrder({
+  stockKeepingUnit: "SKU-99",
+  quantity: 2,
+});
 ```
 
-*After (TypeScript)* — *With Forst, you define your types in one place. Running `forst generate` outputs unified **generated/types.d.ts** (see [`forst/cmd/forst/generate.go`](./forst/cmd/forst/generate.go)). You just import these. There is no need for extra types and they are available on the consuming code with zero config.*
+### Effect TS interop
+
+Enable Effect mode in `ftconfig.json` to emit native Effect services and layers.
 
 ```typescript
-import type { PlaceOrderInput } from "./generated/types";
+import { Effect } from "effect";
+import { $orders } from "@forst/gen/orders";
 
-async function submitOrder(input: PlaceOrderInput) {
-  // input is structurally checked, but fields are still unconstrained primitives unless validated
-  // For runtime checks, use e.g. Zod: placeOrderInputSchema.parse(input)
-  // JSON.stringify(input) — same shapes the server checked in .ft
-}
+const program = Effect.gen(function* () {
+  const order = yield* $orders.PlaceOrder({
+    stockKeepingUnit: "SKU-99",
+    quantity: 2,
+  });
+  return order;
+}).pipe(Effect.provide($orders.Default));
+
+await Effect.runPromise(program);
 ```
-
-Adjust the import path to your output layout. See [TypeScript client output](#typescript-client-output) for `forst generate` and the `generated/` tree.
 
 ## Features
 
-- Static typing
-- Strong type inference
-- Backwards compatibility with Go
-- Seamless TypeScript type generation inspired by tRPC – publishing types of API endpoints should be easy
-- Structural typing for function parameters and return values
-- Type-based assertions that allow complex type narrowing in function parameters
-- First-class nominal errors and explicit `ensure` / `Result` control flow—no exceptions; depth and parity are tracked in [ROADMAP.md](./ROADMAP.md)
+Highlights from the [docs feature comparison](docs/why.mdx).
+
+### Language
+
+| Capability | Forst |
+| --- | --- |
+| Structural typing | Built-in records, signatures, and `is` narrowing |
+| Validation on types | Built-in field constraints; boundary runtime checks |
+| Error handling | `ensure`, nominal `error` types, and `Result`; no exceptions |
+| Mocking and DI | `use` / `with` providers; no external DI framework |
+| Type narrowing | `is` / `ensure` and type guards |
+| Goroutines | Native `go` and `defer` via Go output |
+
+### Interop and adoption
+
+| Capability | Forst |
+| --- | --- |
+| Go module ecosystem | Import Go packages natively |
+| JS / npm ecosystem | Call legacy JS/TS via `import "./path" node` |
+| Shared server ↔ client types | `forst generate` from the same `.ft` source |
+| Call backend from Node | Generated client and HTTP invoke |
+| Incremental migration | Mix `.ft`, `.go`, and legacy code in one codebase |
+
+See [ROADMAP.md](./ROADMAP.md) for experimental features and planned work.
 
 ## Design Philosophy
 
 See also [PHILOSOPHY.md](./PHILOSOPHY.md) for what guides and motivates us.
 
-## Development
+## Install and tooling
 
-Install Task using the [official instructions](https://taskfile.dev/installation/).
+### npm packages
 
-Run tests:
+| Package | Purpose |
+| --- | --- |
+| [`@forst/cli`](./packages/cli/README.md) | Forst compiler in JS/TS projects |
+| [`@forst/sidecar`](./packages/sidecar/README.md) | Dev server and HTTP client during migration |
 
-```bash
-task test                  # Go tests: forst/internal/... and forst/cmd/forst/...
-task ci:test               # CI coverage suite (Go tests + VS Code extension build + Coveralls profile)
-task ci:e2e                # CI E2E suite (runtime examples, sidecar, providers, remix-serve standalone)
-task test:unit             # Run compiler unit tests (internal only)
-task test:unit:parser      # Run parser tests
-task test:unit:typechecker # Run typechecker tests
-```
-
-Run examples:
+Install the compiler in a Node project:
 
 ```bash
-task test:integration                    # Run compilation examples / integration tests
-task example -- ../examples/in/basic.ft  # Run specific example
-task example:function                    # Run function example
+npm i -D @forst/cli
+npx forst version
 ```
 
-## VS Code
+`@forst/cli` pulls the matching native binary from GitHub Releases.
 
-The workspace includes an optional extension in [`packages/vscode-forst`](./packages/vscode-forst): it registers `.ft` and talks to the compiler’s HTTP LSP (`forst lsp`) for diagnostics. Its **release cadence is separate** from compiler `v*` tags (see `vscode-forst-v*` in [`.github/workflows/publish-vscode-extension.yml`](./.github/workflows/publish-vscode-extension.yml)). After `bun install` at the repo root, run `task build:vscode` to compile it (or rely on the F5 **preLaunchTask** in [`.vscode/launch.json`](./.vscode/launch.json)). CI runs the same compile as the first step of `task ci:test`. See [`packages/vscode-forst/README.md`](./packages/vscode-forst/README.md) for F5 and troubleshooting.
+### VS Code extension
 
-## npm
+Optional extension in [`packages/vscode-forst`](./packages/vscode-forst).
 
-**[`@forst/cli`](./packages/cli/README.md)** installs the Forst compiler in JS/TS projects: `npm i -D @forst/cli`, then `npx forst` / `node_modules/.bin/forst` (it pulls the matching native binary from GitHub Releases). For the dev-server + HTTP client, use **[`@forst/sidecar`](./packages/sidecar/README.md)** instead.
+- Registers `.ft` files in the editor
+- Diagnostics via the compiler HTTP LSP (`forst lsp`)
 
-## Linux (.deb)
+See [`packages/vscode-forst/README.md`](./packages/vscode-forst/README.md) for installation and troubleshooting.
+
+### Linux (.deb)
 
 On Debian or Ubuntu, install the compiler from [GitHub Releases](https://github.com/forst-lang/forst/releases) (pick `amd64` or `arm64`):
 
@@ -269,4 +216,4 @@ We also draw inspiration from:
 
 - **Zod** — constraints and shape guards as composable runtime checks on nested data.
 - **tRPC** — one source of truth for API shapes, with **TypeScript types and a small client** generated from Forst (`forst generate`, `examples/client-integration/`).
-- **Go** and **Rust** — **errors as values** and explicit control flow (`ensure` … `or …`), not exceptions.
+- **Go** and **Rust** — **errors as values** and explicit control flow (`ensure` … `or …`) instead of exceptions.

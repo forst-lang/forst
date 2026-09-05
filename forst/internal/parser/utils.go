@@ -47,3 +47,22 @@ func isShapeLiteralTypePrefix(ident string) bool {
 	}
 	return isCapitalCase(ident)
 }
+
+// looksLikeTypedCompositeOrShapeBody reports whether `{` after a type-like name starts a
+// composite/shape (empty or `field: value`) rather than an if/for block body.
+func (p *Parser) looksLikeTypedCompositeOrShapeBody() bool {
+	if p.current().Type != ast.TokenLBrace {
+		return false
+	}
+	next := p.peek()
+	if next.Type == ast.TokenRBrace {
+		return true
+	}
+	// Shape / keyed composite: member name then colon.
+	switch next.Type {
+	case ast.TokenIdentifier, ast.TokenString, ast.TokenInt, ast.TokenFloat, ast.TokenBool:
+		return p.peek(2).Type == ast.TokenColon
+	default:
+		return false
+	}
+}

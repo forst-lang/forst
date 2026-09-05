@@ -126,6 +126,9 @@ func (tc *TypeChecker) IsErrorKindedType(t ast.TypeNode) bool {
 }
 
 func (tc *TypeChecker) validateTypeDefBinary(ident ast.TypeIdent, expr ast.TypeDefBinaryExpr) error {
+	if err := tc.validateLiteralUnionExpr(ident, expr); err != nil {
+		return err
+	}
 	_, err := tc.TypeDefExprToTypeNode(expr)
 	if err != nil {
 		return fmt.Errorf("type %s: %w", ident, err)
@@ -133,7 +136,8 @@ func (tc *TypeChecker) validateTypeDefBinary(ident ast.TypeIdent, expr ast.TypeD
 	return nil
 }
 
-// expandTypeDefBinaryIfNeeded returns the canonical TypeNode for a typedef whose body is A | B or A & B.
+// expandTypeDefBinaryIfNeeded returns the canonical TypeNode for a typedef whose body is
+// A | B / A & B, or a single literal Value member (`type T = "todo"`).
 func (tc *TypeChecker) expandTypeDefBinaryIfNeeded(t ast.TypeNode) (ast.TypeNode, bool) {
 	if t.Ident == "" {
 		return ast.TypeNode{}, false
@@ -142,20 +146,28 @@ func (tc *TypeChecker) expandTypeDefBinaryIfNeeded(t ast.TypeNode) (ast.TypeNode
 	if !ok {
 		return ast.TypeNode{}, false
 	}
-	bin, ok := def.Expr.(ast.TypeDefBinaryExpr)
-	if !ok {
+	switch expr := def.Expr.(type) {
+	case ast.TypeDefBinaryExpr:
+		canon, err := tc.TypeDefExprToTypeNode(expr)
+		if err != nil {
+			return ast.TypeNode{}, false
+		}
+		// Do not expand self-referential typedefs (e.g. invalid U = U | T): canonical IR still mentions
+		// this ident and would make IsTypeCompatible recurse forever (expand → Union → … → expand(U)).
+		if containsTypeIdentParam(canon, t.Ident) {
+			return ast.TypeNode{}, false
+		}
+		return canon, true
+	case ast.TypeDefAssertionExpr:
+		if expr.Assertion != nil {
+			if _, ok := literalValueFromAssertion(expr.Assertion); ok {
+				return ast.NewAssertionType(expr.Assertion), true
+			}
+		}
+		return ast.TypeNode{}, false
+	default:
 		return ast.TypeNode{}, false
 	}
-	canon, err := tc.TypeDefExprToTypeNode(bin)
-	if err != nil {
-		return ast.TypeNode{}, false
-	}
-	// Do not expand self-referential typedefs (e.g. invalid U = U | T): canonical IR still mentions
-	// this ident and would make IsTypeCompatible recurse forever (expand → Union → … → expand(U)).
-	if containsTypeIdentParam(canon, t.Ident) {
-		return ast.TypeNode{}, false
-	}
-	return canon, true
 }
 
 func containsTypeIdentParam(t ast.TypeNode, id ast.TypeIdent) bool {

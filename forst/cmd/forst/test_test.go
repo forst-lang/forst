@@ -221,8 +221,18 @@ func TestRunTestCommand_relDotNormalizesPaths(t *testing.T) {
 	if code != testrunner.ExitSuccess.Int() {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if len(captured) != 1 || captured[0] != "." {
-		t.Fatalf("paths = %v, want [\".\"]", captured)
+	if len(captured) != 0 {
+		t.Fatalf("paths = %v, want empty (walk module)", captured)
+	}
+}
+
+func TestRunTestCommand_moduleRootPathFindsNestedTests(t *testing.T) {
+	dir := t.TempDir()
+	writeForstTestFixture(t, dir)
+
+	code := runTestCommand([]string{dir}, testCmdLogger())
+	if code != testrunner.ExitSuccess.Int() {
+		t.Fatalf("exit code = %d, want 0 for module root with nested *_test.ft", code)
 	}
 }
 
@@ -316,6 +326,63 @@ func TestRunTestCommand_runnerErrorWithFailureCode(t *testing.T) {
 	t.Cleanup(func() { runTestCommandRunner = orig })
 	if code := runTestCommand(nil, testCmdLogger()); code != testrunner.ExitFailure.Int() {
 		t.Fatalf("exit code = %d, want 1", code)
+	}
+}
+
+func TestRunTestCommand_multiplePackagePaths(t *testing.T) {
+	dir := t.TempDir()
+	writeForstTestFixture(t, dir)
+	domainDir := filepath.Join(dir, "domain")
+	if err := os.MkdirAll(domainDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainDir, "domain.ft"), []byte(`package domain
+
+func Edge(): String { return "ok" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(domainDir, "domain_test.ft"), []byte(`package domain
+
+import "testing"
+
+func TestEdge(t *testing.T) {
+	if Edge() != "ok" {
+		t.Fatal("edge")
+	}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+
+	var captured []string
+	orig := runTestCommandRunner
+	runTestCommandRunner = func(opts testrunner.Options) (testrunner.ExitCode, error) {
+		captured = append([]string(nil), opts.Paths...)
+		return testrunner.ExitSuccess, nil
+	}
+	t.Cleanup(func() { runTestCommandRunner = orig })
+
+	code := runTestCommand([]string{"./auth", "./domain"}, testCmdLogger())
+	if code != testrunner.ExitSuccess.Int() {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if len(captured) != 2 {
+		t.Fatalf("paths = %v, want auth and domain", captured)
+	}
+	want := map[string]bool{"auth": true, "domain": true}
+	for _, p := range captured {
+		if !want[p] {
+			t.Fatalf("unexpected path %q in %v", p, captured)
+		}
 	}
 }
 

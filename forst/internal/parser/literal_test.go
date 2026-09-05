@@ -163,6 +163,45 @@ func TestParseLiteral_primitives_and_nil(t *testing.T) {
 			t.Fatal("expected NilLiteralNode")
 		}
 	})
+
+	t.Run("hex_0x36", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenIntLiteral, Value: "0x36"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		n, ok := p.parseLiteral().(ast.IntLiteralNode)
+		if !ok || n.Value != 0x36 {
+			t.Fatalf("got %#v", n)
+		}
+		if n.Raw != "0x36" {
+			t.Fatalf("Raw = %q, want 0x36", n.Raw)
+		}
+	})
+
+	t.Run("octal_0o77", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenIntLiteral, Value: "0o77"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		n, ok := p.parseLiteral().(ast.IntLiteralNode)
+		if !ok || n.Value != 077 {
+			t.Fatalf("got %#v want 63", n)
+		}
+	})
+
+	t.Run("binary_0b1010", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenIntLiteral, Value: "0b1010"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		n, ok := p.parseLiteral().(ast.IntLiteralNode)
+		if !ok || n.Value != 0b1010 {
+			t.Fatalf("got %#v", n)
+		}
+	})
 }
 
 func TestParseLiteral_array_literal_branches(t *testing.T) {

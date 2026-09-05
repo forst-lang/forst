@@ -12,7 +12,7 @@ import (
 	"forst/internal/typechecker"
 )
 
-func TestNodeInteropSyncExample_parsesNodeOptIn(t *testing.T) {
+func TestNodeInteropSyncExample_parsesBridgeOptIn(t *testing.T) {
 	root := nodeInteropSyncDir(t)
 	nodes, err := forstpkg.ParseForstFile(testutil.TestLogger(t, nil), filepath.Join(root, "main.ft"))
 	if err != nil {
@@ -22,8 +22,8 @@ func TestNodeInteropSyncExample_parsesNodeOptIn(t *testing.T) {
 	for _, n := range nodes {
 		if imp, ok := n.(ast.ImportNode); ok {
 			found = true
-			if !imp.NodeOptIn {
-				t.Fatalf("expected NodeOptIn on import, got %+v", imp)
+			if !imp.BridgeOptIn {
+				t.Fatalf("expected BridgeOptIn on import, got %+v", imp)
 			}
 		}
 	}
@@ -42,13 +42,13 @@ func TestNodeInteropSyncExample_typechecks(t *testing.T) {
 		NodeBoundaryRoot: root,
 		ForstFileDir:     root,
 	})
-	if !tc.NeedsNodeRuntime() {
-		t.Fatal("expected NeedsNodeRuntime")
+	if !tc.NeedsBridgeRuntime() {
+		t.Fatal("expected NeedsBridgeRuntime")
 	}
 }
 
 func nodeInteropSyncDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "node-interop", "sync"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "in", "rfc", "bridge-interop", "sync"))
 }

@@ -23,10 +23,11 @@ func TestTransformFunctionParamField_userShapeType(t *testing.T) {
 		},
 	}
 	tr := setupTransformer(tc, log)
-	field, err := tr.transformFunctionParamField("u", ast.TypeNode{Ident: "User", TypeKind: ast.TypeKindUserDefined}, false)
+	fields, err := tr.transformFunctionParamFields(ast.Identifier("_"), 0, "u", ast.TypeNode{Ident: "User", TypeKind: ast.TypeKindUserDefined}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
+	field := fields[0]
 	if field.Names[0].Name != "u" || field.Type.(*goast.Ident).Name != "User" {
 		t.Fatalf("field = %#v", field)
 	}
@@ -96,7 +97,7 @@ func Bad(msg String): Error {
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or Bad("too small")
+	ensure row is GreaterThan(-1) else Bad("too small")
 	return "ok"
 }
 

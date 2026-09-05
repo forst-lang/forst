@@ -58,7 +58,7 @@ func TestParseFile_WithFunctions(t *testing.T) {
 				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 22},
 				{Type: ast.TokenIntLiteral, Value: "0", Line: 2, Column: 23},
 				{Type: ast.TokenRParen, Value: ")", Line: 2, Column: 24},
-				{Type: ast.TokenOr, Value: "or", Line: 2, Column: 26},
+				{Type: ast.TokenElse, Value: "else", Line: 2, Column: 26},
 				{Type: ast.TokenIdentifier, Value: "TooSmall", Line: 2, Column: 28},
 				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 36},
 				{Type: ast.TokenStringLiteral, Value: "x must be at least 0", Line: 2, Column: 37},
@@ -226,6 +226,19 @@ func TestParseParameterType_Branches(t *testing.T) {
 			},
 		},
 		{
+			name:  "result type branch",
+			input: `Result(Int, Error)`,
+			check: func(t *testing.T, typ ast.TypeNode) {
+				t.Helper()
+				if typ.Ident != ast.TypeResult || len(typ.TypeParams) != 2 {
+					t.Fatalf("type = %+v", typ)
+				}
+				if typ.TypeParams[0].Ident != ast.TypeInt || typ.TypeParams[1].Ident != ast.TypeError {
+					t.Fatalf("result type params = %+v", typ.TypeParams)
+				}
+			},
+		},
+		{
 			name:  "plain type fallback branch",
 			input: `String`,
 			check: func(t *testing.T, typ ast.TypeNode) {
@@ -245,5 +258,45 @@ func TestParseParameterType_Branches(t *testing.T) {
 			typ := p.parseParameterType()
 			tt.check(t, typ)
 		})
+	}
+}
+
+func TestParseSimpleParameter_ResultType(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`func f(r Result(T, Error)) {}`, ast.SetupTestLogger(nil))
+	fn := p.parseFunctionDefinition()
+	if len(fn.Params) != 1 {
+		t.Fatalf("expected 1 param, got %d", len(fn.Params))
+	}
+	r := fn.Params[0].(ast.SimpleParamNode)
+	if r.Type.Ident != ast.TypeResult || len(r.Type.TypeParams) != 2 {
+		t.Fatalf("param type = %+v", r.Type)
+	}
+	if r.Type.TypeParams[0].Ident != "T" || r.Type.TypeParams[1].Ident != ast.TypeError {
+		t.Fatalf("result type params = %+v", r.Type.TypeParams)
+	}
+}
+
+func TestParseSimpleParameter_GenericResultParam(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`func unwrap[T any](r Result(T, Error)): T {}`, ast.SetupTestLogger(nil))
+	fn := p.parseFunctionDefinition()
+	if len(fn.TypeParams) != 1 || fn.TypeParams[0].Name != "T" {
+		t.Fatalf("type params = %+v", fn.TypeParams)
+	}
+	if len(fn.Params) != 1 {
+		t.Fatalf("expected 1 param, got %d", len(fn.Params))
+	}
+	r := fn.Params[0].(ast.SimpleParamNode)
+	if r.Type.Ident != ast.TypeResult || len(r.Type.TypeParams) != 2 {
+		t.Fatalf("param type = %+v", r.Type)
+	}
+	if r.Type.TypeParams[0].Ident != "T" || r.Type.TypeParams[1].Ident != ast.TypeError {
+		t.Fatalf("result type params = %+v", r.Type.TypeParams)
+	}
+	if len(fn.ReturnTypes) != 1 || fn.ReturnTypes[0].Ident != "T" {
+		t.Fatalf("return types = %+v", fn.ReturnTypes)
 	}
 }

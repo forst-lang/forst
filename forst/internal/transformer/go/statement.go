@@ -3,7 +3,6 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 
@@ -32,12 +31,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not find enclosing function for ReturnNode: %w", err)
 		}
-		fn, ok := fnNode.(ast.FunctionNode)
-		if !ok {
-			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		if fn, ok := fnNode.(ast.FunctionNode); ok {
+			functionName = string(fn.Ident.ID)
+			hasEnsure = t.functionsWithEnsure[functionName]
+		} else if _, ok := fnNode.(ast.FunctionLiteralNode); ok {
+			functionName = "_lit"
+		} else if fn, ok := fnNode.(*ast.FunctionNode); ok && fn != nil {
+			functionName = string(fn.Ident.ID)
+			hasEnsure = t.functionsWithEnsure[functionName]
+		} else if _, ok := fnNode.(*ast.FunctionLiteralNode); ok {
+			functionName = "_lit"
+		} else {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode or FunctionLiteralNode: %T", fnNode)
 		}
-		functionName = string(fn.Ident.ID)
-		hasEnsure = t.functionsWithEnsure[functionName]
 		if hasEnsure && t.log != nil {
 			t.log.WithFields(logrus.Fields{
 				"function": "transformStatement",
@@ -82,37 +88,16 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not find enclosing function for transformReturnStatement: %w", err)
 		}
-		fn, ok = fnNode.(ast.FunctionNode)
-		if !ok {
-			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		expectedReturnTypes, functionName, err = t.enclosingReturnTypes(fnNode)
+		if err != nil {
+			return nil, err
 		}
-		functionName = string(fn.Ident.ID)
-		// DEBUG: Log function lookup
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
-				"function":      "transformReturnStatement",
-				"functionName":  fn.Ident.ID,
-				"functionFound": true,
-			}).Debug("Function node found")
-		}
-
-		// Always get the inferred return type from the typechecker
-		if retTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn); err == nil && !typechecker.IsVoidReturnTypes(retTypes) {
-			expectedReturnTypes = retTypes
-
-			// DEBUG: Log function signature
-			if t.log != nil {
-				t.log.WithFields(logrus.Fields{
-					"function":     "transformReturnStatement",
-					"functionName": fn.Ident.ID,
-					"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
-				}).Debug("Function signature for return statement")
-			}
-		} else if t.log != nil {
-			t.log.WithFields(logrus.Fields{
 				"function":     "transformReturnStatement",
-				"functionName": fn.Ident.ID,
-			}).Debug("No function return type found for return statement")
+				"functionName": functionName,
+				"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
+			}).Debug("Function signature for return statement")
 		}
 
 		if len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsTupleType() && len(s.Values) > 1 {
@@ -153,7 +138,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 
 			// If the expected type is a named struct and the value is a variable or shape, wrap it in the expected type
-			if expectedType != nil && expectedType.IsUserDefined() {
+			if expectedType != nil && expectedType.IsUserDefined() && !expectedType.IsTypeParam() {
 				// PINPOINT: Log when we have a user-defined expected type
 				if t.log != nil {
 					t.log.WithFields(logrus.Fields{
@@ -194,7 +179,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"expectedType": expectedType.Ident,
 							}).Debug("[PINPOINT] Wrapping shape (robust) in named struct")
 						}
-						expr, err := t.transformShapeNodeWithExpectedType(shapeNode, expectedType)
+						expr, err := t.transformShapeNodeWithExpectedType(shapeNode, expectedType, nil)
 						if err != nil {
 							return nil, fmt.Errorf("transformReturnStatement: failed to transform shape node: %w", err)
 						}
@@ -290,7 +275,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"isHashBased":  expectedTypeForShape != nil && expectedTypeForShape.IsHashBased(),
 							}).Debug("[PINPOINT] Processing struct literal in return statement")
 						}
-						valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, useType)
+						valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, useType, nil)
 						if err != nil {
 							return nil, err
 						}
@@ -469,7 +454,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					VariableName: vn.Ident.String(),
 				}
 				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
-				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
+				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape, context)
 				if err != nil {
 					return nil, err
 				}
@@ -515,9 +500,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						return nil, fmt.Errorf("assignment: expected Tuple from RHS")
 					}
 					k := len(ts[0].TypeParams)
+					used := collectTupleIndexUses(t.currentFnBody, string(vn.Ident.ID))
 					slotNames := make([]string, k)
 					for i := range k {
-						slotNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						if used[i] {
+							slotNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						}
 					}
 					rhsExpr, err := t.transformExpression(rhs)
 					if err != nil {
@@ -529,14 +517,15 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
 						successGoNames: slotNames,
 					}
-					op := token.ASSIGN
-					if s.IsShort {
-						op = token.DEFINE
+					lhs := make([]goast.Expr, k)
+					for i := range k {
+						if used[i] {
+							lhs[i] = goast.NewIdent(slotNames[i])
+						} else {
+							lhs[i] = goast.NewIdent("_")
+						}
 					}
-					lhs := make([]goast.Expr, len(slotNames))
-					for i, n := range slotNames {
-						lhs[i] = goast.NewIdent(n)
-					}
+					op := assignOpForMultiValueLHS(s.IsShort, lhs)
 					return &goast.AssignStmt{
 						Lhs: lhs,
 						Tok: op,
@@ -549,17 +538,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						return nil, fmt.Errorf("assignment: expected Result from RHS")
 					}
 					succ := ts[0].TypeParams[0]
+					varName := string(vn.Ident.ID)
 					var successNames []string
 					if succ.IsTupleType() {
 						k := len(succ.TypeParams)
+						used := collectTupleIndexUses(t.currentFnBody, varName)
 						successNames = make([]string, k)
 						for i := range k {
-							successNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+							if used[i] {
+								successNames[i] = fmt.Sprintf("%s%d", varName, i)
+							}
 						}
+					} else if collectResultSuccessValueUsed(t.currentFnBody, varName) {
+						successNames = []string{varName}
 					} else {
-						successNames = []string{string(vn.Ident.ID)}
+						successNames = []string{""}
 					}
-					errName := string(vn.Ident.ID) + "Err"
+					errName := varName + "Err"
+					errUsed := collectResultErrSlotUsed(t.currentFnBody, varName)
 					rhsExpr, err := t.transformExpression(rhs)
 					if err != nil {
 						return nil, err
@@ -567,19 +563,25 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					if t.resultLocalSplit == nil {
 						t.resultLocalSplit = make(map[string]resultLocalSplit)
 					}
-					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
-						errGoName:      errName,
-						successGoNames: successNames,
+					split := resultLocalSplit{successGoNames: successNames}
+					if errUsed {
+						split.errGoName = errName
 					}
-					op := token.ASSIGN
-					if s.IsShort {
-						op = token.DEFINE
-					}
+					t.resultLocalSplit[varName] = split
 					lhs := make([]goast.Expr, 0, len(successNames)+1)
 					for _, n := range successNames {
-						lhs = append(lhs, goast.NewIdent(n))
+						if n != "" {
+							lhs = append(lhs, goast.NewIdent(n))
+						} else {
+							lhs = append(lhs, goast.NewIdent("_"))
+						}
 					}
-					lhs = append(lhs, goast.NewIdent(errName))
+					if errUsed {
+						lhs = append(lhs, goast.NewIdent(errName))
+					} else {
+						lhs = append(lhs, goast.NewIdent("_"))
+					}
+					op := assignOpForMultiValueLHS(s.IsShort, lhs)
 					return &goast.AssignStmt{
 						Lhs: lhs,
 						Tok: op,
@@ -610,7 +612,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				if vn, vok := s.LValues[0].(ast.VariableNode); vok {
 					varName = vn.Ident.String()
 				}
-				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}))
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}), nil)
 				if err != nil {
 					return nil, err
 				}

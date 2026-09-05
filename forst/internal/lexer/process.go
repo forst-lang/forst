@@ -60,7 +60,7 @@ func processStringLiteral(line []byte, startCol int, fileID string, lineNum int)
 }
 
 func processSpecialChar(line []byte, startCol int, fileID string, lineNum int) (ast.Token, int) {
-	column := startCol
+	var column int
 	if isEllipsis(line, startCol) {
 		column = startCol + 3
 	} else {

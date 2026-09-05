@@ -1,0 +1,9 @@
+package main
+
+type Password = String
+
+is (p Password) Strong {
+	ensure p is Min(12)
+}
+
+func main() {}

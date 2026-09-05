@@ -1,0 +1,6 @@
+{
+  "id": "boundary/response-contract-violation",
+  "expect": "typecheck-ok",
+  "title": "ResponseContractViolation",
+  "matrix": true
+}

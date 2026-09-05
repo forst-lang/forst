@@ -39,6 +39,9 @@ jobs:
 
       - name: Release Please
         id: release
+        # Compiler + @forst/cli are linked via linked-versions in .release-please-config.json.
+        # On the first linked release PR after this change, confirm the PR bumps both "." and
+        # packages/cli to the same version and sets forst.compilerRelease before merging.
         uses: googleapis/release-please-action@v5
         with:
           config-file: .release-please-config.json
@@ -51,7 +54,7 @@ jobs:
           echo "cli_tag_name=${{ steps.release.outputs['packages/cli--tag_name'] }}" >> "$GITHUB_OUTPUT"
           echo "sidecar_tag_name=${{ steps.release.outputs['packages/sidecar--tag_name'] }}" >> "$GITHUB_OUTPUT"
           echo "vscode_tag_name=${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}" >> "$GITHUB_OUTPUT"
-          echo "node_runtime_tag_name=${{ steps.release.outputs['packages/node-runtime--tag_name'] }}" >> "$GITHUB_OUTPUT"
+          echo "node_runtime_tag_name=${{ steps.release.outputs['packages/runtime--tag_name'] }}" >> "$GITHUB_OUTPUT"
           echo "errors_tag_name=${{ steps.release.outputs['packages/errors--tag_name'] }}" >> "$GITHUB_OUTPUT"
 
   # Go compiler binaries: only when the root package (`.`) is in this release — not vscode/cli/sidecar-only tags.
@@ -106,7 +109,17 @@ jobs:
           ls -la dist/forst_*.deb
 
       - name: Upload binary to GitHub Release
-        run: gh release upload $GIT_TAG ./dist/*
+        run: |
+          set -euo pipefail
+          # Plugin staging dirs (plugins-*) stay in dist/ after packaging; gh only accepts files.
+          mapfile -t assets < <(find ./dist -maxdepth 1 -type f | sort)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No release assets in ./dist" >&2
+            exit 1
+          fi
+          printf 'Uploading %d asset(s):\n' "${#assets[@]}"
+          printf '  %s\n' "${assets[@]}"
+          gh release upload --clobber "$GIT_TAG" "${assets[@]}"
 
   docker:
     needs: [release-please, build]
@@ -179,7 +192,7 @@ jobs:
   publish-packages:
     needs: release-please
     # Prefer non-empty tags over *_release_created == 'true' (output quirks between runs).
-    if: ${{ needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' || needs.release-please.outputs.node_runtime_tag_name != '' || needs.release-please.outputs.errors_tag_name != '' }}
+    if: ${{ needs.release-please.result == 'success' && (needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' || needs.release-please.outputs.node_runtime_tag_name != '' || needs.release-please.outputs.errors_tag_name != '') }}
     uses: ./.github/workflows/publish-packages.yml
     with:
       sidecar_tag: ${{ needs.release-please.outputs.sidecar_tag_name }}

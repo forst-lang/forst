@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -481,7 +482,7 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleProvidersMergedPackage (-root merged package)")
 				return
 			}
-			if strings.HasPrefix(relPath, "rfc/node-interop/") && strings.HasSuffix(relPath, ".ft") {
+			if strings.HasPrefix(relPath, "rfc/bridge-interop/") && strings.HasSuffix(relPath, ".ft") {
 				t.Skip("covered by TestExampleNodeInteropPackagesCompileGolden (-root merged package)")
 				return
 			}
@@ -621,7 +622,7 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 // Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersMergedPackage -count=1
 func TestExampleProvidersMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
-	entry := filepath.Join(root, "providers.ft")
+	entry := filepath.Join(root, "providers_demo", "providers.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
 	actual := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{packageRoot: root})
@@ -933,6 +934,12 @@ func TestMain_helperProcess(t *testing.T) {
 			t.Fatal("FORST_MAIN_HELPER_TMP required")
 		}
 		os.Args = []string{"forst", "dev", "-port", "notaport", "-root", tmp}
+	case "dev-unix-socket-conflict":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "dev", "-root", tmp}
 	case "lsp-bad-port":
 		os.Args = []string{"forst", "lsp", "-port", "notaport"}
 	case "fmt-list":
@@ -1003,10 +1010,29 @@ func TestMain_devBadPort_exitsNonZero(t *testing.T) {
 	cmd.Env = append(os.Environ(),
 		"FORST_MAIN_HELPER_CASE=dev-bad-port",
 		"FORST_MAIN_HELPER_TMP="+tmp,
+		"FORST_INVOKE_TRANSPORT=tcp",
 	)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected dev with invalid port to exit non-zero")
+	}
+}
+
+func TestMain_devUnixSocketConflict_exitsNonZero(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix invoke is not the default on Windows")
+	}
+	tmp := t.TempDir()
+	writeBlockingInvokeSocket(t, tmp)
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=dev-unix-socket-conflict",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+		"FORST_INVOKE_TRANSPORT=unix",
+	)
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected dev with blocked unix socket to exit non-zero")
 	}
 }
 

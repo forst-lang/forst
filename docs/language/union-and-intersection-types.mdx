@@ -1,6 +1,6 @@
 ---
 title: "Combining types"
-description: "Describe values with alternatives or shared requirements."
+description: "Describe values with literal alternatives, error sets, or shared requirements."
 ---
 
 Sometimes one value can have several valid forms. In other cases, a value must
@@ -13,21 +13,79 @@ either member set. An
 [intersection type](https://en.wikipedia.org/wiki/Intersection_type) contains
 only values that belong to every member set.
 
-The most complete use case is a union of named errors. It lets a function list
-the failures callers should handle. Other unions and intersections remain
+The supported union forms are **named error unions** and **named homogeneous literal unions**
+(string, integer, or boolean literals). Other general unions and intersections remain
 experimental.
 
-<Warning>
-  Named error unions are the supported path for application code. General
-  unions and intersections can lose type detail in generated Go.
-</Warning>
+## List the possible string or numeric values of a field
+
+Use a literal union when a field can contain only a specific set of primitive values.
+The `|` operator separates each literal value.
+
+```ft
+type TaskStatus =
+    | "todo"
+    | "in_progress"
+    | "success"
+    | "failed"
+```
+
+Use `ensure` with the bare type name to validate untrusted input at runtime:
+
+```ft
+def updateStatus(raw String) {
+    ensure raw is TaskStatus else BadStatus()
+    // raw is narrowed to TaskStatus here
+}
+```
+
+After `ensure raw is TaskStatus`, `raw` has the narrowed `TaskStatus` type.
+
+Generated Go lowers `TaskStatus` to a defined scalar type with typed constants
+and a membership check. Generated TypeScript emits an ordinary string literal union.
+
+### Subset types
+
+A smaller literal union is assignable to a larger literal union that contains all of its values.
+
+```ft
+type PendingStatus =
+    | "todo"
+    | "in_progress"
+```
+
+`PendingStatus` is assignable to `TaskStatus` because every value in `PendingStatus` belongs
+to `TaskStatus`. The reverse assignment (`TaskStatus` to `PendingStatus`) is rejected
+unless you validate the value first with `ensure`.
+
+### Exhaustive switches
+
+When a `switch` statement handles a literal union, the compiler checks that every possible
+value is covered.
+
+```ft
+func handleStatus(s TaskStatus) {
+    switch s {
+    case "todo":
+        // ...
+    case "in_progress":
+        // ...
+    case "success":
+        // ...
+    case "failed":
+        // ...
+    }
+}
+```
+
+If a case is missing and there is no `default` clause, the compiler reports a non-exhaustive
+switch diagnostic. Unreachable `default` cases when all values are handled are also reported.
 
 ## List the errors a function can return
 
-Use a union when a function has a small set of expected failures. The `|`
-operator means that the value can belong to either named type.
+Use an error union when a function has a small set of expected failures.
 
-```forst
+```ft
 error ParseError {
     code: Int,
 }
@@ -52,11 +110,11 @@ closed and predictable failure set. See
 [Errors and Result](/language/errors-and-result) for how to create and return
 the errors.
 
-## Handle one error from the list
+### Handle one error from the list
 
 Use `Err(ErrorName)` when each error needs a different response.
 
-```forst
+```ft
 func handleParseError(err ParseError) {}
 
 func inspect() {
@@ -67,31 +125,26 @@ func inspect() {
 }
 ```
 
-Inside the branch, `result` is a `ParseError`. The direct form
-`result is ParseError` is unavailable for error unions.
-
-Generated Go uses an interface that only the listed errors implement. Generated
-TypeScript uses the same alternatives.
+Inside the branch, `result` is a `ParseError`. Generated Go uses an interface
+that only the listed errors implement. Generated TypeScript uses the same alternatives.
 
 ## Accept several kinds of value
 
-A general union can describe a value with several possible types. For example,
-an identifier might come from text input or a numeric database column.
+A general union can describe a value with several possible object or primitive types.
 
-```forst
+```ft
 type Identifier = String | Int
 ```
 
 Forst can parse and check this named declaration. Generated Go currently uses
-`any` for a general union, so type detail is lost after generation. Avoid this
-form in application contracts until general Go output and narrowing are
-complete.
+`any` for a general union, so type detail is lost after generation. Avoid general
+unions in application contracts until general Go output and narrowing are complete.
 
 ## Require several sets of fields
 
 An intersection uses `&`. It describes a value that must satisfy every member.
 
-```forst
+```ft
 type Named = {
     name: String,
 }
@@ -103,9 +156,9 @@ type Entity = {
 type NamedEntity = Named & Entity
 ```
 
-`NamedEntity` is intended to require both `name` and `id`. Intersection parsing
-and type checking exist, while complete narrowing and generated Go types remain
-in development. Treat intersections as experimental.
+`NamedEntity` requires both `name` and `id`. Intersection parsing and type checking
+exist, while complete narrowing and generated Go types remain in development. Treat
+intersections as experimental.
 
 ## Choose the type for the job
 
@@ -113,6 +166,7 @@ Start from the behavior your function needs.
 
 | Need | Type |
 | --- | --- |
+| Limit a string, int, or bool field to known values | Named literal union (`"todo" \| "done"`) |
 | Return a success value or a failure | `Result(Success, Failure)` |
 | Limit a `Result` to known error types | A named error union |
 | Keep several returned values together | `Tuple(T₁…Tₙ)` |
@@ -124,24 +178,21 @@ before wrapping calls with several return values.
 
 ## Current limits
 
-- Union and intersection syntax only works in named type declarations.
-- Inline forms such as a parameter typed as `A | B` are unavailable.
-- Named error unions are the complete end to end path.
-- Error union narrowing uses `Err(ErrorName)` on a `Result`.
-- Arbitrary unions and intersections lose detail in generated Go.
+- Literal unions must be homogeneous (all string, all integer, or all boolean literals). Mixed, float, inline, shape, tagged, and general disjunctive unions remain experimental or planned.
+- Union and intersection syntax works in named type declarations (`type T = ...`).
+- Inline forms such as a parameter typed directly as `"a" | "b"` are unavailable; declare a named type.
+- Named error unions and named homogeneous literal unions are the supported end-to-end union paths.
+- Arbitrary type unions (`String | Int`) lose detail in generated Go.
 - Optional types such as `T | Nil` are still planned.
-- Type merging after control flow branches is still being expanded.
 
-See the [roadmap](/resources/roadmap) for the current implementation status.
+See the [roadmap](/resources/roadmap) for current implementation status.
 
-## Run the examples
+## Examples
 
-Run the tested error union examples from the Forst repository.
+See the tested error union and literal union examples on GitHub
 
-```bash
-task example:union-error-types
-task example:union-error-narrowing
-```
+* [`examples/in/union_error_types.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/union_error_types.ft)
+* [`examples/in/union_error_narrowing.ft`](https://github.com/forst-lang/forst/blob/main/examples/in/union_error_narrowing.ft)
 
 ## Related
 

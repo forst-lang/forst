@@ -183,13 +183,13 @@ func TestGenerateCommand_logsResolvedGenerateConfig(t *testing.T) {
 	t.Cleanup(func() { newGenerateLogger = prev })
 	newGenerateLogger = func() *logrus.Logger {
 		log := logrus.New()
-		log.SetLevel(logrus.InfoLevel)
+		log.SetLevel(logrus.DebugLevel)
 		log.SetOutput(&buf)
 		log.SetFormatter(&logrus.TextFormatter{DisableColors: true, DisableTimestamp: true})
 		return log
 	}
 
-	if err := generateCommand([]string{dir}); err != nil {
+	if err := generateCommand([]string{"-log-level", "debug", dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	out := buf.String()
@@ -220,7 +220,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 		"dist/core/main.js",
 		"dist/pkg/main.js",
 		"dist/index.js",
-		"dist/transport.js",
+		"dist/transport/runtime.js",
 		"package.json",
 		"README.md",
 	} {
@@ -248,17 +248,18 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "../transport.js") {
-		t.Fatalf("core module should import ../transport.js; got:\n%s", client)
-	}
 	if strings.Contains(string(client), "@forst/client") {
 		t.Fatalf("client module must not import @forst/client; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "export const main") {
-		t.Fatalf("client export should match package name main; got:\n%s", client)
+	if !strings.Contains(string(client), "export const $main") {
+		t.Fatalf("client export should use $-prefixed namespace for package main; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "getDefaultInvokeClient") || !strings.Contains(string(client), "../transport.js") {
-		t.Fatalf("generated core should import transport, got:\n%s", client)
+	pkg, err := os.ReadFile(filepath.Join(outDir, "dist", "pkg", "main.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(pkg), "getDefaultInvokeClient") {
+		t.Fatalf("pkg module should import getDefaultInvokeClient, got:\n%s", pkg)
 	}
 	dts, err := os.ReadFile(filepath.Join(outDir, "dist", "core", "main.d.ts"))
 	if err != nil {
@@ -267,7 +268,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(dts), "EchoRequest") || !strings.Contains(string(dts), `from "../types.js"`) {
 		t.Fatalf("core.d.ts should import types from ../types.js, got:\n%s", dts)
 	}
-	if strings.Contains(string(client), "export interface EchoRequest") {
+	if strings.Contains(string(client), "export interface $EchoRequest") {
 		t.Fatalf("generated client should not duplicate interfaces from types.d.ts, got:\n%s", client)
 	}
 }
@@ -633,7 +634,7 @@ func TestGenerateClientPackage_mkdirFails(t *testing.T) {
 	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
 	t.Cleanup(func() { generateIO.MkdirAll = orig })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "dist directory") {
 		t.Fatalf("got %v", err)
 	}
@@ -652,7 +653,7 @@ func TestGenerateClientPackage_writeIndexFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "client index") {
 		t.Fatalf("got %v", err)
 	}
@@ -671,9 +672,44 @@ func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "package.json") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestParseGenerateArgs_logLevelFlag(t *testing.T) {
+	opts, err := parseGenerateArgs([]string{"-log-level", "debug", "."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.logLevel != "debug" {
+		t.Fatalf("logLevel = %q, want debug", opts.logLevel)
+	}
+	if opts.target != "." {
+		t.Fatalf("target = %q, want .", opts.target)
+	}
+}
+
+func TestGenerateTSOptions_passesReportPhases(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Compiler.ReportPhases = true
+	opts := generateTSOptions(cfg)
+	if !opts.ReportPhases {
+		t.Fatal("expected ReportPhases true")
+	}
+	if opts.GenerateStreamingClients != cfg.Compiler.GenerateStreamingClients {
+		t.Fatal("expected GenerateStreamingClients to match config")
+	}
+}
+
+func TestConfigureGenerateLogger_flagOverridesConfig(t *testing.T) {
+	log := logrus.New()
+	cfg := DefaultConfig()
+	cfg.Dev.LogLevel = "warn"
+	configureGenerateLogger(log, generateOptions{logLevel: "debug"}, cfg)
+	if log.GetLevel() != logrus.DebugLevel {
+		t.Fatalf("level = %v, want debug", log.GetLevel())
 	}
 }
 
@@ -729,7 +765,7 @@ func TestGenerateCommand_generateClientPackageReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	ft := writeMainFt(t, dir, generateTestMinimalValidForst)
 	orig := generateClientPackageHook
-	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, string, *logrus.Logger, *generateWriteStats) error {
+	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, map[string]struct{}, string, *logrus.Logger, *generateWriteStats) error {
 		return fmt.Errorf("client")
 	}
 	t.Cleanup(func() { generateClientPackageHook = orig })
@@ -821,7 +857,14 @@ func Hash(input HashRequest) {
 
 func TestGenerateCommand_multiPackage_bcryptAndMain(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+	mainDir := filepath.Join(dir, "main")
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -834,10 +877,10 @@ func Hash(input HashRequest) {
 	return { digest: input.password }
 }
 `
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	srcDir := defaultClientDistDir(dir)
@@ -855,6 +898,28 @@ func Hash(input HashRequest) {
 	}
 	if !strings.Contains(string(idx), "bcrypt") || !strings.Contains(string(idx), "main") {
 		t.Fatalf("client index should reference both packages:\n%s", idx)
+	}
+}
+
+func TestGenerateCommand_flatMultiPackageSameDir_errors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
+
+func Hash(input { password: String }) {
+	return { digest: input.password }
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{dir})
+	if err == nil {
+		t.Fatal("expected Go layout error for flat multi-package directory")
+	}
+	if !strings.Contains(err.Error(), "contains 2 packages") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -911,16 +976,20 @@ func Login(input Session) {
 
 func TestGenerateCommand_prunesStaleClientWhenPackageRemoved(t *testing.T) {
 	dir := t.TempDir()
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	if err := os.MkdirAll(bcryptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	bcryptSrc := `package bcrypt
 
 func Hash(input { password: String }) {
 	return { digest: input.password }
 }
 `
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("first generate: %v", err)
 	}
 	srcDir := defaultClientDistDir(dir)
@@ -932,7 +1001,7 @@ func Hash(input { password: String }) {
 			t.Fatal(err)
 		}
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("second generate: %v", err)
 	}
 	for _, stale := range []string{staleFlat, stalePkg, staleCore} {
@@ -944,7 +1013,14 @@ func Hash(input { password: String }) {
 
 func TestGenerateCommand_skipsTypeOnlyPackageClient(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "models.ft"), []byte(`package models
+	modelsDir := filepath.Join(dir, "models")
+	mainDir := filepath.Join(dir, "main")
+	for _, d := range []string{modelsDir, mainDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(modelsDir, "models.ft"), []byte(`package models
 
 type Item = {
 	id: Int
@@ -952,7 +1028,7 @@ type Item = {
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {

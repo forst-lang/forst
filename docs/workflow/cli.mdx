@@ -1,6 +1,6 @@
 ---
 title: "CLI reference"
-description: "forst run, build, generate, dev, lsp, and other commands."
+description: "`forst run`, `build`, `generate`, `dev`, `lsp`, and other commands."
 ---
 
 import HelloFt from "/snippets/hello.ft.mdx";
@@ -25,10 +25,19 @@ With no subcommand, `forst` compiles a single `.ft` file. Given `hello.ft`:
 Run it with:
 
 ```bash
-forst path/to/file.ft          # compile
-forst run path/to/file.ft      # compile, build, and run
-forst build path/to/file.ft    # compile and build only
+forst path/to/file.ft          # compile (same as run without executing)
+forst run path/to/file.ft      # compile and run (go run)
+forst build -o <dir> path/to/file.ft   # native program binary + manifest.json
 ```
+
+Each command below writes a different artifact. Use this table to pick the workflow that matches what you need in your repo or container image.
+
+| Command | Output |
+| --- | --- |
+| `forst generate` | `@forst/gen` TypeScript client (default). Optional Go sources with `--go` |
+| `forst build -o <dir>` | `bin/<entryStem>` + `manifest.json` (linked program binary) |
+| `forst run` | Execute via `go run` (development / hostMode) |
+| `forst dev` / `@forst/sidecar` | Live HTTP invoke with reload (development only) |
 
 Common flags (see `forst --help`):
 
@@ -53,6 +62,19 @@ forst generate --list --json .
 
 Uses the same file discovery rules as `forst dev`. Import from `@forst/gen/<package>` after generate (and after `postinstall` on a fresh machine).
 
+Each directory holds one Forst package name, matching Go. You may put many `.ft` files in that directory when they share the same `package` line. `files.include` globs select which `.ft` files are discovered. They do not allow multiple package names in one folder or the same package name in sibling folders.
+
+### `--allow-stem-package-mismatch`
+
+By default, `forst generate` expects the file stem or parent folder name to match the `package` line. Use this flag when legacy files break that rule and you cannot rename or move them yet.
+
+| Allows | Does not allow |
+| --- | --- |
+| `legacy_login.ft` with `package auth` when neither stem nor folder matches | Multiple package names in one directory |
+| Skipping stem checks for the whole boundary | The same package name in sibling directories |
+
+Normal colocation does not need the flag. Put files under a folder named for the package (for example `auth/login.ft` with `package auth`). See [Call Forst over HTTP § Colocate Forst with TypeScript](/interop/invoke/call-forst#colocate-forst-with-typescript).
+
 `--list` (with optional `--json`) prints a machine-readable manifest of packages and exported functions without writing client output. Use it for IDE plugins, codegen pipelines, or CI introspection.
 
 `--watch` regenerates when `.ft` files change. Use it when the dev server runs separately, or rely on regenerate-on-save from [Dev server](/workflow/dev-server#generated-client).
@@ -66,6 +88,8 @@ Uses the same file discovery rules as `forst dev`. Import from `@forst/gen/<pack
 
 Ephemeral output is removed by `forst clean` and restored by the next generate. Committed mode is a normal workspace package you check in.
 
+See [Plugins](/workflow/plugins) to configure JSON Schema, RPC contracts, file routes, or custom generators during `forst generate`. **Plugins are work in progress**—see that page for versioning and coverage limits.
+
 ### Generate configuration
 
 Set these under `"generate"` in `ftconfig.json`:
@@ -77,7 +101,7 @@ Set these under `"generate"` in `ftconfig.json`:
     "outDir": ".forst/client",
     "link": "auto",
     "emit": "js",
-    "testingSubpath": "testing",
+    "testingSubpath": "$testing",
     "effect": false,
     "ssrModule": ""
   }
@@ -90,9 +114,129 @@ Set these under `"generate"` in `ftconfig.json`:
 | `outDir` | `string` | `.forst/client` | Single output directory relative to the ftconfig boundary root |
 | `link` | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Whether to write the `node_modules` link. `auto` links when `outDir` is inside `.forst` |
 | `emit` | `"js"` | `"js"` | Always emit built JS. `"ts"` is rejected |
-| `testingSubpath` | `string` | `"testing"` | Subpath key for the test scope (`@forst/gen/testing`). Change it when a Forst package is named `testing` |
-| `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
+| `testingSubpath` | `string` | `"$testing"` | Subpath key for the test scope (`@forst/gen/$testing`). Must start with `$` so it cannot collide with Forst package names |
+| `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/invoke/effect) |
 | `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
+| `go.entry` | `string` | `""` | Entry `.ft` for Go source emission (requires `go.out`) |
+| `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
+| `go.root` | `string` | `""` | Optional package root for Go source emission |
+| `skipClient` | `bool` | `false` | Skip TypeScript client generation |
+| `plugins` | `array` | `[]` | Semantic plugin executables run after typecheck (work in progress). See [Plugins](/workflow/plugins) |
+
+Each plugin entry:
+
+| Field | Type | Required | Purpose |
+| --- | --- | --- | --- |
+| `name` | `string` | yes | Identifier passed to the plugin in the snapshot |
+| `cmd` | `string` | yes | Executable name (`PATH`) or path (`./bin/...` relative to boundary root) |
+| `out` | `string` | yes | Output directory relative to the boundary root |
+| `opt` | `object` | no | Plugin-specific JSON options |
+
+### Optional Go sources (`generate.go`)
+
+By default, `forst generate` writes only the TypeScript client (`postinstall` safe). Go sources run when **`generate.go.entry` and `generate.go.out`** are set in `ftconfig.json`, or when you override on the CLI with matching flag names.
+
+**TS client + Go sources (default):**
+
+```bash
+forst generate --go-entry=./main.ft --go-out=./out/main.go .
+```
+
+Writes `@forst/gen` and transpiled `.go` beside the output path.
+
+**Go sources only:**
+
+```bash
+forst generate --go-out=./out/main.go --go-entry=./main.ft --skip-client .
+```
+
+Skips TypeScript client generation. Use when you only want inspectable Go for `go build` or review.
+
+CLI flags mirror `ftconfig` fields (`--go-entry`, `--go-out`, `--go-root`, `--skip-client`). Unset flags fall back to `ftconfig.json`.
+
+Or configure in `ftconfig.json`:
+
+```json
+{
+  "generate": {
+    "skipClient": true,
+    "go": {
+      "entry": "./main.ft",
+      "out": "./out/main.go",
+      "root": "."
+    }
+  }
+}
+```
+
+Go source emission does **not** link a native binary. Use `forst build` for production linked programs.
+
+### Native program build (`forst build`)
+
+Build a linked program binary and `manifest.json` for slim container images (similar to `go build -o bin/main`).
+
+**Local build** (writes under `.forst/`, removed by `forst clean`):
+
+```bash
+forst build -root . -o .forst/build -- ./app/main.ft
+```
+
+**Cross-compile for Linux containers** (writes to a path you copy into the image):
+
+```bash
+forst build -root . -o dist --goos linux --goarch amd64 -- ./app/main.ft
+```
+
+`-o` is the output directory. Forst writes `manifest.json` and `bin/<entryStem>` directly inside it. No extra subfolder is required.
+
+Output layout (entry `./app/main.ft` → `bin/main`):
+
+```text
+.forst/build/
+  manifest.json
+  bin/main
+```
+
+Requires `server.embedded: true` in `ftconfig.json`. At runtime, run the linked binary with `FORST_ROOT` set to your project root (read `binary` from `manifest.json`):
+
+```bash
+FORST_ROOT=/app /app/.forst/build/bin/main
+```
+
+#### How the binary fits with Node
+
+When `bridge.hostMode` is enabled, the built binary can run Forst and talk to Node in one of two layouts.
+
+**All-in-one (default):** One process runs your Forst entry point, starts the small HTTP server that `@forst/gen` uses to call Forst functions, and starts your Node app (for example remix-serve) as a **child process**:
+
+```text
+bin/main
+  ├─ HTTP server for @forst/gen (.forst/invoke.ready)
+  └─ Node app child (bridge.binary + bridge.args)
+       └─ @forst/gen calls Forst over HTTP
+```
+
+**Split layout (`FORST_SKIP_NODE_HOST=1`):** Use the **same** binary when Node already runs somewhere else (another container, systemd unit, or local dev process). Set `FORST_SKIP_NODE_HOST=1` so the binary runs embedded invoke and your entry point but **does not spawn the Node host**. Your Node app runs on its own and connects using `@forst/gen` and the URL in `.forst/invoke.ready`.
+
+`forst build` does not wait for the Node HTTP app to finish starting.
+
+#### `manifest.json` (build output)
+
+`manifest.json` sits beside the linked binary under your `-o` directory. Use these fields to verify how the program was built and which executable to run in production.
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `"program"` — embedded program binary, not a separate invoke daemon |
+| `binary` | Relative path to the linked executable (from entry stem) |
+| `hostMode` | `bridge.hostMode` from `ftconfig.json` at build time |
+| `embeddedInvoke` | Always `true` for `forst build` |
+| `boundaryRoot` | Project root used at build time |
+| `needsBridgeRuntime` | `true` when the program embeds bridge interop |
+| `compiledModulesDir` | Relative compiled modules path when bridge imports use compiled format |
+| `legacyModuleFormat` | `compiled` or `typescript` from `bridge.legacyModules.format` at build time |
+| `contractVersion` | Invoke HTTP contract version |
+
+Older manifests may show `"kind": "invoke"` and `"binary": "bin/forst-invoke"`.
 
 Task pages link here instead of repeating this table.
 
@@ -146,7 +290,7 @@ Useful when reporting compiler bugs.
 
 ## `forst clean`
 
-Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
+Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, native build output under `.forst/build/`, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
 
 ```bash
 forst clean
@@ -184,7 +328,7 @@ Set **`FORST_BINARY`** to skip download in CI.
   <Card title="Installation" icon="download" href="/installation">
     npm, binary, Docker, and the generated client setup.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/invoke/generate-types">
     `@forst/gen` imports and layout.
   </Card>
   <Card title="Dev server" icon="server" href="/workflow/dev-server">

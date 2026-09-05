@@ -18,6 +18,7 @@ type ScopeStack struct {
 	current       *Scope
 	Hasher        *hasher.StructuralHasher
 	log           *logrus.Logger
+	nextSymbolID  SymbolID
 }
 
 // NewScopeStack creates a new stack with a global scope
@@ -33,13 +34,25 @@ func NewScopeStack(h *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
 	scopes[hash] = globalScope
 	globalScope.hash = hash
 
-	return &ScopeStack{
+	ss := &ScopeStack{
 		scopes:        scopes,
 		nodeScopeHash: nodeScopeHash,
 		current:       globalScope,
 		Hasher:        h,
 		log:           log,
+		nextSymbolID:  1,
 	}
+	globalScope.stack = ss
+	return ss
+}
+
+func (ss *ScopeStack) allocSymbolID() SymbolID {
+	if ss == nil {
+		return 0
+	}
+	id := ss.nextSymbolID
+	ss.nextSymbolID++
+	return id
 }
 
 // pushScope creates and pushes a new scope for the given AST node
@@ -56,6 +69,7 @@ func (ss *ScopeStack) pushScope(node ast.Node) *Scope {
 	}
 	scope := NewScope(ss.current, &node, ss.log)
 	scope.hash = hash
+	scope.stack = ss
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope

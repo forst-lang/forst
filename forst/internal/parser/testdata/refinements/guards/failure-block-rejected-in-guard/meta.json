@@ -1,0 +1,5 @@
+{
+  "id": "guards/failure-block-rejected-in-guard",
+  "expect": "parse-error",
+  "title": "failure block rejected in guard"
+}

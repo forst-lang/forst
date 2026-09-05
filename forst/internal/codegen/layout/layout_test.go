@@ -9,7 +9,7 @@ import (
 func TestLayout_runSession_pathsUnderDotForst(t *testing.T) {
 	r := NewRoot("/app/forst")
 	p := r.RunSession("sess1")
-	for _, path := range []string{p.Dir, p.GoMod, p.HostMain, p.InvokeServer, p.NodeRuntime} {
+	for _, path := range []string{p.Dir, p.GoMod, p.HostMain, p.InvokeServer, p.BridgeRuntime} {
 		if !strings.HasPrefix(path, filepath.Join("/app/forst", ".forst", "run")) {
 			t.Fatalf("expected under .forst/run, got %s", path)
 		}

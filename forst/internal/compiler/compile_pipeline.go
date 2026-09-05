@@ -57,18 +57,18 @@ func (c *Compiler) Transform(checker *typechecker.TypeChecker, nodes []ast.Node)
 	return out.Main, nil
 }
 
-// CompileWithNodeRuntime compiles a Forst file and returns main and optional companion Go sources.
-func (c *Compiler) CompileWithNodeRuntime() (main string, nodeRuntime string, invokeServer string, extraPackages map[string]string, extraImports map[string]string, err error) {
+// CompileWithBridgeRuntime compiles a Forst file and returns main and optional companion Go sources.
+func (c *Compiler) CompileWithBridgeRuntime() (main string, bridgeRuntime string, invokeServer string, extraPackages map[string]string, extraImports map[string]string, err error) {
 	out, err := c.compileToGo()
 	if err != nil {
 		return "", "", "", nil, nil, err
 	}
-	return out.Main, out.NodeRuntime, out.InvokeServer, out.ExtraPackages, out.ExtraPackageImports, nil
+	return out.Main, out.BridgeRuntime, out.InvokeServer, out.ExtraPackages, out.ExtraPackageImports, nil
 }
 
 type compileGoOutput struct {
-	Main          string
-	NodeRuntime   string
+	Main                string
+	BridgeRuntime       string
 	InvokeServer  string
 	ExtraPackages       map[string]string // forst package name -> Go source
 	ExtraPackageImports map[string]string // forst package name -> Go import path
@@ -103,10 +103,10 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 		return compileGoOutput{}, err
 	}
 
-	if err := checkRequireNoNode(c.Args, checker); err != nil {
+	if err := checkRequireNoBridge(c.Args, checker); err != nil {
 		return compileGoOutput{}, err
 	}
-	logNodeRuntimeRequirement(c.log, checker)
+	logBridgeRuntimeRequirement(c.log, checker)
 
 	memAfter := getMemStats()
 	c.logMemUsage("semantic analysis", memBefore, memAfter)
@@ -130,18 +130,24 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("code generation", memBefore, memAfter)
 
-	if c.Args.OutputPath != "" {
+	if c.Args.OutputPath != "" && c.Args.Command != "build" {
 		if err := os.WriteFile(c.Args.OutputPath, []byte(out.Main), 0644); err != nil {
 			return compileGoOutput{}, fmt.Errorf("error writing output file: %v", err)
 		}
-		if out.NodeRuntime != "" {
-			runtimePath := nodeRuntimeOutputPath(c.Args.OutputPath)
-			if err := os.WriteFile(runtimePath, []byte(out.NodeRuntime), 0644); err != nil {
-				return compileGoOutput{}, fmt.Errorf("error writing node runtime file: %v", err)
+		if out.BridgeRuntime != "" {
+			runtimePath := bridgeRuntimeOutputPath(c.Args.OutputPath)
+			if err := removeLegacyBridgeRuntimeCompanions(c.Args.OutputPath); err != nil {
+				return compileGoOutput{}, err
+			}
+			if err := os.WriteFile(runtimePath, []byte(out.BridgeRuntime), 0644); err != nil {
+				return compileGoOutput{}, fmt.Errorf("error writing bridge runtime file: %v", err)
 			}
 		}
 		if out.InvokeServer != "" {
 			invokePath := invokeServerOutputPath(c.Args.OutputPath)
+			if err := removeLegacyCompanionFile(legacyInvokeServerOutputPath(c.Args.OutputPath)); err != nil {
+				return compileGoOutput{}, err
+			}
 			if err := os.WriteFile(invokePath, []byte(out.InvokeServer), 0644); err != nil {
 				return compileGoOutput{}, fmt.Errorf("error writing invoke server file: %v", err)
 			}
@@ -152,9 +158,9 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	} else if c.Args.LogLevel == "trace" {
 		c.log.Info("Generated Go code:")
 		fmt.Println(out.Main)
-		if out.NodeRuntime != "" {
-			c.log.Info("Generated node runtime Go code:")
-			fmt.Println(out.NodeRuntime)
+		if out.BridgeRuntime != "" {
+			c.log.Info("Generated bridge runtime Go code:")
+			fmt.Println(out.BridgeRuntime)
 		}
 		if out.InvokeServer != "" {
 			c.log.Info("Generated invoke server Go code:")
@@ -171,8 +177,8 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 
 func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modResult *modulecheck.ModuleResult, forstNodes []ast.Node) (compileGoOutput, error) {
 	transformer := transformer_go.New(checker, c.log, c.Args.ExportStructFields)
-	transformer.EmbedInvokeServer = c.embedInvokeEnabled()
-	transformer.EmbedNodeHostMode = c.nodeHostModeEnabled()
+	transformer.EmbedInvokeServer = c.useEmbeddedInvokeRuntime()
+	transformer.EmbedBridgeHostMode = c.bridgeHostModeEnabled()
 	if c.Args.PackageRoot != "" {
 		transformer.SandboxModulePath = "forst.run.temp"
 	}
@@ -193,7 +199,7 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 		return compileGoOutput{}, err
 	}
 
-	nodeRuntimeCode, err := c.generateNodeRuntimeCode(transformer)
+	bridgeRuntimeCode, err := c.generateBridgeRuntimeCode(transformer)
 	if err != nil {
 		return compileGoOutput{}, err
 	}
@@ -208,19 +214,19 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 		return compileGoOutput{}, err
 	}
 
-	if invokeServerCode == "" && c.embedInvokeEnabled() {
+	if invokeServerCode == "" && c.useEmbeddedInvokeRuntime() {
 		if diag := c.embeddedInvokeMisconfigDiagnostic(transformer, forstNodes, moduleInvokeFns); diag != "" {
 			return compileGoOutput{}, fmt.Errorf("%s", diag)
 		}
 	}
 
-	needsNodeHostShutdown := invokeServerCode == "" && nodeRuntimeCode != "" && c.nodeHostModeEnabled()
+	needsBridgeHostShutdown := invokeServerCode == "" && bridgeRuntimeCode != "" && c.bridgeHostModeEnabled()
 	if invokeServerCode != "" {
 		transformer.AppendInvokeShutdownIfNeeded()
-	} else if needsNodeHostShutdown {
+	} else if needsBridgeHostShutdown {
 		transformer.AppendNodeHostShutdownIfNeeded()
 	}
-	if invokeServerCode != "" || needsNodeHostShutdown {
+	if invokeServerCode != "" || needsBridgeHostShutdown {
 		goAST, err = transformer.Output.GenerateFile()
 		if err != nil {
 			return compileGoOutput{}, err
@@ -237,7 +243,7 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 	}
 
 	return compileGoOutput{
-		Main: goCode, NodeRuntime: nodeRuntimeCode, InvokeServer: invokeServerCode,
+		Main: goCode, BridgeRuntime: bridgeRuntimeCode, InvokeServer: invokeServerCode,
 		ExtraPackages: extraPkgs, ExtraPackageImports: extraImports,
 	}, nil
 }
@@ -265,7 +271,7 @@ func canonicalForstPackageImportPath(modResult *modulecheck.ModuleResult, forstP
 }
 
 func (c *Compiler) resolveModuleInvokeFunctions(modResult *modulecheck.ModuleResult) ([]discovery.FunctionInfo, error) {
-	if !c.embedInvokeEnabled() || RunBoundaryRoot(c.Args) == "" || c.Args.PackageRoot == "" {
+	if !c.useEmbeddedInvokeRuntime() || RunBoundaryRoot(c.Args) == "" || c.Args.PackageRoot == "" {
 		return nil, nil
 	}
 	if modResult != nil {
@@ -382,11 +388,11 @@ func entryNodesHaveFuncMain(nodes []ast.Node) bool {
 	return false
 }
 
-func (c *Compiler) generateNodeRuntimeCode(transformer *transformer_go.Transformer) (string, error) {
+func (c *Compiler) generateBridgeRuntimeCode(transformer *transformer_go.Transformer) (string, error) {
 	if transformer == nil {
 		return "", nil
 	}
-	runtimeAST, err := transformer.NodeRuntimeFile()
+	runtimeAST, err := transformer.BridgeRuntimeFile()
 	if err != nil {
 		return "", err
 	}
@@ -396,22 +402,52 @@ func (c *Compiler) generateNodeRuntimeCode(transformer *transformer_go.Transform
 	return generateGoCodeCompile(runtimeAST)
 }
 
-func nodeRuntimeOutputPath(outputPath string) string {
+func bridgeRuntimeOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
-		return base + "_forst_node_runtime.gen.go"
+		return base + "_forst_0_bridge_runtime.gen.go"
 	}
-	return base + "_forst_node_runtime.gen" + ext
+	return base + "_forst_0_bridge_runtime.gen" + ext
+}
+
+func legacyBridgeRuntimeOutputPath(outputPath string) string {
+	ext := filepath.Ext(outputPath)
+	base := strings.TrimSuffix(outputPath, ext)
+	if ext == "" {
+		return base + "_forst_0_node_runtime.gen.go"
+	}
+	return base + "_forst_0_node_runtime.gen" + ext
+}
+
+func removeLegacyBridgeRuntimeCompanions(outputPath string) error {
+	return removeLegacyCompanionFile(legacyBridgeRuntimeOutputPath(outputPath))
 }
 
 func invokeServerOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
+		return base + "_forst_1_invoke_server.gen.go"
+	}
+	return base + "_forst_1_invoke_server.gen" + ext
+}
+
+func legacyInvokeServerOutputPath(outputPath string) string {
+	ext := filepath.Ext(outputPath)
+	base := strings.TrimSuffix(outputPath, ext)
+	if ext == "" {
 		return base + "_forst_invoke_server.gen.go"
 	}
 	return base + "_forst_invoke_server.gen" + ext
+}
+
+func removeLegacyCompanionFile(path string) error {
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove legacy companion %s: %w", path, err)
+	}
+	return nil
 }
 
 // WriteExtraPackagesForOutput writes cross-package invoke Go sources beside a -o main output path.
@@ -434,7 +470,7 @@ func WriteExtraPackagesForOutput(outputPath string, extraPackages map[string]str
 }
 
 func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node, moduleFns []discovery.FunctionInfo) (string, error) {
-	if transformer == nil || !c.embedInvokeEnabled() {
+	if transformer == nil || !c.useEmbeddedInvokeRuntime() {
 		return "", nil
 	}
 	boundary := RunBoundaryRoot(c.Args)
@@ -443,7 +479,7 @@ func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transfor
 			return transformer.InvokeServerSourceFromFunctions(true, moduleFns)
 		}
 	}
-	return transformer.InvokeServerSource(c.embedInvokeEnabled(), nodes)
+	return transformer.InvokeServerSource(c.useEmbeddedInvokeRuntime(), nodes)
 }
 
 func (c *Compiler) embedInvokeEnabled() bool {
@@ -454,46 +490,108 @@ func (c *Compiler) embedInvokeEnabled() bool {
 	return cfg.Server.Embedded
 }
 
-func (c *Compiler) nodeHostModeEnabled() bool {
+// useEmbeddedInvokeRuntime reports whether this compile should emit invoke companions
+// and ForstInvokeWaitForShutdown. generate/--go-out always emits plain Go; invoke glue
+// is only for run/build/dev when server.embedded is on.
+func (c *Compiler) useEmbeddedInvokeRuntime() bool {
+	if !c.embedInvokeEnabled() {
+		return false
+	}
+	switch c.Args.Command {
+	case "run", "build", "dev":
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Compiler) bridgeHostModeEnabled() bool {
 	cfg, err := c.loadFtconfig()
 	if err != nil || cfg == nil {
 		return false
 	}
-	return cfg.Node.HostMode
+	return cfg.Bridge.HostMode
 }
 
-func checkRequireNoNode(args Args, checker *typechecker.TypeChecker) error {
-	if !args.RequireNoNode {
+// PreferPackageDirRunEmit sets OutputPath beside the entry only when `generate.go` is
+// configured in ftconfig (or the caller already set -o). Otherwise OutputPath stays empty
+// so `forst run` uses the temp sandbox and does not litter `*.gen.go` next to source.
+// Embedded invoke / bridge host mode always keep the isolated sandbox.
+func (c *Compiler) PreferPackageDirRunEmit() {
+	if c.Args.Command != "run" || c.Args.OutputPath != "" {
+		return
+	}
+	if c.useEmbeddedInvokeRuntime() || c.bridgeHostModeEnabled() {
+		return
+	}
+	if out := c.configuredPackageGoOut(); out != "" {
+		c.Args.OutputPath = out
+	}
+}
+
+// configuredPackageGoOut returns generate.go.out when ftconfig configures Go emit.
+func (c *Compiler) configuredPackageGoOut() string {
+	boundary := RunBoundaryRoot(c.Args)
+	if boundary == "" {
+		return ""
+	}
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil || !cfg.Generate.Go.IsConfigured() {
+		return ""
+	}
+	return cfg.Generate.Go.EffectiveGoOut(boundary)
+}
+
+// defaultPackageGoOut resolves the Go emit path for plain `forst build`: configured
+// generate.go.out first, else stem.gen.go beside the entry (needed for `go build .`).
+func (c *Compiler) defaultPackageGoOut() string {
+	if out := c.configuredPackageGoOut(); out != "" {
+		return out
+	}
+	entry := c.Args.FilePath
+	if entry == "" {
+		return ""
+	}
+	dir := filepath.Dir(entry)
+	stem := strings.TrimSuffix(filepath.Base(entry), filepath.Ext(entry))
+	if stem == "" {
+		stem = "main"
+	}
+	return filepath.Join(dir, stem+".gen.go")
+}
+
+func checkRequireNoBridge(args Args, checker *typechecker.TypeChecker) error {
+	if !args.RequireNoBridge {
 		return nil
 	}
-	if checker != nil && checker.NeedsNodeRuntime() {
-		return fmt.Errorf("program requires Node runtime (opted-in TypeScript imports); cannot build with -require-no-node")
+	if checker != nil && checker.NeedsBridgeRuntime() {
+		return fmt.Errorf("program requires Node runtime (opted-in TypeScript imports); cannot build with -require-no-bridge")
 	}
 	return nil
 }
 
-func logNodeRuntimeRequirement(log interface {
+func logBridgeRuntimeRequirement(log interface {
 	Info(args ...any)
 	Debug(args ...any)
 }, checker *typechecker.TypeChecker) {
-	line := FormatNodeRuntimeLogLine(checker)
-	if checker == nil || !checker.NeedsNodeRuntime() {
+	line := FormatBridgeRuntimeLogLine(checker)
+	if checker == nil || !checker.NeedsBridgeRuntime() {
 		log.Debug(line)
 		return
 	}
 	log.Info(line)
 }
 
-// FormatNodeRuntimeLogLine returns the post-typecheck node runtime summary for CLI output.
-func FormatNodeRuntimeLogLine(checker *typechecker.TypeChecker) string {
-	if checker == nil || !checker.NeedsNodeRuntime() {
-		return "node runtime: not required"
+// FormatBridgeRuntimeLogLine returns the post-typecheck node runtime summary for CLI output.
+func FormatBridgeRuntimeLogLine(checker *typechecker.TypeChecker) string {
+	if checker == nil || !checker.NeedsBridgeRuntime() {
+		return "bridge runtime: not required"
 	}
-	modules, exports, moduleIDs := checker.NodeRuntimeSummary()
+	modules, exports, moduleIDs := checker.BridgeRuntimeSummary()
 	if len(moduleIDs) == 0 {
-		return fmt.Sprintf("node runtime: required (%d modules, %d exports)", modules, exports)
+		return fmt.Sprintf("bridge runtime: required (%d modules, %d exports)", modules, exports)
 	}
-	return fmt.Sprintf("node runtime: required (%d modules, %d exports) — %s",
+	return fmt.Sprintf("bridge runtime: required (%d modules, %d exports) — %s",
 		modules, exports, strings.Join(moduleIDs, ", "))
 }
 

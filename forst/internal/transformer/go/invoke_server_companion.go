@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	forstInvokeServerFileStem   = "forst_invoke_server.gen"
+	forstInvokeServerFileStem   = "forst_1_invoke_server.gen"
 	forstInvokeRegistryInitDone = "forstInvokeRegistryInit"
 )
 
@@ -76,6 +76,7 @@ func (t *Transformer) InvokeServerSourceFromFunctions(embedInvoke bool, function
 		handlerName := invokeHandlerName(fn)
 		fmt.Fprintf(&b, "\treg.RegisterMeta(%s, %s)\n", invokeFunctionMetaLiteral(fn), handlerName)
 	}
+	b.WriteString("\tinvokeembed.MustPrepareEmbeddedHostAuth()\n")
 	b.WriteString("\tinvokeembed.MustStartEmbedded()\n")
 	b.WriteString("}\n\n")
 

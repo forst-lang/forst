@@ -1,0 +1,5 @@
+{
+  "id": "escape/stored-pointer-escape",
+  "expect": "typecheck-error",
+  "title": "storing &user in Go-reachable place"
+}
