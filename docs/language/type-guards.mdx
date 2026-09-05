@@ -52,8 +52,8 @@ Define a nominal scalar type when you want to write guards for scalar values:
 type Password = String
 
 is (p Password) Strong() {
-    ensure p.Min(12)
-    ensure p.Contains("#")
+    ensure p is Min(12)
+    ensure p is Contains("#")
 }
 ```
 
