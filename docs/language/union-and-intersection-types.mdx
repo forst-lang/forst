@@ -24,7 +24,7 @@ The `|` operator separates each literal value.
 
 ```ft
 type TaskStatus =
-    "todo"
+    | "todo"
     | "in_progress"
     | "success"
     | "failed"
@@ -50,7 +50,7 @@ A smaller literal union is assignable to a larger literal union that contains al
 
 ```ft
 type PendingStatus =
-    "todo"
+    | "todo"
     | "in_progress"
 ```
 

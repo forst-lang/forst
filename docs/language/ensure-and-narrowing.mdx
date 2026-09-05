@@ -97,15 +97,17 @@ Caller functions can then check `ensure task is Actionable() else InactiveTask()
 
 ## Check against a named type
 
-A bare name without parentheses checks membership in a named type instead of calling assertion functions.
+Check membership in a named type by writing its name without parentheses after `is`. This narrows values to defined subsets such as literal unions.
 
 ```ft
+type ActiveStatus =
+    | "pending"
+    | "processing"
+
 ensure status is ActiveStatus else InvalidStatus()
 ```
 
-`ActiveStatus` has no parentheses. This tells Forst that `ActiveStatus` is a named type, such as a literal union (`type ActiveStatus = "pending" | "processing"`).
-
-Use parentheses for assertion calls and guard checks (`Strong()`, `Pending()`). Omit parentheses when checking against a named type definition (`ActiveStatus`).
+The bare name `ActiveStatus` validates that `status` matches one of the declared union values. Omit parentheses when checking membership in a named type (`ActiveStatus`). Use parentheses when calling assertion functions or type guards (`Strong()`, `Pending()`).
 
 ## Exiting from `main`
 
