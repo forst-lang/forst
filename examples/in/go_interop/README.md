@@ -13,10 +13,11 @@ Shows two ways Forst calls Go:
 
 ## CLI
 
-When `ftconfig.json` configures `generate.go` (or you pass `-o`), `forst run` emits
-beside the package and wraps `go run .`, so **same-package hand-written `.go` participates**.
-Without that, `forst run` uses a temp sandbox (no `*.gen.go` next to source). Embedded
-invoke / bridge host mode always use an isolated sandbox.
+Ad-hoc `forst run` copies same-package hand-written `.go` files into its execution sandbox automatically, so `forst run cli.ft` works without configuration.
+
+When `ftconfig.json` configures `generate.go` (or when `-o` is set), `forst run` emits beside the package and wraps `go run .` so generated Go stays co-located with your hand-written `.go`. Embedded invoke / bridge host mode always use an isolated sandbox with copied sibling `.go` sources.
+
+For testing, `forst test ./...` discovers both `*_test.ft` and native Go `*_test.go` files and runs `go test`.
 
 ```bash
 task example:go-interop

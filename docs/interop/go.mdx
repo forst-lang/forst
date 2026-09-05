@@ -193,7 +193,7 @@ Passing or storing package functions without calling them directly is limited. F
 
 ### Same package Go files with forst run
 
-The `forst run` command executes code in a temporary sandbox. It does not copy co-located `.go` files into that sandbox. Use `forst generate` along with `go run` or `go test` when mixing `.ft` and `.go` files in the same package.
+The `forst run` command copies same-package `.go` files into its execution sandbox automatically, allowing ad-hoc `forst run` on mixed packages without additional flags. When `generate.go` is configured in `ftconfig.json` (or when `-o` is set), `forst run` emits directly beside your source package so generated Go stays co-located with your hand-written `.go` code.
 
 ### Builtin make and new calls
 

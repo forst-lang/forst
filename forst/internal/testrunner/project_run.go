@@ -79,6 +79,27 @@ func RunWithProject(proj *project.Project, opts Options) (ExitCode, error) {
 			failed = true
 		}
 	}
+
+	// Discover and run Go-only packages that contain native _test.go files (if running entire module)
+	if len(opts.Paths) == 0 && proj.ModulePath != "" {
+		goTestPkgs, discoverErr := DiscoverGoTestPackages(proj.ModuleRoot, proj.ModulePath, testDirs)
+		if discoverErr == nil {
+			var replacesList []gowork.PackageReplace
+			for imp, dir := range libReplaces {
+				replacesList = append(replacesList, gowork.PackageReplace{ImportPath: imp, Dir: dir})
+			}
+			for _, goPkg := range goTestPkgs {
+				code, err := RunGoTestOnNativePackage(proj, goPkg, replacesList, opts.GoTestArgs)
+				if err != nil {
+					return code, err
+				}
+				if code != ExitSuccess {
+					failed = true
+				}
+			}
+		}
+	}
+
 	if failed {
 		return ExitFailure, nil
 	}

@@ -73,10 +73,10 @@ Forst is under active development. This page is a **simplified** view. The canon
 | Status | Feature | Notes |
 | --- | --- | --- |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | `forst lsp` | Diagnostics, hover, completion, definition, references, rename, symbols, folding. Unary `&` hovers as address-of when disambiguated from bitwise AND. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | LSP Go interop hover | Godoc and `go/types` signatures for qualified imports; module-level typecheck for cross-package Forst siblings. Go `pkg.` completion not yet. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | LSP Go interop hover & completion | Godoc and `go/types` signatures for qualified imports; exported symbol completion after `pkg.`; module-level typecheck for cross-package Forst siblings. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | LSP formatting and code lens | Format document advertised; code lens and some code actions still minimal. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | VS Code extension | Marketplace + Open VSX publish on `vscode-forst-v*` releases. Finds `go` when the GUI PATH is thin (`forst.go.path` optional). |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | `forst test` | Discover `Test*` in `*_test.ft`, emit Go tests and cross-package shims, run `go test`. Walks every package path; sandboxes include sibling `.go`. Primary use: Providers wiring, mixed packages, and cross-package integration. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | `forst test` | Discover `Test*` in `*_test.ft` and native Go `_test.go`, emit Go tests and cross-package shims, run `go test`. Sandboxes include sibling `.go`. Primary use: Providers wiring, mixed packages, and cross-package integration. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | CLI (`run`, `build`, `generate`, `dev`, `lsp`, `test`, `fmt`) | Core compiler commands via native binary or `@forst/cli`. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Generate plugins | `forst generate` runs configured emitters on a typechecked snapshot (JSON Schema, oRPC, file routes, React Router). Protocol and official binaries are usable; they may change. Pin the compiler. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Error message quality | Incremental improvements; diagnostics still vary by code path. |
