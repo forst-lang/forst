@@ -31,7 +31,7 @@ func (tc *TypeChecker) validateSidecarExportable(nodes []ast.Node) error {
 			continue
 		}
 		roots := ProviderRootIdentsFromSlots(slots)
-		return diagnosticf(fn.Ident.Span, "providers-sidecar-export",
+		return reportBodyf(fn.Ident.Span, "providers-sidecar-export",
 			"cannot export %s to TypeScript/sidecar: requires %s; wire at a host entry point first",
 			fn.Ident.ID, strings.Join(roots, ", "))
 	}
@@ -104,7 +104,7 @@ func (tc *TypeChecker) validateWiringRootFn(id ast.Identifier) error {
 	if sig, ok := tc.Functions[id]; ok {
 		span = sig.Ident.Span
 	}
-	return diagnosticfRelated(span, "providers-unsatisfied", tc.providersWiringRootRelated(id),
+	return reportBodyfRelated(span, "providers-unsatisfied", tc.providersWiringRootRelated(id),
 		"%s requires %s; not supplied at wiring root\n  required by: %s%s",
 		id, strings.Join(names, ", "), chain, providersFixItHint(names))
 }
@@ -216,7 +216,7 @@ func checkCrossPackageCallSatisfied(tc *TypeChecker, edge providersgraph.CallEdg
 		parts = append(parts, root)
 	}
 	chain := strings.Join(parts, " → ")
-	return diagnosticfRelated(edge.Span, "providers-unsatisfied", nil,
+	return reportBodyfRelated(edge.Span, "providers-unsatisfied", nil,
 		"%s requires %s; not supplied\n  required by: %s%s",
 		calleeLabel, strings.Join(missing, ", "), chain, providersFixItHint(missing))
 }

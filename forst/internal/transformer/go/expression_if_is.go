@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+	"forst/internal/diag"
 	goast "go/ast"
 	"go/token"
 )
@@ -81,7 +82,12 @@ func expressionFromConstraintArg(arg ast.ConstraintArgumentNode) (ast.Expression
 func (t *Transformer) goResultErrIdentForExpr(left ast.ExpressionNode) (goast.Expr, error) {
 	vn, ok := left.(ast.VariableNode)
 	if !ok {
-		return nil, fmt.Errorf("if-is: Result Ok/Err requires a simple variable subject")
+		return nil, fmt.Errorf("%s", diag.FormatReport(diag.Report{
+			Code:    "result-ok-subject-place",
+			Title:   "Ok/Err needs a simple name",
+			Problem: "The subject of `is Ok()` / `is Err()` must be a variable (or field path), not a bare call or literal.",
+			Help:    "bind it first:\n\n    r := fetch()\n    if r is Ok() { ... }",
+		}))
 	}
 	name := string(vn.Ident.ID)
 	if isDotQualifiedVariable(vn) {
@@ -184,8 +190,13 @@ func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c 
 			eq := &goast.BinaryExpr{X: errExpr, Op: token.EQL, Y: arg}
 			return &goast.BinaryExpr{X: ne, Op: token.LAND, Y: eq}, nil
 		}
-		return nil, errors.New("if-is: Err(...) expects at most one argument")
+		return nil, errors.New("Err(...) expects at most one argument")
 	default:
-		return nil, errors.New("internal: not Ok/Err discriminator")
+		return nil, fmt.Errorf("%s", diag.FormatReport(diag.Report{
+			Code:    "result-ok-arity",
+			Title:   "not an Ok/Err discriminator",
+			Problem: "This path expected a Result Ok/Err constraint.",
+			Help:    "write `is Ok()` or `is Err()`",
+		}))
 	}
 }

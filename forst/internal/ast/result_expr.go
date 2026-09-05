@@ -6,6 +6,7 @@ import "fmt"
 // constructor; Ok remains a built-in discriminant for is/ensure on Result.
 type OkExprNode struct {
 	Value ExpressionNode
+	Span  SourceSpan
 }
 
 func (o OkExprNode) isExpression() { _ = o }
@@ -23,6 +24,7 @@ func (o OkExprNode) String() string {
 // constructor; Err remains a built-in discriminant for is/ensure on Result.
 type ErrExprNode struct {
 	Value ExpressionNode
+	Span  SourceSpan
 }
 
 func (e ErrExprNode) isExpression() { _ = e }

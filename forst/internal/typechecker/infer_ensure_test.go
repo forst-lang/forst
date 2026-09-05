@@ -97,7 +97,7 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error: Valid type guard is undeclared")
 		}
-		if !strings.Contains(err.Error(), "type guard Valid not found") {
+		if !strings.Contains(err.Error(), "guard-undefined") && !strings.Contains(err.Error(), "Valid` not found") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

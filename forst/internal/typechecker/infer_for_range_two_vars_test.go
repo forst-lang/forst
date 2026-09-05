@@ -15,7 +15,7 @@ func TestRangeTypesForTwoVars_arrayMapString(t *testing.T) {
 	key, val, err := tc.rangeTypesForTwoVars(ast.TypeNode{
 		Ident:      ast.TypeArray,
 		TypeParams: []ast.TypeNode{{Ident: ast.TypeString}},
-	})
+	}, ast.SourceSpan{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestRangeTypesForTwoVars_arrayMapString(t *testing.T) {
 			{Ident: ast.TypeString},
 			{Ident: ast.TypeInt},
 		},
-	})
+	}, ast.SourceSpan{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestRangeTypesForTwoVars_arrayMapString(t *testing.T) {
 		t.Fatalf("map: got key=%s val=%s", key.Ident, val.Ident)
 	}
 
-	key, val, err = tc.rangeTypesForTwoVars(ast.TypeNode{Ident: ast.TypeString})
+	key, val, err = tc.rangeTypesForTwoVars(ast.TypeNode{Ident: ast.TypeString}, ast.SourceSpan{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestRangeTypesForTwoVars_arrayMapString(t *testing.T) {
 func TestRangeTypesForTwoVars_unsupported(t *testing.T) {
 	t.Parallel()
 	tc := New(logrus.New(), false)
-	_, _, err := tc.rangeTypesForTwoVars(ast.TypeNode{Ident: ast.TypeFloat})
+	_, _, err := tc.rangeTypesForTwoVars(ast.TypeNode{Ident: ast.TypeFloat}, ast.SourceSpan{})
 	if err == nil {
 		t.Fatal("expected error for unsupported two-var range type")
 	}

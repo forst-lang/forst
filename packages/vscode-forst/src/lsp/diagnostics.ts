@@ -3,6 +3,14 @@ import * as vscode from "vscode";
 import { locationToVs } from "./converters";
 import type { LspDiagnostic, PublishDiagnosticsParams } from "./types";
 
+/** LSP Diagnostic.data does not map onto vscode.Diagnostic; keep it for codeAction round-trip. */
+const diagnosticData = new WeakMap<vscode.Diagnostic, unknown>();
+
+/** Returns compiler `data` (e.g. fixes) previously attached from publishDiagnostics. */
+export function diagnosticLspData(d: vscode.Diagnostic): unknown {
+  return diagnosticData.get(d);
+}
+
 /** Coordinates that are negative or non-finite are clamped so `vscode.Range` construction never throws. */
 function clampNonNeg(n: number): number {
   if (!Number.isFinite(n) || n < 0) {
@@ -57,6 +65,9 @@ export function lspDiagnosticToVs(d: LspDiagnostic): vscode.Diagnostic {
         r.message
       )
     );
+  }
+  if (d.data !== undefined) {
+    diagnosticData.set(diag, d.data);
   }
   return diag;
 }

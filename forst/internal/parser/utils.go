@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/diag"
 	"strings"
 	"unicode"
 )
@@ -17,6 +18,17 @@ func parseErrorMessage(token ast.Token, message string) string {
 			"%s",
 		token.FileID, token.Line, token.Column, token.Line, token.Column, message,
 	)
+}
+
+// parseReport builds a structured diagnostic message for FailWithReport.
+func parseReport(code, title, problem, help string, notes ...string) string {
+	return diag.FormatReport(diag.Report{
+		Code:    code,
+		Title:   title,
+		Problem: problem,
+		Help:    help,
+		Notes:   notes,
+	})
 }
 
 func (p *Parser) logParsedNode(node ast.Node) {

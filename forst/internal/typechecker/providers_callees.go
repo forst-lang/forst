@@ -82,7 +82,7 @@ func (tc *TypeChecker) revalidateWiringKeysInWith(with ast.WithNode) error {
 				return err
 			}
 			if _, ok := eng.KnownRoots[fieldName]; !ok {
-				return diagnosticf(span, "providers-unknown-key", "unknown wiring key %q", fieldName)
+				return reportBodyf(span, "providers-unknown-key", "unknown wiring key %q", fieldName)
 			}
 		}
 	}

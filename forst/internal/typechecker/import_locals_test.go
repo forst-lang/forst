@@ -9,10 +9,14 @@ import (
 	"forst/internal/testutil"
 )
 
+func testImportSpan() ast.SourceSpan {
+	return ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 8}
+}
+
 func TestImportLocalContext_checkReserved_go(t *testing.T) {
 	ctx := importLocalContext{}
 	b := importlocal.Binding{Local: "type", ImportPath: "example.com/foo/type", ModuleID: "example.com/foo/type"}
-	err := ctx.checkReserved(b, importlocal.KindGo)
+	err := ctx.checkReserved(b, importlocal.KindGo, testImportSpan())
 	if err == nil {
 		t.Fatal("expected reserved local error")
 	}
@@ -24,7 +28,7 @@ func TestImportLocalContext_checkReserved_go(t *testing.T) {
 func TestImportLocalContext_checkReserved_js(t *testing.T) {
 	ctx := importLocalContext{}
 	b := importlocal.Binding{Local: "js", ImportPath: "./legacy/payment.ts", ModuleID: "legacy/payment.ts"}
-	err := ctx.checkReserved(b, importlocal.KindBridge)
+	err := ctx.checkReserved(b, importlocal.KindBridge, testImportSpan())
 	if err == nil {
 		t.Fatal("expected reserved local error for js")
 	}
@@ -37,7 +41,7 @@ func TestImportLocalContext_checkCrossKindConflict(t *testing.T) {
 			{Path: "./legacy/payment.ts", BridgeOptIn: true},
 		},
 	}
-	err := ctx.checkCrossKindConflict("payment", importlocal.KindBridge)
+	err := ctx.checkCrossKindConflict("payment", importlocal.KindBridge, testImportSpan())
 	if err == nil {
 		t.Fatal("expected cross-kind conflict")
 	}
@@ -46,7 +50,7 @@ func TestImportLocalContext_checkCrossKindConflict(t *testing.T) {
 func TestImportLocalContext_checkDuplicate(t *testing.T) {
 	ctx := importLocalContext{}
 	seen := map[string]string{"fmt": "fmt"}
-	err := ctx.checkDuplicate("fmt", "os", importlocal.KindGo, seen)
+	err := ctx.checkDuplicate("fmt", "os", importlocal.KindGo, seen, testImportSpan())
 	if err == nil {
 		t.Fatal("expected duplicate error")
 	}

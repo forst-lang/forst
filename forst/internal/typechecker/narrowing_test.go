@@ -33,7 +33,7 @@ func TestRefinedTypesForIsNarrowing_unsupportedRHSReturnsError(t *testing.T) {
 		ast.VariableNode{Ident: ast.Ident{ID: "x"}},
 		ast.IntLiteralNode{Value: 1},
 	)
-	if err == nil || !strings.Contains(err.Error(), "unsupported RHS") {
+	if err == nil || !strings.Contains(err.Error(), "unsupported right-hand side") {
 		t.Fatalf("expected unsupported RHS error, got %v", err)
 	}
 }
@@ -107,7 +107,7 @@ func TestRefinedTypesForIsNarrowing_nilFunctionCallPointerRHS(t *testing.T) {
 		ast.VariableNode{Ident: ast.Ident{ID: "x"}},
 		(*ast.FunctionCallNode)(nil),
 	)
-	if err == nil || !strings.Contains(err.Error(), "nil RHS") {
+	if err == nil || (!strings.Contains(err.Error(), "narrow-unsupported-rhs") && !strings.Contains(err.Error(), "missing right-hand side")) {
 		t.Fatalf("got %v", err)
 	}
 }

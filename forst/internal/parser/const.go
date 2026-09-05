@@ -39,7 +39,9 @@ func (p *Parser) parseConstSpec(requireValue bool) ast.ConstSpec {
 		p.advance()
 		spec.Value = p.parseExpression()
 	} else if requireValue {
-		p.FailWithParseError(identTok, fmt.Sprintf("const %s requires an initializer", identTok.Value))
+		p.FailWithReport(identTok, "const-init-required", "const requires an initializer",
+			fmt.Sprintf("const %s requires an initializer.", identTok.Value),
+			fmt.Sprintf("write `const %s = ...` with a value", identTok.Value))
 	}
 
 	return spec

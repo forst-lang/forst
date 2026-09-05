@@ -21,6 +21,8 @@ export interface LspDiagnostic {
   source?: string;
   code?: string;
   relatedInformation?: LspDiagnosticRelatedInformation[];
+  /** Structured quickfix payloads from the compiler (`{ fixes: [...] }`). */
+  data?: unknown;
 }
 
 /** Batch notification payload for syncing editor diagnostics with server results. */

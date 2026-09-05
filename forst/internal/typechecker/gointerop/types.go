@@ -31,6 +31,7 @@ type SignatureCheck struct {
 type MethodCall struct {
 	Recv            types.Type
 	MethodName      string
+	Method          ast.Ident // method name span when known (for squiggles)
 	Call            ast.FunctionCallNode
 	ArgTypes        [][]ast.TypeNode
 	WantSingleValue bool

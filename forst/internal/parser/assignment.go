@@ -17,7 +17,9 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 
 func (p *Parser) finishAssignment(lhs ast.ExpressionNode) ast.AssignmentNode {
 	if _, ok := lhs.(ast.IndexExpressionNode); ok && p.current().Type == ast.TokenColon {
-		p.FailWithParseError(p.current(), "cannot use type annotation on indexed assignment")
+		p.FailWithReport(p.current(), "assign-indexed-type", "cannot annotate type on indexed assignment",
+			"cannot use type annotation on indexed assignment.",
+			"declare a typed variable first, then assign to the index")
 	}
 
 	var explicitType *ast.TypeNode
@@ -37,22 +39,30 @@ func (p *Parser) finishAssignment(lhs ast.ExpressionNode) ast.AssignmentNode {
 	}
 	if assignToken.Type == ast.TokenColonEquals {
 		if _, ok := lhs.(ast.VariableNode); !ok {
-			p.FailWithParseError(assignToken, "cannot use := on this expression")
+			p.FailWithReport(assignToken, "assign-short-non-var", "cannot use := on this expression",
+				"cannot use := on this expression.",
+				"`:=` requires a simple variable name on the left")
 		}
 	} else if ast.IsCompoundAssignToken(assignToken.Type) {
 		if explicitType != nil {
-			p.FailWithParseError(assignToken, "cannot use compound assignment with explicit type")
+			p.FailWithReport(assignToken, "assign-compound-typed", "cannot use compound assignment with explicit type",
+				"cannot use compound assignment with explicit type.",
+				"drop the type annotation or use `=` instead")
 		}
 		switch lhs.(type) {
 		case ast.VariableNode, ast.IndexExpressionNode, ast.DereferenceNode:
 		default:
-			p.FailWithParseError(assignToken, "left-hand side of compound assignment must be a variable, index, or dereference")
+			p.FailWithReport(assignToken, "assign-compound-lhs", "invalid left-hand side of compound assignment",
+				"left-hand side of compound assignment must be a variable, index, or dereference.",
+				"assign to a variable, index, or `*ptr` expression")
 		}
 	} else if assignToken.Type == ast.TokenEquals {
 		switch lhs.(type) {
 		case ast.VariableNode, ast.IndexExpressionNode, ast.DereferenceNode:
 		default:
-			p.FailWithParseError(assignToken, "left-hand side of assignment must be a variable or index expression")
+			p.FailWithReport(assignToken, "assign-lhs", "invalid left-hand side of assignment",
+				"left-hand side of assignment must be a variable or index expression.",
+				"assign to a variable, index, or `*ptr` expression")
 		}
 	}
 	p.advance()

@@ -145,7 +145,9 @@ func (p *Parser) parseShapeFieldTypeAfterColon(name string, opts ShapeFieldTypeO
 		}
 		return p.attachOptionalStructTag(field)
 	}
-	p.FailWithParseError(p.current(), "Expected type annotation in shape type context")
+	p.FailWithReport(p.current(), "shape-type-required", "expected type annotation in shape type context",
+		"Expected type annotation in shape type context.",
+		"add a type after each field name, e.g. `{ name: String }`")
 	panic("unreachable")
 }
 
@@ -231,7 +233,9 @@ func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 	p.expect(ast.TokenRBrace)
 
 	if len(fields) == 0 && !allowEmpty {
-		p.FailWithParseError(p.current(), "Shape type must have at least one field. Empty shapes are not allowed.")
+		p.FailWithReport(p.current(), "shape-empty", "shapes need at least one field",
+			"Empty `{ }` types are not allowed.",
+			"add a field, e.g. `{ name: String }`")
 	}
 
 	baseType := ast.TypeIdent(ast.TypeShape)

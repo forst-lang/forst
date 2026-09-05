@@ -21,5 +21,5 @@ type Host interface {
 	GoTypeForExpression(expr ast.ExpressionNode) types.Type
 }
 
-// Diagnose formats a Go-interop diagnostic. Callers typically wrap this as typechecker.Diagnostic.
-type Diagnose func(span ast.SourceSpan, code, format string, args ...any) error
+// Diagnose emits a structured diagnostic (title/problem/help).
+type Diagnose func(span ast.SourceSpan, code, title, problem, help string) error

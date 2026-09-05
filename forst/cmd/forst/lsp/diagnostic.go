@@ -24,6 +24,8 @@ type LSPDiagnostic struct {
 	Tags []LSPDiagnosticTag `json:"tags,omitempty"`
 	// RelatedInformation is an array of related diagnostic information.
 	RelatedInformation []LSPDiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
+	// Data carries structured fix payloads for code actions (not shown in the Problems list).
+	Data any `json:"data,omitempty"`
 }
 
 // LSPRange represents a range in a text document.

@@ -38,7 +38,7 @@ func TestCheckSignature_multiReturnMapsToTuple(t *testing.T) {
 	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(), results, false)
 
 	host := stubHost{}
-	diag := func(_ ast.SourceSpan, _, _ string, _ ...any) error {
+	diag := func(_ ast.SourceSpan, _, _, _, _ string) error {
 		return nil
 	}
 	got, err := gointerop.CheckSignature(host, diag, gointerop.SignatureCheck{

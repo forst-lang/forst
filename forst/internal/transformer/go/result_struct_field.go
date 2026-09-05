@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+	"forst/internal/diag"
 	goast "go/ast"
 )
 
@@ -102,5 +103,10 @@ func (t *Transformer) goResultSuccessValueExprForOkDiscriminator(left ast.Expres
 		}
 		return goLoweredResultValueSelector(sel), nil
 	}
-	return nil, fmt.Errorf("if-is: Result Ok/Err requires a simple variable or struct field subject")
+	return nil, fmt.Errorf("%s", diag.FormatReport(diag.Report{
+		Code:    "result-ok-subject-place",
+		Title:   "Ok/Err needs a simple name",
+		Problem: "The subject of `is Ok()` / `is Err()` must be a variable (or field path).",
+		Help:    "bind it first:\n\n    r := fetch()\n    if r is Ok() { ... }",
+	}))
 }

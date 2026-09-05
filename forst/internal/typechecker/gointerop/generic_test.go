@@ -30,10 +30,10 @@ func TestCheckFuncCall_genericGoAPI_instantiatesFromArgs(t *testing.T) {
 		{{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeInt}}}},
 		{{Ident: ast.TypeInt}},
 	}
-	var gotCode, gotMsg string
-	diag := func(_ ast.SourceSpan, code, format string, args ...any) error {
+	var gotCode, gotTitle string
+	diag := func(_ ast.SourceSpan, code, title, _, _ string) error {
 		gotCode = code
-		gotMsg = format
+		gotTitle = title
 		return errors.New("diag")
 	}
 	_, err = gointerop.CheckFuncCall(host, diag, gointerop.FuncCall{
@@ -46,7 +46,7 @@ func TestCheckFuncCall_genericGoAPI_instantiatesFromArgs(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("expected slices.Contains to instantiate, got err=%v code=%q msg=%q", err, gotCode, gotMsg)
+		t.Fatalf("expected slices.Contains to instantiate, got err=%v code=%q title=%q", err, gotCode, gotTitle)
 	}
 }
 
@@ -84,9 +84,9 @@ func TestCheckFuncCall_unexportedSymbol_rejected(t *testing.T) {
 	scope.Insert(fn)
 
 	host := stubHost{}
-	var gotMsg string
-	diag := func(_ ast.SourceSpan, code, format string, args ...any) error {
-		gotMsg = format
+	var gotTitle string
+	diag := func(_ ast.SourceSpan, _, title, _, _ string) error {
+		gotTitle = title
 		return errors.New("diag")
 	}
 	_, err := gointerop.CheckFuncCall(host, diag, gointerop.FuncCall{
@@ -98,7 +98,7 @@ func TestCheckFuncCall_unexportedSymbol_rejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unexported symbol")
 	}
-	if !strings.Contains(gotMsg, "not exported") {
-		t.Fatalf("expected unexported diagnostic, got %q", gotMsg)
+	if !strings.Contains(gotTitle, "not exported") {
+		t.Fatalf("expected unexported diagnostic, got %q", gotTitle)
 	}
 }

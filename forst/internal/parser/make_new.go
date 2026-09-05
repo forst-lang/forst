@@ -10,7 +10,9 @@ func (p *Parser) parseMakeNewCallArguments(builtin ast.Identifier) ([]ast.Expres
 	}
 	startTok := p.current()
 	if p.current().Type != ast.TokenStar && !isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) {
-		p.FailWithParseError(p.current(), string(builtin)+"() first argument must be a type (e.g. Array(Int), map[String]Int, *Int)")
+		p.FailWithReport(p.current(), "make-new-type-arg", string(builtin)+"() first argument must be a type",
+			string(builtin)+"() first argument must be a type (e.g. Array(Int), map[String]Int, *Int).",
+			"pass a type as the first argument to "+string(builtin))
 	}
 	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 	endTok := p.tokens[p.currentIndex-1]

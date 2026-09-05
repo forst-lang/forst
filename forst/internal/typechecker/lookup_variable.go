@@ -49,7 +49,7 @@ func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, s
 	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
 		if len(parts) > 1 && tc.IsImportedLocalName(string(baseIdent)) {
-			if t, err := tc.lookupGoImportedPackageSelector(baseIdent, parts[1:]); err == nil {
+			if t, err := tc.lookupGoImportedPackageSelector(baseIdent, parts[1:], variable.Ident.Span); err == nil {
 				return t, nil, "", nil
 			}
 		}
@@ -59,7 +59,10 @@ func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, s
 			"baseIdent": baseIdent,
 			"scope":     scope.String(),
 		}).Debugf("Variable not found in scope")
-		return ast.TypeNode{}, nil, "", fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
+		return ast.TypeNode{}, nil, "", reportf(variable.Ident.Span, "undefined-symbol",
+			fmt.Sprintf("undefined symbol `%s`", parts[0]),
+			fmt.Sprintf("No variable, function, or import named `%s` is in scope.", parts[0]),
+			"declare the name, import it, or fix the spelling")
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -105,7 +108,7 @@ func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, s
 	}
 
 	// Use lookupFieldPath for multi-segment field access (Forst typedefs / shapes).
-	t, err := tc.lookupFieldPath(symbol.Types[0], parts[1:])
+	t, err := tc.lookupFieldPath(symbol.Types[0], parts[1:], variable.Ident.Span)
 	return t, nil, "", err
 }
 

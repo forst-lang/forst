@@ -16,11 +16,17 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]a
 		if len(function.ReturnTypes) > 0 {
 			return function.ReturnTypes, nil
 		}
-		return nil, fmt.Errorf("undefined receiver method: %s on %s", function.Ident.ID, recvType)
+		return nil, reportf(function.Ident.Span, "undefined-method",
+			fmt.Sprintf("undefined method `%s`", function.Ident.ID),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", recvType, function.Ident.ID),
+			"declare the receiver method or pick an existing one")
 	}
 	sig, exists := tc.Functions[function.Ident.ID]
 	if !exists {
-		return nil, fmt.Errorf("undefined function: %s", function.Ident.ID)
+		return nil, reportf(function.Ident.Span, "undefined-function",
+			fmt.Sprintf("undefined function `%s`", function.Ident.ID),
+			fmt.Sprintf("No function named `%s` is in scope.", function.Ident.ID),
+			"declare the function, import it, or fix the spelling")
 	}
 	return sig.ReturnTypes, nil
 }

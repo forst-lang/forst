@@ -27,8 +27,8 @@ func TestValidateSidecarExportable_rejectsProvidersOnExportedFn(t *testing.T) {
 	if !ok || diag.Code != "providers-sidecar-export" {
 		t.Fatalf("got %T %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Handle") || !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("msg = %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Handle") || !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("msg = %q", diag.Error())
 	}
 }
 
@@ -62,8 +62,8 @@ func TestValidateWiringRootFn_unsatisfiedProviders(t *testing.T) {
 	if !ok || diag.Code != "providers-unsatisfied" {
 		t.Fatalf("got %T %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("msg = %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("msg = %q", diag.Error())
 	}
 }
 

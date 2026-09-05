@@ -28,7 +28,7 @@ func mk(): Result(Int, ParseError) {
 	if err == nil {
 		t.Fatal("expected error for bare nominal error is guard")
 	}
-	if !strings.Contains(err.Error(), "nominal error type") {
+	if !strings.Contains(err.Error(), "nominal-error-not-is-guard") && !strings.Contains(err.Error(), "not an `is` guard") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -80,7 +80,7 @@ func TestUnifyTypeguard_typeGuardSubjectMismatch(t *testing.T) {
 	}
 	err := tc.validateAssertionNode(ast.AssertionNode{
 		Constraints: []ast.ConstraintNode{{Name: "Positive"}},
-	}, ast.TypeNode{Ident: ast.TypeString})
+	}, ast.TypeNode{Ident: ast.TypeString}, ast.SourceSpan{})
 	if err == nil {
 		t.Fatal("expected type guard subject mismatch error")
 	}

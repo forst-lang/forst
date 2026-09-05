@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
 import type { ForstHttpLspClient } from "./client";
 import type { LspHoverContents, LspHoverResult } from "./types";
+import { diagnosticLspData } from "./diagnostics";
 import {
   codeActionToVs,
   codeLensToVs,
@@ -341,6 +342,7 @@ provideRenameEdits: async (doc, pos, newName, _token) =>
                   : d.code != null && typeof d.code === "object" && "value" in d.code
                     ? String((d.code as { value: string }).value)
                     : undefined,
+              data: diagnosticLspData(d),
             })),
           });
           const out: vscode.CodeAction[] = [];

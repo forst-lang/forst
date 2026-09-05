@@ -33,7 +33,8 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 		for fname, field := range payload.Fields {
 			if field.Type != nil {
 				ctx := fmt.Sprintf("type %s field %q", typeDef.Ident, fname)
-				if err := tc.validateTypeReference(*field.Type, ctx); err != nil {
+				span := spanOfShapeField(field)
+				if err := tc.validateTypeReference(*field.Type, span, ctx); err != nil {
 					return err
 				}
 			}
@@ -47,13 +48,13 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 		fnName := string(sig.Ident.ID)
 		for _, p := range sig.Parameters {
 			ctx := fmt.Sprintf("function %s parameter %q", fnName, p.GetIdent())
-			if err := tc.validateTypeReference(p.Type, ctx); err != nil {
+			if err := tc.validateTypeReference(p.Type, p.Ident.Span, ctx); err != nil {
 				return err
 			}
 		}
 		for i, rt := range sig.ReturnTypes {
 			ctx := fmt.Sprintf("function %s return[%d]", fnName, i)
-			if err := tc.validateTypeReference(rt, ctx); err != nil {
+			if err := tc.validateTypeReference(rt, sig.Ident.Span, ctx); err != nil {
 				return err
 			}
 		}
@@ -79,16 +80,21 @@ func (tc *TypeChecker) validateApplicationGuardReceivers() error {
 			continue
 		}
 		subj := guard.Subject.GetType()
+		span := ast.SourceSpan{}
+		if sp, ok := guard.Subject.(ast.SimpleParamNode); ok {
+			span = sp.Ident.Span
+		}
 		if tc.isBuiltinType(subj.Ident) {
-			return fmt.Errorf(
-				"refinement-guard-receiver-mismatch: application guard %s cannot use builtin receiver %s; declare `type Name = %s` and guard that type",
-				guard.Ident, subj.Ident.String(), subj.Ident.String())
+			return reportf(span, "refinement-guard-receiver-mismatch",
+				fmt.Sprintf("application guard `%s` cannot use builtin receiver", guard.Ident),
+				fmt.Sprintf("Application guard `%s` cannot use builtin receiver `%s`.", guard.Ident, subj.Ident),
+				fmt.Sprintf("declare `type Name = %s` and guard that type instead", subj.Ident))
 		}
 	}
 	return nil
 }
 
-func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
+func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, span ast.SourceSpan, ctx string) error {
 	if t.Ident == ast.TypeImplicit {
 		return nil
 	}
@@ -100,7 +106,7 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		case "String", "Int", "Float", "Bool", "Void":
 			return nil
 		default:
-			return tc.validateTypeReference(ast.TypeNode{Ident: ast.TypeIdent(inner), TypeKind: ast.TypeKindUserDefined}, ctx)
+			return tc.validateTypeReference(ast.TypeNode{Ident: ast.TypeIdent(inner), TypeKind: ast.TypeKindUserDefined}, span, ctx)
 		}
 	}
 
@@ -109,26 +115,26 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		if len(t.TypeParams) == 0 {
 			return nil
 		}
-		return tc.validateTypeReference(t.TypeParams[0], ctx+" element")
+		return tc.validateTypeReference(t.TypeParams[0], span, ctx+" element")
 	case ast.TypeMap:
 		if len(t.TypeParams) < 2 {
 			return nil
 		}
-		if err := tc.validateTypeReference(t.TypeParams[0], ctx+" map key"); err != nil {
+		if err := tc.validateTypeReference(t.TypeParams[0], span, ctx+" map key"); err != nil {
 			return err
 		}
-		return tc.validateTypeReference(t.TypeParams[1], ctx+" map value")
+		return tc.validateTypeReference(t.TypeParams[1], span, ctx+" map value")
 	case ast.TypePointer:
 		if len(t.TypeParams) == 0 {
 			return nil
 		}
-		return tc.validateTypeReference(t.TypeParams[0], ctx+" pointer")
+		return tc.validateTypeReference(t.TypeParams[0], span, ctx+" pointer")
 	case ast.TypeAssertion:
 		if t.Assertion != nil && t.Assertion.BaseType != nil {
 			return tc.validateTypeReference(ast.TypeNode{
 				Ident:    *t.Assertion.BaseType,
 				TypeKind: ast.TypeKindUserDefined,
-			}, ctx+" assertion base")
+			}, span, ctx+" assertion base")
 		}
 		return nil
 	case ast.TypeShape:
@@ -137,22 +143,22 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		return nil
 	case ast.TypeResult:
 		if len(t.TypeParams) >= 2 {
-			if err := tc.validateTypeReference(t.TypeParams[0], ctx+" result success"); err != nil {
+			if err := tc.validateTypeReference(t.TypeParams[0], span, ctx+" result success"); err != nil {
 				return err
 			}
-			return tc.validateTypeReference(t.TypeParams[1], ctx+" result failure")
+			return tc.validateTypeReference(t.TypeParams[1], span, ctx+" result failure")
 		}
 		return nil
 	case ast.TypeTuple:
 		for i, p := range t.TypeParams {
-			if err := tc.validateTypeReference(p, fmt.Sprintf("%s tuple[%d]", ctx, i)); err != nil {
+			if err := tc.validateTypeReference(p, span, fmt.Sprintf("%s tuple[%d]", ctx, i)); err != nil {
 				return err
 			}
 		}
 		return nil
 	case ast.TypeUnion, ast.TypeIntersection:
 		for i, p := range t.TypeParams {
-			if err := tc.validateTypeReference(p, fmt.Sprintf("%s %s[%d]", ctx, t.Ident, i)); err != nil {
+			if err := tc.validateTypeReference(p, span, fmt.Sprintf("%s %s[%d]", ctx, t.Ident, i)); err != nil {
 				return err
 			}
 		}
@@ -177,7 +183,10 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		}
 		if t.TypeKind == ast.TypeKindHashBased {
 			if _, ok := tc.Defs[t.Ident]; !ok {
-				return fmt.Errorf("%s: unknown structural type %q", ctx, t.Ident)
+				return reportf(span, "unknown-type",
+					fmt.Sprintf("unknown structural type `%s`", t.Ident),
+					fmt.Sprintf("%s: unknown structural type %q.", ctx, t.Ident),
+					"declare the type or fix the spelling")
 			}
 			return nil
 		}
@@ -189,13 +198,19 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		}
 		def, ok := tc.Defs[t.Ident]
 		if !ok {
-			return fmt.Errorf("%s: unknown type %q", ctx, t.Ident)
+			return reportf(span, "unknown-type",
+				fmt.Sprintf("unknown type `%s`", t.Ident),
+				fmt.Sprintf("%s: unknown type %q.", ctx, t.Ident),
+				"declare the type or fix the spelling")
 		}
 		if tn, ok := def.(ast.TypeNode); ok && (tn.IsTypeParam() || tn.TypeKind == ast.TypeKindUserDefined) {
 			return nil
 		}
 		if _, ok := def.(ast.TypeDefNode); !ok {
-			return fmt.Errorf("%s: %q is not a type name", ctx, t.Ident)
+			return reportf(span, "not-a-type-name",
+				fmt.Sprintf("`%s` is not a type name", t.Ident),
+				fmt.Sprintf("%s: %q is not a type name.", ctx, t.Ident),
+				"use a declared type name or built-in type")
 		}
 		return nil
 	}

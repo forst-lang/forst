@@ -145,6 +145,9 @@ func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 	src, _ := s.openDocumentText(params.TextDocument.URI)
 
 	if codeActionKindsAllowQuickFix(params.Context.Only) {
+		for _, act := range reportFixQuickFixActions(params.TextDocument.URI, params.Context.Diagnostics) {
+			out = append(out, act)
+		}
 		for _, act := range providersQuickFixActions(params.TextDocument.URI, src, params.Context.Diagnostics) {
 			out = append(out, act)
 		}

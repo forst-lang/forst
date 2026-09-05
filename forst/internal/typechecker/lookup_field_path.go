@@ -44,12 +44,17 @@ func (tc *TypeChecker) resolveTypeAliasChain(typeNode ast.TypeNode) ast.TypeNode
 	return current
 }
 
-// lookupFieldPath recursively looks up a field path (e.g., ["input", "name"]) in a type or shape
-func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string) (ast.TypeNode, error) {
+// lookupFieldPath recursively looks up a field path (e.g., ["input", "name"]) in a type or shape.
+// fieldSpan is the source span of the missing/offending field segment when known (e.g. VariableNode.Ident.Span).
+func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string, fieldSpan ...ast.SourceSpan) (ast.TypeNode, error) {
 	if len(fieldPath) == 0 {
 		return baseType, nil
 	}
-	fieldName := ast.Ident{ID: ast.Identifier(fieldPath[0])}
+	sp := ast.SourceSpan{}
+	if len(fieldSpan) > 0 {
+		sp = fieldSpan[0]
+	}
+	fieldName := ast.Ident{ID: ast.Identifier(fieldPath[0]), Span: lastDottedSegmentSpan(sp, fieldPath[0])}
 
 	tc.log.WithFields(logrus.Fields{
 		"function":  "lookupFieldPath",
@@ -64,7 +69,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 
 	// *T.field — look up on T (Go data fields on pointers)
 	if resolvedType.Ident == ast.TypePointer && len(resolvedType.TypeParams) > 0 {
-		return tc.lookupFieldPath(resolvedType.TypeParams[0], fieldPath)
+		return tc.lookupFieldPath(resolvedType.TypeParams[0], fieldPath, sp)
 	}
 
 	// Opaque Go value: field types are unknown without go/types; treat every segment as implicit.
@@ -72,7 +77,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		if len(fieldPath) == 1 {
 			return ast.TypeNode{Ident: ast.TypeImplicit}, nil
 		}
-		return tc.lookupFieldPath(ast.TypeNode{Ident: ast.TypeImplicit}, fieldPath[1:])
+		return tc.lookupFieldPath(ast.TypeNode{Ident: ast.TypeImplicit}, fieldPath[1:], sp)
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -151,7 +156,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		"result":    "not found",
 	}).Debugf("=== END FIELD PATH LOOKUP DEBUG ===")
 
-	return ast.TypeNode{}, fmt.Errorf("field path %v not found in type %s", fieldPath, baseType.Ident)
+	return ast.TypeNode{}, shapeUnknownFieldError(string(baseType.Ident), string(fieldName.ID), nil, fieldName.Span)
 }
 
 // lookupFieldPathFromPayload handles field lookup for TypeDefShapeExpr and TypeDefErrorExpr (same payload shape semantics).
@@ -185,7 +190,7 @@ func (tc *TypeChecker) lookupFieldPathFromPayload(
 			"fieldName":       fieldName.ID,
 			"availableFields": fmt.Sprintf("%+v", payload.Fields),
 		}).Debugf("Field not found in typedef payload")
-		return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName.ID)
+		return ast.TypeNode{}, shapeUnknownFieldError(string(baseType.Ident), string(fieldName.ID), shapeFieldNames(payload.Fields), fieldName.Span)
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -211,7 +216,7 @@ func (tc *TypeChecker) lookupFieldPathFromPayload(
 		return resolvedFieldType, nil
 	}
 	if field.Shape != nil && len(fieldPath) > 1 {
-		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
+		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:], firstSetSpan(fieldName.Span, spanOfShapeField(field)))
 	}
 	if field.Shape != nil && len(fieldPath) == 1 {
 		return ast.TypeNode{Ident: ast.TypeShape}, nil
@@ -251,9 +256,12 @@ func (tc *TypeChecker) lookupFieldPathFromPayload(
 }
 
 // lookupFieldPathOnShape recursively looks up a field path in a ShapeNode
-func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []string) (ast.TypeNode, error) {
+func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []string, fieldSpan ast.SourceSpan) (ast.TypeNode, error) {
 	if shape == nil || len(fieldPath) == 0 {
-		return ast.TypeNode{}, fmt.Errorf("invalid shape or empty path")
+		return ast.TypeNode{}, reportf(fieldSpan, "shape-invalid-path",
+			"invalid field path",
+			"A field path was empty or pointed at a missing shape.",
+			"use a dotted path like `user.name` on a defined shape type")
 	}
 	fieldName := fieldPath[0]
 	field, exists := shape.Fields[fieldName]
@@ -263,14 +271,14 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 		} else if isAmbiguousSelectorError(perr) {
 			return ast.TypeNode{}, perr
 		}
-		return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
+		return ast.TypeNode{}, shapeUnknownFieldError("", fieldName, shapeFieldNames(shape.Fields), fieldSpan)
 	}
 	if field.Type != nil && len(fieldPath) == 1 {
 		// Resolve type aliases even for single-segment paths
 		return tc.resolveTypeAliasChain(*field.Type), nil
 	}
 	if field.Shape != nil && len(fieldPath) > 1 {
-		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
+		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:], firstSetSpan(spanOfShapeField(field), fieldSpan))
 	}
 	if field.Shape != nil && len(fieldPath) == 1 {
 		return ast.TypeNode{Ident: ast.TypeShape}, nil

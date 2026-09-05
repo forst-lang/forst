@@ -1,13 +1,17 @@
 package lsp
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/diag"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestDiagnosticFromParseError_UsesLexerLineColumn(t *testing.T) {
@@ -78,9 +82,10 @@ func TestParseErrorLocationFromMessage_ParseErrorAtForm(t *testing.T) {
 func TestDiagnosticForTypecheckError_usesStructuredSpan(t *testing.T) {
 	t.Parallel()
 	err := &typechecker.Diagnostic{
-		Msg:  "wrong type",
-		Code: "go-call",
-		Span: ast.SourceSpan{StartLine: 2, StartCol: 5, EndLine: 2, EndCol: 9},
+		Title: "wrong type",
+		Help:  "fix the Go call",
+		Code:  "go-call",
+		Span:  ast.SourceSpan{StartLine: 2, StartCol: 5, EndLine: 2, EndCol: 9},
 	}
 	d := diagnosticForTypecheckError("file:///t.ft", "", err, "forst-typechecker", ErrorCodeTypeMismatch)
 	if d.Range.Start.Line != 1 || d.Range.Start.Character != 4 {
@@ -97,9 +102,10 @@ func TestDiagnosticForTypecheckError_usesStructuredSpan(t *testing.T) {
 func TestDiagnosticForTypecheckError_providersObligationRelated(t *testing.T) {
 	t.Parallel()
 	err := &typechecker.Diagnostic{
-		Msg:  "needsLogger requires Logger; not supplied",
-		Code: "providers-unsatisfied",
-		Span: ast.SourceSpan{StartLine: 10, StartCol: 2, EndLine: 10, EndCol: 15},
+		Title: "needsLogger requires Logger; not supplied",
+		Help:  "add Logger to the with { … } block or ciProviders bundle",
+		Code:  "providers-unsatisfied",
+		Span:  ast.SourceSpan{StartLine: 10, StartCol: 2, EndLine: 10, EndCol: 15},
 		Related: []typechecker.RelatedDiagnostic{
 			{Msg: "caller TestX", Span: ast.SourceSpan{StartLine: 8, StartCol: 1, EndLine: 8, EndCol: 5}},
 			{Msg: "needsLogger declares Providers requirements", Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 12}},
@@ -262,5 +268,178 @@ func TestBestEffortLineColumnFromErrorMessage_undeclaredVariableQuote(t *testing
 	}
 	if want := strings.Index(strings.Split(content, "\n")[3], "foo") + 1; col != want {
 		t.Fatalf("col = %d want %d", col, want)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_shapeUnknownFieldReport(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\ntype User = {\n  name: String,\n}\n\nfunc main() {\n  u := User { name: \"a\" }\n  _ = u.nme\n}\n"
+	errMsg := "error[shape-unknown-field]: no field named \"nme\"\n\n  Type `User` has no field `nme`."
+	line, col := bestEffortLineColumnFromErrorMessage(content, errMsg)
+	if line != 9 {
+		t.Fatalf("line = %d want 9", line)
+	}
+	if want := strings.Index(strings.Split(content, "\n")[8], "nme") + 1; col != want {
+		t.Fatalf("col = %d want %d", col, want)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_goExportedNameReport(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nimport \"fmt\"\n\nfunc main() {\n  fmt.Printl(\"hi\")\n}\n"
+	errMsg := "error[go-member-missing]: fmt.Printl not found\n\n  No exported name `Printl` in package `fmt`."
+	line, col := bestEffortLineColumnFromErrorMessage(content, errMsg)
+	if line != 6 {
+		t.Fatalf("line = %d want 6", line)
+	}
+	if want := strings.Index(strings.Split(content, "\n")[5], "Printl") + 1; col != want {
+		t.Fatalf("col = %d want %d", col, want)
+	}
+}
+
+func lspFirstNonPackageLine(content string) int {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "package ") {
+			continue
+		}
+		return i
+	}
+	return 0
+}
+
+func assertDiagnosticNotOnPackageLine(t *testing.T, content string, d LSPDiagnostic) {
+	t.Helper()
+	minLine := lspFirstNonPackageLine(content)
+	if d.Range.Start.Line < minLine {
+		t.Fatalf("diagnostic on package line %d (first non-package line %d): start=%+v msg=%q",
+			d.Range.Start.Line, minLine, d.Range.Start, d.Message)
+	}
+}
+
+func TestDiagnosticForTypecheckError_logsWhenSpanMissing(t *testing.T) {
+	t.Parallel()
+	prev := errorPositionLog
+	defer func() { errorPositionLog = prev }()
+	buf := &bytes.Buffer{}
+	log := logrus.New()
+	log.SetOutput(buf)
+	log.SetLevel(logrus.ErrorLevel)
+	errorPositionLog = log
+
+	err := &typechecker.Diagnostic{
+		Code:    "test-missing-span",
+		Title:   "no span",
+		Problem: "undefined symbol: fooBar [scope: main]",
+		Help:    "fix it",
+	}
+	content := "package main\n\nfunc main() {\n  fooBar\n}\n"
+	d := diagnosticForTypecheckError("file:///t.ft", content, err, "forst-typechecker", ErrorCodeTypeMismatch)
+	if d.Range.Start.Line != 3 {
+		t.Fatalf("expected heuristic line 3 (fooBar), got %+v", d.Range.Start)
+	}
+	if !strings.Contains(buf.String(), "without span") {
+		t.Fatalf("expected error log, got %q", buf.String())
+	}
+}
+
+func TestDiagnosticForTypecheckError_isOkNotOnPackageLine(t *testing.T) {
+	t.Parallel()
+	s, dir := NewTestLSPServer(t, "lsp_span_guard")
+	src := `package main
+
+func main() {
+	x := 1
+	if x is Ok() {
+	}
+}
+`
+	uri := OpenTestBuffer(t, s, dir, "main.ft", src)
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.CheckErr == nil {
+		t.Fatalf("expected typecheck error, ctx=%v err=%v", ctx, ctx.CheckErr)
+	}
+	d := diagnosticForTypecheckError(uri, src, ctx.CheckErr, "forst-typechecker", ErrorCodeTypeMismatch)
+	assertDiagnosticNotOnPackageLine(t, src, d)
+	if !strings.Contains(d.Message, "result-ok-subject") {
+		t.Fatalf("message = %q", d.Message)
+	}
+}
+
+func TestDiagnosticForTypecheckError_shapeUnknownFieldNotOnPackageLine(t *testing.T) {
+	t.Parallel()
+	s, dir := NewTestLSPServer(t, "lsp_span_guard_shape")
+	src := `package main
+
+type User = {
+	name: String,
+}
+
+func main() {
+	u := User { name: "a" }
+	_ = u.nme
+}
+`
+	uri := OpenTestBuffer(t, s, dir, "main.ft", src)
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.CheckErr == nil {
+		t.Fatalf("expected typecheck error, ctx=%v err=%v", ctx, ctx.CheckErr)
+	}
+	d := diagnosticForTypecheckError(uri, src, ctx.CheckErr, "forst-typechecker", ErrorCodeTypeMismatch)
+	assertDiagnosticNotOnPackageLine(t, src, d)
+	if d.Code != "shape-unknown-field" {
+		t.Fatalf("code = %q", d.Code)
+	}
+	var td *typechecker.Diagnostic
+	if errors.As(ctx.CheckErr, &td) && td != nil && !td.Span.IsSet() {
+		t.Fatal("typechecker Diagnostic span must be set for shape-unknown-field")
+	}
+}
+
+func TestDiagnosticForTypecheckError_goMemberMissingNotOnPackageLine(t *testing.T) {
+	t.Parallel()
+	s, dir := NewTestLSPServer(t, "lsp_span_guard_go")
+	src := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Printl("hi")
+}
+`
+	uri := OpenTestBuffer(t, s, dir, "main.ft", src)
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.CheckErr == nil {
+		t.Fatalf("expected typecheck error, ctx=%v err=%v", ctx, ctx.CheckErr)
+	}
+	d := diagnosticForTypecheckError(uri, src, ctx.CheckErr, "forst-typechecker", ErrorCodeTypeMismatch)
+	assertDiagnosticNotOnPackageLine(t, src, d)
+	if d.Code != "go-member-missing" {
+		t.Fatalf("code = %q", d.Code)
+	}
+}
+
+func TestDiagnosticFromParseError_failWithReportMessageCode(t *testing.T) {
+	t.Parallel()
+	msg := diag.FormatReport(diag.Report{
+		Code:    "typeguard-forbidden-use",
+		Title:   "use statement not allowed in type guards",
+		Problem: "use is not valid inside a type guard body.",
+		Help:    "move the use to the enclosing function.",
+	})
+	pe := &parser.ParseError{
+		Token: ast.Token{Line: 4, Column: 2, Value: "use"},
+		Msg:   msg,
+	}
+	d := DiagnosticFromParseError("file:///t.ft", pe)
+	if d.Code != "typeguard-forbidden-use" {
+		t.Fatalf("code = %q", d.Code)
+	}
+	if d.Range.Start.Line != 3 {
+		t.Fatalf("start line = %d want 3", d.Range.Start.Line)
+	}
+	if !strings.Contains(d.Message, "error[typeguard-forbidden-use]:") {
+		t.Fatalf("message = %q", d.Message)
 	}
 }

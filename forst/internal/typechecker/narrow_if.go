@@ -183,7 +183,7 @@ func (tc *TypeChecker) isBuiltinResultOkErrIsNarrowing(left, right ast.Node) boo
 	if a == nil {
 		return false
 	}
-	handled, _, _ := tc.refinedTypesForResultIsNarrowing(varLeftType, a)
+	handled, _, _ := tc.refinedTypesForResultIsNarrowing(varLeftType, a, spanOfNode(v))
 	return handled
 }
 
@@ -237,14 +237,18 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 	if err != nil {
 		return nil, err
 	}
+	subjSpan := firstSetSpan(spanOfNode(leftmostVar), spanOfNode(left))
 	if len(varLeftTypes) != 1 {
-		return nil, fmt.Errorf("expected a single type for `is` subject, got %d", len(varLeftTypes))
+		return nil, reportf(subjSpan, "narrow-subject-type",
+			"`is` subject must have a single type",
+			fmt.Sprintf("The subject of `is` has %d types; narrowing needs exactly one.", len(varLeftTypes)),
+			"bind the subject to a single-typed name")
 	}
 	varLeftType := varLeftTypes[0]
 
 	switch r := right.(type) {
 	case ast.AssertionNode:
-		if handled, refined, err := tc.refinedTypesForResultIsNarrowing(varLeftType, &r); handled {
+		if handled, refined, err := tc.refinedTypesForResultIsNarrowing(varLeftType, &r, subjSpan); handled {
 			if err != nil {
 				return nil, err
 			}
@@ -252,12 +256,18 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		}
 		vn, ok := leftmostVar.(ast.VariableNode)
 		if !ok {
-			return nil, fmt.Errorf("assertion RHS narrowing requires variable subject, got %T", leftmostVar)
+			return nil, reportf(subjSpan, "narrow-unsupported-rhs",
+				"assertion narrowing needs a variable subject",
+				"The left-hand side of `is` must be a variable or field path.",
+				"bind the expression to a name first")
 		}
 		return tc.refinedTypesForAssertionOnVariable(vn, &r)
 	case ast.TypeDefAssertionExpr:
 		if r.Assertion == nil {
-			return nil, fmt.Errorf("missing assertion on RHS of `is`")
+			return nil, reportf(subjSpan, "narrow-missing-assertion",
+				"missing assertion on the right of `is`",
+				"The right-hand side of `is` must be an assertion or type target.",
+				"write `if x is Ok()` or `if x is SomeGuard()`")
 		}
 		refined, err := tc.InferAssertionType(r.Assertion, false, "", &varLeftType)
 		if err != nil {
@@ -271,34 +281,54 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		}
 		return []ast.TypeNode{tn}, nil
 	case ast.FunctionCallNode:
+		rhsSpan := firstSetSpan(spanOfExpression(r), spanOfNode(right), subjSpan)
 		if tc.IsTypeGuardConstraint(string(r.Function.ID)) {
 			if t := tc.refinedTypesFromTypeGuardName(ast.TypeIdent(r.Function.ID)); len(t) > 0 {
 				return t, nil
 			}
 		}
-		return nil, fmt.Errorf("unsupported RHS for narrowing: %T", right)
+		return nil, reportf(rhsSpan, "narrow-unsupported-rhs",
+			"unsupported right-hand side of `is`",
+			"This form cannot be used to narrow types.",
+			"use an assertion like `Ok()`, a type guard, or a shape type")
 	case *ast.FunctionCallNode:
 		if r == nil {
-			return nil, fmt.Errorf("nil RHS in `is` narrowing")
+			return nil, reportf(subjSpan, "narrow-unsupported-rhs",
+				"missing right-hand side of `is`",
+				"The right-hand side of `is` is empty.",
+				"write `if x is Ok()` or `if x is SomeGuard()`")
 		}
+		rhsSpan := firstSetSpan(spanOfExpression(*r), spanOfNode(right), subjSpan)
 		if tc.IsTypeGuardConstraint(string(r.Function.ID)) {
 			if t := tc.refinedTypesFromTypeGuardName(ast.TypeIdent(r.Function.ID)); len(t) > 0 {
 				return t, nil
 			}
 		}
-		return nil, fmt.Errorf("unsupported RHS for narrowing: %T", right)
+		return nil, reportf(rhsSpan, "narrow-unsupported-rhs",
+			"unsupported right-hand side of `is`",
+			"This form cannot be used to narrow types.",
+			"use an assertion like `Ok()`, a type guard, or a shape type")
 	default:
 		rightTypes, err := tc.inferExpressionType(right)
 		if err != nil {
 			return nil, err
 		}
 		if len(rightTypes) != 1 {
-			return nil, fmt.Errorf("expected single type on RHS of `is`")
+			return nil, reportf(subjSpan, "narrow-rhs-type",
+				"right-hand side of `is` must have a single type",
+				fmt.Sprintf("The right-hand side of `is` has %d types.", len(rightTypes)),
+				"use an assertion, type guard, or shape on the right of `is`")
 		}
 		if rightTypes[0].Ident == ast.TypeShape {
-			return nil, fmt.Errorf("shape RHS must be a ShapeNode for narrowing, got %T", right)
+			return nil, reportf(subjSpan, "narrow-unsupported-rhs",
+				"shape narrowing needs a shape literal",
+				fmt.Sprintf("Shape narrowing requires a ShapeNode on the right of `is`, got %T.", right),
+				"write `if x is Shape { field: T }` with a shape literal")
 		}
-		return nil, fmt.Errorf("unsupported RHS for narrowing: %T", right)
+		return nil, reportf(firstSetSpan(spanOfNode(right), subjSpan), "narrow-unsupported-rhs",
+			"unsupported right-hand side of `is`",
+			fmt.Sprintf("This form (%T) cannot be used to narrow types.", right),
+			"use an assertion like `Ok()`, a type guard, or a shape type")
 	}
 }
 
@@ -306,8 +336,8 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 // `ensure x is Ok()/Err() { ... }` for the block body. The block runs when the assertion fails (same
 // as the generated `if !(ok)` branch), so for Ok() the subject is the failure type F; for Err() it is
 // the success type S.
-func (tc *TypeChecker) refinedTypesForResultEnsureBlockFailure(varLeftType ast.TypeNode, a *ast.AssertionNode) ([]ast.TypeNode, error) {
-	handled, _, err := tc.refinedTypesForResultIsNarrowing(varLeftType, a)
+func (tc *TypeChecker) refinedTypesForResultEnsureBlockFailure(varLeftType ast.TypeNode, a *ast.AssertionNode, span ast.SourceSpan) ([]ast.TypeNode, error) {
+	handled, _, err := tc.refinedTypesForResultIsNarrowing(varLeftType, a, span)
 	if !handled || err != nil {
 		return nil, err
 	}
@@ -332,7 +362,7 @@ func (tc *TypeChecker) applyEnsureBlockResultFailureNarrowing(n ast.EnsureNode) 
 	if err != nil {
 		return
 	}
-	refined, err := tc.refinedTypesForResultEnsureBlockFailure(vt, &n.Assertion)
+	refined, err := tc.refinedTypesForResultEnsureBlockFailure(vt, &n.Assertion, n.Variable.Ident.Span)
 	if err != nil || len(refined) == 0 {
 		return
 	}
@@ -341,7 +371,7 @@ func (tc *TypeChecker) applyEnsureBlockResultFailureNarrowing(n ast.EnsureNode) 
 }
 
 // refinedTypesForResultIsNarrowing handles `x is Ok(...)` / `Err(...)` when x is Result(S,F).
-func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode, a *ast.AssertionNode) (handled bool, refined []ast.TypeNode, err error) {
+func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode, a *ast.AssertionNode, span ast.SourceSpan) (handled bool, refined []ast.TypeNode, err error) {
 	if a == nil || len(a.Constraints) != 1 || a.BaseType != nil {
 		return false, nil, nil
 	}
@@ -353,7 +383,7 @@ func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode
 		// User type guard named Ok/Err (e.g. `is (v N) Ok()`) — not Result discriminators.
 		return false, nil, nil
 	}
-	if err := tc.validateResultDiscriminatorAssertion(*a, varLeftType); err != nil {
+	if err := tc.validateResultDiscriminatorAssertion(*a, varLeftType, span); err != nil {
 		return true, nil, err
 	}
 	if c.Name == "Ok" {
@@ -364,21 +394,30 @@ func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode
 		return true, []ast.TypeNode{fail}, nil
 	}
 	if len(c.Args) != 1 {
-		return true, nil, fmt.Errorf("Err(...) expects at most one argument")
+		return true, nil, reportf(span, "result-err-arity",
+			"Err(...) expects at most one argument",
+			"`Err(...)` accepts zero or one argument in narrowing.",
+			"use `Err()` or `Err(value)`")
 	}
 	arg := c.Args[0]
 	if arg.Type != nil {
 		return true, []ast.TypeNode{*arg.Type}, nil
 	}
 	if arg.Value == nil {
-		return true, nil, fmt.Errorf("Err(...) requires a value or type argument")
+		return true, nil, reportf(span, "result-err-arity",
+			"Err(...) requires a value or type argument",
+			"`Err(...)` needs a value expression or explicit type when an argument is present.",
+			"pass a failure value or write `Err()` with no args")
 	}
 	vt, err := tc.inferExpressionType(*arg.Value)
 	if err != nil {
 		return true, nil, err
 	}
 	if len(vt) != 1 {
-		return true, nil, fmt.Errorf("err argument: expected a single type")
+		return true, nil, reportf(spanOfExpression(*arg.Value), "result-err-arity",
+			"Err(...) argument must have a single type",
+			"The argument to `Err(...)` must infer to exactly one type.",
+			"pass a single failure value")
 	}
 	return true, []ast.TypeNode{vt[0]}, nil
 }
@@ -394,7 +433,10 @@ func (tc *TypeChecker) refinedTypesForAssertionOnVariable(vn ast.VariableNode, a
 		return nil, err
 	}
 	if len(varLeftTypes) != 1 {
-		return nil, fmt.Errorf("expected a single type for assertion subject, got %d", len(varLeftTypes))
+		return nil, reportf(vn.Ident.Span, "narrow-subject-type",
+			"assertion subject must have a single type",
+			fmt.Sprintf("Variable `%s` has %d types for assertion narrowing.", vn.Ident.ID, len(varLeftTypes)),
+			"ensure the subject has a single inferred type")
 	}
 	varLeftType := varLeftTypes[0]
 	// Keep successor scope and hover on the subject's static type (e.g. String) for built-in

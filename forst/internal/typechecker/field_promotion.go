@@ -67,7 +67,7 @@ func (tc *TypeChecker) lookupPromotedFieldInPayload(
 		var ft ast.TypeNode
 		var ferr error
 		if innerShape != nil {
-			ft, ferr = tc.lookupFieldPathOnShape(innerShape, fieldPath)
+			ft, ferr = tc.lookupFieldPathOnShape(innerShape, fieldPath, spanOfShapeField(field))
 		} else {
 			ft, ferr = tc.lookupFieldPath(innerType, fieldPath)
 		}

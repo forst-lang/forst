@@ -61,22 +61,38 @@ func (tc *TypeChecker) inferSwitchClause(
 		if err != nil {
 			return err
 		}
+		valSpan := spanOfExpression(val)
 		if tag != nil {
 			if len(tagTypes) == 0 || len(valTypes) == 0 {
-				return fmt.Errorf("switch case value has unknown type")
+				return reportf(valSpan, "switch-case-type",
+					"switch case value has unknown type",
+					"The case expression could not be typed against the switch tag.",
+					"ensure the case value matches the switch tag type")
 			}
 			if !tc.IsTypeCompatible(valTypes[0], tagTypes[0]) && !tc.IsTypeCompatible(tagTypes[0], valTypes[0]) {
-				return fmt.Errorf("switch case value type %s incompatible with switch tag type %s",
-					valTypes[0].Ident, tagTypes[0].Ident)
+				return reportf(valSpan, "switch-case-type",
+					"switch case type incompatible with tag",
+					fmt.Sprintf("Case type `%s` is incompatible with switch tag type `%s`.", valTypes[0].Ident, tagTypes[0].Ident),
+					"match the switch tag type or convert the case value")
 			}
 		} else {
 			if len(valTypes) == 0 || !tc.IsTypeCompatible(valTypes[0], ast.TypeNode{Ident: ast.TypeBool}) {
-				return fmt.Errorf("switch case condition must be Bool, got %s", valTypes[0].Ident)
+				got := "unknown"
+				if len(valTypes) > 0 {
+					got = string(valTypes[0].Ident)
+				}
+				return reportf(valSpan, "switch-case-bool",
+					"switch case condition must be Bool",
+					fmt.Sprintf("Boolean switch cases must be Bool, got `%s`.", got),
+					"use a boolean expression or comparison")
 			}
 		}
 		if key, ok := switchCaseValueKey(val); ok {
 			if _, dup := seenCaseKeys[key]; dup {
-				return fmt.Errorf("duplicate case %s in switch", keyDisplay(key, val))
+				return reportf(valSpan, "switch-duplicate-case",
+					fmt.Sprintf("duplicate case %s", keyDisplay(key, val)),
+					fmt.Sprintf("Case %s appears more than once in this switch.", keyDisplay(key, val)),
+					"remove the duplicate case or combine the bodies")
 			}
 			seenCaseKeys[key] = struct{}{}
 		}
@@ -86,9 +102,12 @@ func (tc *TypeChecker) inferSwitchClause(
 
 func (tc *TypeChecker) inferSwitchClauseBody(body []ast.Node) error {
 	for _, node := range body {
-		if _, ok := node.(ast.FallthroughNode); ok {
+		if ft, ok := node.(ast.FallthroughNode); ok {
 			if tc.switchDepth == 0 {
-				return fmt.Errorf("fallthrough statement not inside a switch")
+				return reportf(spanOfNode(ft), "fallthrough-outside-switch",
+					"fallthrough not inside a switch",
+					"`fallthrough` may only appear in a switch case body.",
+					"move it into a switch case or remove it")
 			}
 			continue
 		}

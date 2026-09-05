@@ -79,7 +79,7 @@ func (tc *TypeChecker) lookupTypeMethod(typeIdent ast.TypeIdent, methodName stri
 	return sig, ok
 }
 
-func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode, callSpan ast.SourceSpan) ([]ast.TypeNode, error) {
 	typeIdent := typ.Ident
 	if typ.Ident == ast.TypePointer && len(typ.TypeParams) == 1 {
 		typeIdent = typ.TypeParams[0].Ident
@@ -87,11 +87,17 @@ func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, 
 
 	sig, ok := tc.lookupTypeMethod(typeIdent, methodName)
 	if !ok {
-		return nil, fmt.Errorf("method %s() is not defined on type %s", methodName, typeIdent)
+		return nil, reportf(callSpan, "method-undefined",
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typeIdent),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", typeIdent, methodName),
+			"declare the method on the type or call an existing one")
 	}
 
 	if len(args) != len(sig.Parameters) {
-		return nil, fmt.Errorf("method %s() expects %d arguments, got %d", methodName, len(sig.Parameters), len(args))
+		return nil, reportf(callSpan, "method-arity",
+			fmt.Sprintf("method `%s()` argument count mismatch", methodName),
+			fmt.Sprintf("Method `%s()` expects %d argument(s), got %d.", methodName, len(sig.Parameters), len(args)),
+			"match the method signature or add/remove arguments")
 	}
 
 	for i, arg := range args {
@@ -99,12 +105,18 @@ func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, 
 		if err != nil {
 			return nil, err
 		}
+		argSpan := firstSetSpan(spanForCallArg(nil, i, args, callSpan), callSpan)
 		if len(argTypes) != 1 {
-			return nil, fmt.Errorf("method %s() argument %d must have a single type", methodName, i+1)
+			return nil, reportf(argSpan, "method-arg-type",
+				fmt.Sprintf("method `%s()` argument %d must have a single type", methodName, i+1),
+				fmt.Sprintf("Argument %d of `%s()` must infer to exactly one type.", i+1, methodName),
+				"pass a single-typed expression")
 		}
 		if !tc.IsTypeCompatible(argTypes[0], sig.Parameters[i].Type) {
-			return nil, fmt.Errorf("method %s() argument %d: type %s is not compatible with %s",
-				methodName, i+1, argTypes[0].Ident, sig.Parameters[i].Type.Ident)
+			return nil, reportf(argSpan, "method-arg-mismatch",
+				fmt.Sprintf("method `%s()` argument %d type mismatch", methodName, i+1),
+				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, argTypes[0].Ident, methodName, sig.Parameters[i].Type.Ident),
+				"convert the argument or change the method parameter type")
 		}
 	}
 
@@ -114,41 +126,62 @@ func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, 
 	return sig.ReturnTypes, nil
 }
 
-func (tc *TypeChecker) checkContractShapeMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkContractShapeMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode, callSpan ast.SourceSpan) ([]ast.TypeNode, error) {
 	def, ok := tc.Defs[typ.Ident]
 	if !ok {
-		return nil, fmt.Errorf("method %s() is not defined on type %s", methodName, typ.Ident)
+		return nil, reportf(callSpan, "method-undefined",
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			"declare the method on the type or call an existing one")
 	}
 	typeDef, ok := def.(ast.TypeDefNode)
 	if !ok {
-		return nil, fmt.Errorf("method %s() is not defined on type %s", methodName, typ.Ident)
+		return nil, reportf(callSpan, "method-undefined",
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			"declare the method on the type or call an existing one")
 	}
 	fields := tc.typeDefMethodOnlyFields(typeDef)
 	if fields == nil {
-		return nil, fmt.Errorf("method %s() is not defined on type %s", methodName, typ.Ident)
+		return nil, reportf(callSpan, "method-undefined",
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			"declare the method on the type or call an existing one")
 	}
 	field, ok := fields[methodName]
 	if !ok || !field.IsMethod {
-		return nil, fmt.Errorf("method %s() is not defined on type %s", methodName, typ.Ident)
+		return nil, reportf(callSpan, "method-undefined",
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			"declare the method on the type or call an existing one")
 	}
 	if len(args) != len(field.MethodParams) {
-		return nil, fmt.Errorf("method %s() expects %d arguments, got %d", methodName, len(field.MethodParams), len(args))
+		return nil, reportf(callSpan, "method-arity",
+			fmt.Sprintf("method `%s()` argument count mismatch", methodName),
+			fmt.Sprintf("Method `%s()` expects %d argument(s), got %d.", methodName, len(field.MethodParams), len(args)),
+			"match the method signature or add/remove arguments")
 	}
 	for i, arg := range args {
 		argTypes, err := tc.inferExpressionType(arg)
 		if err != nil {
 			return nil, err
 		}
+		argSpan := firstSetSpan(spanForCallArg(nil, i, args, callSpan), callSpan)
 		if len(argTypes) != 1 {
-			return nil, fmt.Errorf("method %s() argument %d must have a single type", methodName, i+1)
+			return nil, reportf(argSpan, "method-arg-type",
+				fmt.Sprintf("method `%s()` argument %d must have a single type", methodName, i+1),
+				fmt.Sprintf("Argument %d of `%s()` must infer to exactly one type.", i+1, methodName),
+				"pass a single-typed expression")
 		}
 		sp, ok := field.MethodParams[i].(ast.SimpleParamNode)
 		if !ok {
 			return nil, fmt.Errorf("method %s() has invalid parameter %d", methodName, i+1)
 		}
 		if !tc.IsTypeCompatible(argTypes[0], sp.Type) {
-			return nil, fmt.Errorf("method %s() argument %d: type %s is not compatible with %s",
-				methodName, i+1, argTypes[0].Ident, sp.Type.Ident)
+			return nil, reportf(argSpan, "method-arg-mismatch",
+				fmt.Sprintf("method `%s()` argument %d type mismatch", methodName, i+1),
+				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, argTypes[0].Ident, methodName, sp.Type.Ident),
+				"convert the argument or change the method parameter type")
 		}
 	}
 	if len(field.MethodReturnTypes) == 0 {
@@ -239,10 +272,10 @@ func (tc *TypeChecker) validateInferredReceiverMethodReturn(fn ast.FunctionNode,
 		if !paramsMatch {
 			continue
 		}
-		return fmt.Errorf(
-			"method %s on %s: inferred return %s from function body, but %s contract requires void (use println for side effects, or declare an explicit return type to opt in)",
-			methodName, recvType, formatTypeList(inferred), contractIdent,
-		)
+		return reportf(fn.Ident.Span, "method-return-mismatch",
+			fmt.Sprintf("method `%s()` return conflicts with contract", methodName),
+			fmt.Sprintf("Method `%s` on `%s` inferred return %s from its body, but contract `%s` requires void.", methodName, recvType, formatTypeList(inferred), contractIdent),
+			"use side effects only (e.g. println), or declare an explicit return type to opt in")
 	}
 	return nil
 }

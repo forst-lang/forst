@@ -403,7 +403,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		}
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
 		if len(argType) != 1 {
-			return nil, diagnosticf(sp, "builtin-call", "string() expects one argument")
+			return nil, reportBodyf(sp, "builtin-call", "string() expects one argument")
 		}
 		switch argType[0].Ident {
 		case ast.TypeInt, ast.TypeBool:
@@ -414,11 +414,11 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			}
 			if argType[0].Ident == ast.TypeResult {
 				if idx, ok := args[0].(ast.IndexExpressionNode); ok && tc.isMapIndexRValue(idx) {
-					return nil, diagnosticf(sp, "builtin-call",
+					return nil, reportBodyf(sp, "builtin-call",
 						"map lookup has type Result(V, Error); use `ensure x is Ok()` (or bind and handle the Result) before using string()")
 				}
 			}
-			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].String())
+			return nil, reportBodyf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].String())
 		}
 	}
 	if fn.Name == "[]byte" && len(args) == 1 {
@@ -428,7 +428,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		}
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
 		if len(argType) != 1 || argType[0].Ident != ast.TypeString {
-			return nil, diagnosticf(sp, "builtin-call", "[]byte() expects a String argument")
+			return nil, reportBodyf(sp, "builtin-call", "[]byte() expects a String argument")
 		}
 		return []ast.TypeNode{fn.ReturnType}, nil
 	}
@@ -443,7 +443,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			return nil, err
 		}
 		if fn.CheckKind == BuiltinCheckDispatch {
-			return nil, diagnosticf(callSpan, "builtin-call", "internal: missing tryDispatchGoBuiltin case for %q", fn.Name)
+			return nil, reportBodyf(callSpan, "builtin-call", "internal: missing tryDispatchGoBuiltin case for %q", fn.Name)
 		}
 	}
 
@@ -461,7 +461,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		if !sp.IsSet() && len(args) > 0 {
 			sp = spanForCallArg(argSpans, 0, args, callSpan)
 		}
-		return nil, diagnosticf(sp, "builtin-call", "%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
+		return nil, reportBodyf(sp, "builtin-call", "%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 	}
 
 	// Check argument types
@@ -481,7 +481,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			tc.log.WithFields(logrus.Fields{
 				"function": "checkBuiltinFunctionCall",
 			}).Errorf("%s() argument %d must have a single type, got %d", fn.Name, i+1, len(argType))
-			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must have a single type", fn.Name, i+1)
+			return nil, reportBodyf(sp, "builtin-call", "%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
 		var expectedType ast.TypeNode
@@ -512,7 +512,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			tc.log.WithFields(logrus.Fields{
 				"function": "checkBuiltinFunctionCall",
 			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
-			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must be of type %s, got %s",
+			return nil, reportBodyf(sp, "builtin-call", "%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 		}
 	}
@@ -522,7 +522,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 
 func (tc *TypeChecker) inferBuiltinArgType(args []ast.ExpressionNode, i int, argSpans []ast.SourceSpan, callSpan ast.SourceSpan) (ast.TypeNode, error) {
 	if i < 0 || i >= len(args) {
-		return ast.TypeNode{}, diagnosticf(callSpan, "builtin-call", "internal: missing argument %d", i+1)
+		return ast.TypeNode{}, reportBodyf(callSpan, "builtin-call", "internal: missing argument %d", i+1)
 	}
 	sp := spanForCallArg(argSpans, i, args, callSpan)
 	ts, err := tc.inferExpressionType(args[i])
@@ -530,7 +530,7 @@ func (tc *TypeChecker) inferBuiltinArgType(args []ast.ExpressionNode, i int, arg
 		return ast.TypeNode{}, err
 	}
 	if len(ts) != 1 {
-		return ast.TypeNode{}, diagnosticf(sp, "builtin-call", "argument %d must have a single type", i+1)
+		return ast.TypeNode{}, reportBodyf(sp, "builtin-call", "argument %d must have a single type", i+1)
 	}
 	return ts[0], nil
 }

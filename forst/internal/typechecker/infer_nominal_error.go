@@ -17,11 +17,11 @@ func (tc *TypeChecker) inferNominalErrorConstructorCall(e ast.FunctionCallNode, 
 		return nil, false, nil
 	}
 	if len(e.Arguments) != 1 {
-		return nil, true, diagnosticf(e.CallSpan, "call-arity", "%s(...) expects one payload argument", e.Function.ID)
+		return nil, true, reportBodyf(e.CallSpan, "call-arity", "%s(...) expects one payload argument", e.Function.ID)
 	}
 	shape, ok := e.Arguments[0].(ast.ShapeNode)
 	if !ok {
-		return nil, true, diagnosticf(e.CallSpan, "call-type", "%s(...) argument must be a shape literal", e.Function.ID)
+		return nil, true, reportBodyf(e.CallSpan, "call-type", "%s(...) argument must be a shape literal", e.Function.ID)
 	}
 	payload := errEx.Payload
 	inferred, err := tc.inferShapeType(shape, &ast.TypeNode{Ident: def.Ident})

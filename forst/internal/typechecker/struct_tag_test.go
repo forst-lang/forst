@@ -36,7 +36,7 @@ type Config = {
 	}
 	var found bool
 	for _, w := range tc.Warnings {
-		if w.Code == "struct-tag-json-unexported" && strings.Contains(w.Msg, "host") {
+		if w.Code == "struct-tag-json-unexported" && strings.Contains(w.Error(), "host") {
 			found = true
 			break
 		}

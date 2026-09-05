@@ -279,11 +279,11 @@ func TestX(t *testing.T) {
 	if diag.Code != "providers-unsatisfied" {
 		t.Fatalf("code = %q, want providers-unsatisfied", diag.Code)
 	}
-	if !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("message should mention Logger: %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("message should mention Logger: %q", diag.Error())
 	}
-	if !strings.Contains(diag.Msg, "TestX → needsLogger") {
-		t.Fatalf("message should include obligation chain: %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "TestX → needsLogger") {
+		t.Fatalf("message should include obligation chain: %q", diag.Error())
 	}
 	if len(diag.Related) < 2 {
 		t.Fatalf("expected related diagnostics for obligation chain, got %d", len(diag.Related))
@@ -354,7 +354,7 @@ func TestX(t *testing.T) {
 	}
 	found := false
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Clock") {
 			found = true
 			break
 		}
@@ -398,13 +398,13 @@ func TestAssignCall(t *testing.T) {
 		t.Fatalf("typecheck: %v", err)
 	}
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Logger") {
-			t.Fatalf("Logger should be required via assignment call, got warning: %s", w.Msg)
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Logger") {
+			t.Fatalf("Logger should be required via assignment call, got warning: %s", w.Error())
 		}
 	}
 	foundClockUnused := false
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Clock") {
 			foundClockUnused = true
 			break
 		}

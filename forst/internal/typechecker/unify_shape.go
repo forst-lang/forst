@@ -148,7 +148,7 @@ func (tc *TypeChecker) ValidateShapeFields(shapeNode ast.ShapeNode, leftShapeFie
 	for fieldName, rightField := range shapeNode.Fields {
 		leftField, exists := leftShapeFields[fieldName]
 		if !exists {
-			return fmt.Errorf("field %s not found in shape type %s", fieldName, underlyingType)
+			return shapeUnknownFieldError(string(underlyingType), fieldName, shapeFieldNames(leftShapeFields), spanOfShapeField(rightField))
 		}
 		// Compare field types
 		if rightField.Assertion != nil && leftField.Assertion != nil {
