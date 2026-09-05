@@ -67,8 +67,8 @@ Constraints **chain with dots** on the base type. All chained rules must pass:
 
 | Type | Constraints | Meaning |
 | --- | --- | --- |
-| **`String`** | `.Min(n)`, `.Max(n)` | Unicode **code point** (rune) bounds |
-| | `.MinBytes(n)`, `.MaxBytes(n)` | UTF-8 **byte** length bounds |
+| **`String`** | `.Min(n)`, `.Max(n)` | Unicode **character** count bounds |
+| | `.MinBytes(n)`, `.MaxBytes(n)` | UTF-8 **byte** size bounds |
 | | `.HasPrefix("…")`, `.HasSuffix("…")` | Must start or end with a literal |
 | | `.Contains("…")` | Must contain substring |
 | | `.NotEmpty()` | `len != 0` |
@@ -84,7 +84,7 @@ Constraints **chain with dots** on the base type. All chained rules must pass:
 | **`Bool`** | `.True()`, `.False()` | Must be `true` or `false` |
 | **`*T` (pointers)** | `.Nil()`, `.Present()` | Optional vs required fields |
 
-`String.Min` / `Max` count Unicode code points (`utf8.RuneCountInString`), matching JSON Schema `minLength` / `maxLength`. They are not grapheme clusters and not JavaScript UTF-16 units (Zod `.min` / `.max` still use JS string length). Use `MinBytes` / `MaxBytes` when you need a UTF-8 wire-size cap on text.
+`String.Min` and `Max` limit length by Unicode character count. That matches JSON Schema `minLength` and `maxLength`. Use `MinBytes` and `MaxBytes` when you need a UTF-8 size limit, such as a header or payload cap.
 
 Use constraints on struct fields, function parameters, and nested shapes. Validation follows the data structure, including deeply nested records.
 
