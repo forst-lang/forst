@@ -185,14 +185,14 @@ type Order = {
 }
 
 type Address = {
-    country: String,
+    country: *String,
 }
 
 is (order Order) Shippable() {
     ensure order.address.country is Present()
 }
 
-func ship(order Order) {
+func ship(order Order.Shippable()) {
     // Requires order to be Shippable
 }
 ```
