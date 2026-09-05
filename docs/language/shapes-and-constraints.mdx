@@ -107,7 +107,7 @@ Invalid nested data fails at the same boundary. You do not re-walk the tree in a
 
 ## Caveats
 
-## Constraints stay small and composable
+### Constraints stay small and composable
 
 Built-in constraints are a **fixed set of simple checks**: length, bounds, prefixes, suffixes, and a few similar rules. You combine them with dots (all must pass) and `or` (one must pass). That keeps types readable and lets the compiler reuse the same rules for `ensure`, JSON Schema, and generated clients.
 
