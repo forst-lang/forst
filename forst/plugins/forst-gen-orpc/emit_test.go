@@ -146,9 +146,9 @@ func TestZodEnc_stringMinMax_codePointsNotUtf16(t *testing.T) {
 	z.need("p.Qty")
 	out := z.emit()
 	for _, want := range []string{
-		`[...v].length >= 3`,
-		`[...v].length <= 10`,
-		`new TextEncoder().encode(v).length <= 32`,
+		`.refine((v: string) => [...v].length >= 3)`,
+		`.refine((v: string) => [...v].length <= 10)`,
+		`.refine((v: string) => new TextEncoder().encode(v).length <= 32)`,
 		`.min(1)`, // int Min stays numeric
 	} {
 		if !strings.Contains(out, want) {
@@ -170,8 +170,8 @@ func TestZodEnc_stringNotEmpty_codePoints(t *testing.T) {
 	z := newZodEnc(types)
 	z.need("p.Tag")
 	out := z.emit()
-	if !strings.Contains(out, `[...v].length >= 1`) {
-		t.Fatalf("NotEmpty on string should use code points:\n%s", out)
+	if !strings.Contains(out, `.refine((v: string) => [...v].length >= 1)`) {
+		t.Fatalf("NotEmpty on string should use typed code-point refine:\n%s", out)
 	}
 }
 

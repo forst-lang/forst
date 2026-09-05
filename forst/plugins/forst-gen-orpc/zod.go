@@ -286,11 +286,11 @@ func applyZodStringConstraint(expr string, c semantic.Constraint) string {
 	switch c.Name {
 	case "Min":
 		if n, ok := numericArg(c.Args); ok && zodBoundApplies("string", c.Applies) {
-			return expr + fmt.Sprintf(".refine((v) => [...v].length >= %d)", int(n))
+			return expr + fmt.Sprintf(".refine((v: string) => [...v].length >= %d)", int(n))
 		}
 	case "Max":
 		if n, ok := numericArg(c.Args); ok && zodBoundApplies("string", c.Applies) {
-			return expr + fmt.Sprintf(".refine((v) => [...v].length <= %d)", int(n))
+			return expr + fmt.Sprintf(".refine((v: string) => [...v].length <= %d)", int(n))
 		}
 	case "HasPrefix":
 		if prefix, ok := stringArg(c.Args); ok {
@@ -310,10 +310,10 @@ func applyZodStringConstraint(expr string, c semantic.Constraint) string {
 			if c.Name == "MaxBytes" {
 				op = "<="
 			}
-			return expr + fmt.Sprintf(".refine((v) => new TextEncoder().encode(v).length %s %v)", op, int(n))
+			return expr + fmt.Sprintf(".refine((v: string) => new TextEncoder().encode(v).length %s %v)", op, int(n))
 		}
 	case "NotEmpty":
-		return expr + ".refine((v) => [...v].length >= 1)"
+		return expr + ".refine((v: string) => [...v].length >= 1)"
 	default:
 		return applyZodSharedConstraint(expr, c)
 	}
@@ -382,7 +382,7 @@ func applyZodSharedConstraint(expr string, c semantic.Constraint) string {
 	case "Nil":
 		return expr + ".nullable()"
 	case "Present":
-		return expr + ".refine((v) => v != null)"
+		return expr + ".refine((v: unknown) => v != null)"
 	case "Value":
 		if len(c.Args) >= 1 {
 			return fmt.Sprintf("z.literal(%v)", zodLiteral(c.Args[0]))
