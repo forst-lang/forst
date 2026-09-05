@@ -84,8 +84,9 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 		// `|` between call-like expressions is almost always a mistaken boolean/assertion OR.
 		if operator == ast.TokenBitwiseOr {
 			if _, isCall := lhs.(ast.FunctionCallNode); isCall {
-				p.FailWithParseError(p.current(),
-					"refinement-pipe-in-assertion: `|` is not boolean OR; use `||` in expressions or `or` inside `is`")
+				p.FailWithReport(p.current(), "refinement-pipe-in-assertion", "`|` is not boolean OR",
+					"`|` is not boolean OR; use `||` in expressions or `or` inside `is`.",
+					"in expressions use `||`; inside refinements use `or`")
 			}
 		}
 		p.advance()
@@ -171,7 +172,9 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		operand := p.parseUnaryOrPrimary(depth + 1)
 		vn, ok := operand.(ast.ValueNode)
 		if !ok {
-			p.FailWithParseError(p.current(), "dereference operand must be a value expression")
+			p.FailWithReport(p.current(), "deref-value-required", "dereference operand must be a value expression",
+				"dereference operand must be a value expression.",
+				"dereference a variable or field, not a type or statement")
 		}
 		base = ast.DereferenceNode{Value: vn}
 	case p.current().Type == ast.TokenLParen:
@@ -194,9 +197,13 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		typeTok := p.current()
 		p.advance()
 		if p.current().Type == ast.TokenLParen {
-			p.FailWithParseError(typeTok, typeTok.Value+" is a type, not a conversion; use Go stdlib (e.g. strconv) or string() for formatting")
+			p.FailWithReport(typeTok, "type-as-conversion", typeTok.Value+" is a type, not a conversion",
+				typeTok.Value+" is a type, not a conversion; use Go stdlib (e.g. strconv) or string() for formatting.",
+				"Forst does not support C-style type conversions")
 		}
-		p.FailWithParseError(typeTok, typeTok.Value+" is a type name, not an expression")
+		p.FailWithReport(typeTok, "type-as-expression", typeTok.Value+" is a type name, not an expression",
+			typeTok.Value+" is a type name, not an expression.",
+			"use a value or literal here, not a type name")
 	case p.current().Type == ast.TokenNil:
 		p.advance()
 		base = ast.NilLiteralNode{}
@@ -377,14 +384,15 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 		rparen := p.expect(ast.TokenRParen)
 		if ident.ID == "Ok" || ident.ID == "Err" {
 			if len(args) != 1 {
-				p.FailWithParseError(lparen, string(ident.ID)+" expects exactly one argument")
+				p.FailWithReport(lparen, "result-constructor-args", string(ident.ID)+" expects exactly one argument",
+					string(ident.ID)+" expects exactly one argument.",
+					fmt.Sprintf("write `%s(value)` with a single value", ident.ID))
 			}
-			_ = argSpans
-			_ = rparen
+			callSpan := ast.SpanBetweenTokens(lparen, rparen)
 			if ident.ID == "Ok" {
-				return ast.OkExprNode{Value: args[0]}
+				return ast.OkExprNode{Value: args[0], Span: callSpan}
 			}
-			return ast.ErrExprNode{Value: args[0]}
+			return ast.ErrExprNode{Value: args[0], Span: callSpan}
 		}
 		return ast.FunctionCallNode{
 			Function:  ident,
@@ -417,7 +425,9 @@ func (p *Parser) tryParseSliceConversion() (ast.ExpressionNode, bool) {
 		return nil, false
 	}
 	if isBuiltinTypeKeywordIdent(elemType.Ident) {
-		p.FailWithParseError(rbrack, "[]"+string(elemType.Ident)+" is not a slice conversion; use Go stdlib or []byte(s) for string-to-bytes")
+		p.FailWithReport(rbrack, "type-as-conversion", "[]"+string(elemType.Ident)+" is not a slice conversion",
+			"[]"+string(elemType.Ident)+" is not a slice conversion; use Go stdlib or []byte(s) for string-to-bytes.",
+			"Forst does not support C-style slice conversions")
 	}
 	convName := ast.Identifier("[]" + string(elemType.Ident))
 	lparen := p.current()

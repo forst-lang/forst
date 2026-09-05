@@ -23,6 +23,8 @@ type ConstraintNode struct {
 	Node
 	Name string
 	Args []ConstraintArgumentNode
+	// Span of the constraint name (and call) for diagnostics.
+	Span SourceSpan
 }
 
 func (c ConstraintNode) String() string {

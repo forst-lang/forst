@@ -18,8 +18,8 @@ func (tc *TypeChecker) goInteropHost() gointerop.Host {
 }
 
 func (tc *TypeChecker) goInteropDiag() gointerop.Diagnose {
-	return func(span ast.SourceSpan, code, format string, args ...any) error {
-		return diagnosticf(span, code, format, args...)
+	return func(span ast.SourceSpan, code, title, problem, help string) error {
+		return reportf(span, code, title, problem, help)
 	}
 }
 

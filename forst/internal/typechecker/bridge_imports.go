@@ -55,7 +55,7 @@ func (tc *TypeChecker) collectImportNode(imp ast.ImportNode) error {
 			tc.nodeImports = append(tc.nodeImports, imp)
 			return nil
 		}
-		return diagnosticf(ast.SourceSpan{}, "js-import",
+		return reportBodyf(importNodeSpan(imp), "js-import",
 			"cannot import TypeScript module without import \"./path\" js or import alias \"./path\" js (%s found)", hint)
 	}
 	if err := tc.validateGoImportAtCollect(imp); err != nil {
@@ -115,7 +115,7 @@ func (tc *TypeChecker) resolveNodeImports() error {
 	for _, imp := range tc.nodeImports {
 		moduleID, absPath, err := tc.resolveNodeImportPath(root, forstDir, imp.Path)
 		if err != nil {
-			return diagnosticf(ast.SourceSpan{}, "js-import", "%s", err.Error())
+			return reportBodyf(importNodeSpan(imp), "js-import", "%s", err.Error())
 		}
 		binding := importlocal.BindingFromAST(imp, importlocal.BindingOpts{
 			Kind:     importlocal.KindBridge,
@@ -125,22 +125,22 @@ func (tc *TypeChecker) resolveNodeImports() error {
 		for name := range tc.nodeImportsByLocal {
 			seen[name] = name
 		}
-		if err := tc.validateNodeImportLocal(binding, seen); err != nil {
+		if err := tc.validateNodeImportLocal(binding, seen, imp); err != nil {
 			return err
 		}
 		local := binding.Local
 		if absPath != "" {
 			if _, err := os.Stat(absPath); err != nil {
-				return diagnosticf(ast.SourceSpan{}, "js-import", "TypeScript module not found: %s", absPath)
+				return reportBodyf(importNodeSpan(imp), "js-import", "TypeScript module not found: %s", absPath)
 			}
 		}
 
 		idx, err := tc.loadNodeModuleIndex(boundaryRoot, moduleID)
 		if err != nil {
-			return diagnosticf(ast.SourceSpan{}, "js-import", "failed to load index for %q: %v", moduleID, err)
+			return reportBodyf(importNodeSpan(imp), "js-import", "failed to load index for %q: %v", moduleID, err)
 		}
 		if idx.ModuleID != moduleID {
-			return diagnosticf(ast.SourceSpan{}, "js-import", "index moduleId %q does not match resolved module %q", idx.ModuleID, moduleID)
+			return reportBodyf(importNodeSpan(imp), "js-import", "index moduleId %q does not match resolved module %q", idx.ModuleID, moduleID)
 		}
 
 		tc.nodeImportsByLocal[local] = nodeImportBinding{
@@ -152,18 +152,19 @@ func (tc *TypeChecker) resolveNodeImports() error {
 		loadedIndexes = append(loadedIndexes, idx)
 	}
 
+	jsSpan := importNodeSpan(tc.nodeImports[0])
 	manifest, err := bridgeinterop.BuildManifestV1(boundaryRoot, indexesToForstIndexSlice(loadedIndexes))
 	if err != nil {
-		return diagnosticf(ast.SourceSpan{}, "js-import", "failed to build bridge manifest: %v", err)
+		return reportBodyf(jsSpan, "js-import", "failed to build bridge manifest: %v", err)
 	}
 
 	bridge, bridgeErr := ftconfig.LoadFromDir(boundaryRoot)
 	if bridgeErr != nil {
-		return diagnosticf(ast.SourceSpan{}, "js-import", "failed to load ftconfig: %v", bridgeErr)
+		return reportBodyf(jsSpan, "js-import", "failed to load ftconfig: %v", bridgeErr)
 	}
 	effectiveBridge, bridgeErr := ftconfig.EffectiveBridge(bridge)
 	if bridgeErr != nil {
-		return diagnosticf(ast.SourceSpan{}, "js-import", "%v", bridgeErr)
+		return reportBodyf(jsSpan, "js-import", "%v", bridgeErr)
 	}
 	if effectiveBridge.ModuleFormat == ftconfig.LegacyModuleCompiled {
 		sourceIDs := make([]string, 0, len(loadedIndexes))
@@ -173,14 +174,14 @@ func (tc *TypeChecker) resolveNodeImports() error {
 			}
 		}
 		if err := bridgeinterop.PrecompileEntries(boundaryRoot, sourceIDs, effectiveBridge.OutDir); err != nil {
-			return diagnosticf(ast.SourceSpan{}, "js-import", "precompile legacy modules: %v", err)
+			return reportBodyf(jsSpan, "js-import", "precompile legacy modules: %v", err)
 		}
 		manifest = bridgeinterop.RemapManifestModuleIDs(manifest)
 	}
 
 	manifestJSON, err := manifest.EmbeddedManifestJSON()
 	if err != nil {
-		return diagnosticf(ast.SourceSpan{}, "js-import", "failed to encode bridge manifest: %v", err)
+		return reportBodyf(jsSpan, "js-import", "failed to encode bridge manifest: %v", err)
 	}
 	tc.bridgeRuntime = BridgeRuntimeInfo{
 		NeedsBridgeRuntime: true,
@@ -318,7 +319,7 @@ func (tc *TypeChecker) tryNodeQualifiedCall(pkgLocal, funcName string, e ast.Fun
 		return nil, false, nil
 	}
 	if tc.nodeIndexResolver == nil {
-		return nil, true, diagnosticf(e.CallSpan, "node-call", "node index resolver not initialized")
+		return nil, true, reportBodyf(e.CallSpan, "node-call", "node index resolver not initialized")
 	}
 	params, returns, kind, widened, err := tc.nodeIndexResolver.ExportSignatureWithWarnings(mod.ModuleID, funcName)
 	if err != nil {
@@ -326,7 +327,7 @@ func (tc *TypeChecker) tryNodeQualifiedCall(pkgLocal, funcName string, e ast.Fun
 		if !sp.IsSet() {
 			sp = e.Function.Span
 		}
-		return nil, true, diagnosticf(sp, "node-call", "%s.%s: %v", pkgLocal, funcName, err)
+		return nil, true, reportBodyf(sp, "node-call", "%s.%s: %v", pkgLocal, funcName, err)
 	}
 	for _, path := range widened {
 		tc.warnf(e.CallSpan, "node-type-widened",
@@ -337,17 +338,17 @@ func (tc *TypeChecker) tryNodeQualifiedCall(pkgLocal, funcName string, e ast.Fun
 		if len(argTypes) > len(params) {
 			sp = spanForCallArg(e.ArgSpans, len(params), e.Arguments, e.CallSpan)
 		}
-		return nil, true, diagnosticf(sp, "node-call", "%s.%s expects %d arguments, got %d",
+		return nil, true, reportBodyf(sp, "node-call", "%s.%s expects %d arguments, got %d",
 			pkgLocal, funcName, len(params), len(argTypes))
 	}
 	for i, param := range params {
 		sp := spanForCallArg(e.ArgSpans, i, e.Arguments, e.CallSpan)
 		if len(argTypes[i]) != 1 {
-			return nil, true, diagnosticf(sp, "node-call", "%s.%s argument %d must have a single type, got %d",
+			return nil, true, reportBodyf(sp, "node-call", "%s.%s argument %d must have a single type, got %d",
 				pkgLocal, funcName, i+1, len(argTypes[i]))
 		}
 		if !tc.IsTypeCompatible(argTypes[i][0], param) {
-			return nil, true, diagnosticf(sp, "node-call", "%s.%s argument %d: expected type %s, got %s",
+			return nil, true, reportBodyf(sp, "node-call", "%s.%s argument %d: expected type %s, got %s",
 				pkgLocal, funcName, i+1, param.Ident, argTypes[i][0].Ident)
 		}
 	}

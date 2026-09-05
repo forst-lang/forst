@@ -85,7 +85,7 @@ func TestValidateTypeDefAssertion_andProcessTypeGuardFields(t *testing.T) {
 			},
 		},
 	}
-	if err := tc.validateTypeDefAssertion(assertion, ast.TypeNode{Ident: ast.TypeInt}); err != nil {
+	if err := tc.validateTypeDefAssertion(assertion, ast.TypeNode{Ident: ast.TypeInt}, ast.SourceSpan{}); err != nil {
 		t.Fatalf("validateTypeDefAssertion: %v", err)
 	}
 	shape := &ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}

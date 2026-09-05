@@ -70,18 +70,18 @@ func (tc *TypeChecker) validateEnsureTypeTarget(ensure ast.EnsureNode, subjectTy
 	name := tt.Name
 	if def, ok := tc.Defs[name]; ok {
 		if _, isGuard := def.(ast.TypeGuardNode); isGuard {
-			return diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+			return reportBodyf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
 				"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
 				name, name)
 		}
 		if _, isGuard := def.(*ast.TypeGuardNode); isGuard {
-			return diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+			return reportBodyf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
 				"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
 				name, name)
 		}
 	}
 	if !tc.isRuntimeEnsureTypeTarget(name) {
-		return diagnosticf(ensure.Variable.Ident.Span, "refinement-type-target-not-runtime",
+		return reportBodyf(ensure.Variable.Ident.Span, "refinement-type-target-not-runtime",
 			"refinement-type-target-not-runtime: type %s is not a runtime ensure target; use a literal-union, enum subset, or nominal scalar domain",
 			name)
 	}
@@ -95,14 +95,14 @@ func (tc *TypeChecker) validateEnsureTypeTarget(ensure ast.EnsureNode, subjectTy
 		// Also allow already-narrowed same-domain values.
 		subjCarrier, subOk := tc.carrierTypeForNamedType(subjectType)
 		if !subOk || subjCarrier.Ident != carrier.Ident {
-			return fmt.Errorf("type target %s expects carrier %s, got %s", name, carrier.Ident, subjectType.Ident)
+			return fmt.Errorf("type target %s expects carrier %s, got %s", name, formatTypeIdentForDiag(carrier.Ident), formatTypeIdentForDiag(subjectType.Ident))
 		}
 	}
 	return nil
 }
 
 // rejectTypeNameAsAssertionCall rejects `ensure x is ActiveStatus()` when ActiveStatus is a type.
-func (tc *TypeChecker) rejectTypeNameAsAssertionCall(assertion ast.AssertionNode) error {
+func (tc *TypeChecker) rejectTypeNameAsAssertionCall(assertion ast.AssertionNode, subjectSpan ast.SourceSpan) error {
 	// Join alternatives: legacy failure-`or` and other OrChains diagnostics own this site first.
 	if len(assertion.OrChains) > 0 {
 		return nil
@@ -120,7 +120,11 @@ func (tc *TypeChecker) rejectTypeNameAsAssertionCall(assertion ast.AssertionNode
 	if def, ok := tc.Defs[name].(ast.TypeDefNode); ok {
 		// Built-in-like constraints are not TypeDefNodes.
 		_ = def
-		return diagnosticf(ast.SourceSpan{}, "refinement-enum-variant-not-assertion",
+		sp := subjectSpan
+		if len(assertion.Constraints) > 0 {
+			sp = firstSetSpan(constraintSpan(assertion.Constraints[0]), subjectSpan)
+		}
+		return reportBodyf(sp, "refinement-enum-variant-not-assertion",
 			"refinement-enum-variant-not-assertion: %s is a type, not an assertion; use `ensure x is %s` (no parentheses)",
 			name, name)
 	}

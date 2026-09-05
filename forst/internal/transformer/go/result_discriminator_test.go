@@ -136,7 +136,7 @@ func TestTransformResultIsDiscriminator_splitLocal(t *testing.T) {
 
 	t.Run("unknown_discriminator", func(t *testing.T) {
 		_, err := tr.transformResultIsDiscriminator(left, ast.ConstraintNode{Name: "Nope"})
-		if err == nil || !strings.Contains(err.Error(), "not Ok/Err") {
+		if err == nil || (!strings.Contains(err.Error(), "result-ok-arity") && !strings.Contains(err.Error(), "not an Ok/Err")) {
 			t.Fatalf("unexpected: %v", err)
 		}
 	})

@@ -253,7 +253,7 @@ func (tc *TypeChecker) validateGenericCallArgCount(sig FunctionSignature, nArgs 
 
 func (tc *TypeChecker) genericDiag(span ast.SourceSpan, msg string) error {
 	if span.IsSet() {
-		return diagnosticf(span, "generic-type", "%s", msg)
+		return reportBodyf(span, "generic-type", "%s", msg)
 	}
 	return fmt.Errorf("%s", msg)
 }

@@ -53,7 +53,7 @@ func (tc *TypeChecker) lookupFieldPathOnMergedFields(fields map[string]ast.Shape
 		return tc.resolveTypeAliasChain(*field.Type), nil
 	}
 	if field.Shape != nil && len(fieldPath) > 1 {
-		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
+		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:], spanOfShapeField(field))
 	}
 	if field.Shape != nil && len(fieldPath) == 1 {
 		// Single-segment path with shape field - return shape type

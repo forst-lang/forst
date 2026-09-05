@@ -48,7 +48,7 @@ func (ctx importLocalContext) takenSet() importlocal.TakenSet {
 	return taken
 }
 
-func (ctx importLocalContext) checkReserved(binding importlocal.Binding, kind importlocal.Kind) error {
+func (ctx importLocalContext) checkReserved(binding importlocal.Binding, kind importlocal.Kind, span ast.SourceSpan) error {
 	if binding.Skip || binding.Local == "" {
 		return nil
 	}
@@ -62,12 +62,12 @@ func (ctx importLocalContext) checkReserved(binding importlocal.Binding, kind im
 		if kind == importlocal.KindGo {
 			code = "go-import-reserved-local"
 		}
-		return diagnosticf(ast.SourceSpan{}, code, "%s", msg)
+		return reportBodyf(span, code, "%s", msg)
 	}
 	return nil
 }
 
-func (ctx importLocalContext) checkCrossKindConflict(local string, kind importlocal.Kind) error {
+func (ctx importLocalContext) checkCrossKindConflict(local string, kind importlocal.Kind, span ast.SourceSpan) error {
 	if local == "" {
 		return nil
 	}
@@ -79,11 +79,11 @@ func (ctx importLocalContext) checkCrossKindConflict(local string, kind importlo
 				ModuleID: imp.Path,
 			})
 			if !b.Skip && b.Local == local {
-				return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with JS import", local)
+				return reportBodyf(span, "go-import", "Go import local name %q conflicts with JS import", local)
 			}
 		}
 		if _, ok := ctx.nodeByLocal[local]; ok {
-			return diagnosticf(ast.SourceSpan{}, "go-import", "Go import local name %q conflicts with JS import", local)
+			return reportBodyf(span, "go-import", "Go import local name %q conflicts with JS import", local)
 		}
 	case importlocal.KindBridge:
 		for _, imp := range ctx.goImports {
@@ -92,23 +92,23 @@ func (ctx importLocalContext) checkCrossKindConflict(local string, kind importlo
 				ModuleID: importlocal.GoModuleID(imp.Path),
 			})
 			if !b.Skip && b.Local == local {
-				return diagnosticf(ast.SourceSpan{}, "js-import", "JS import local name %q conflicts with Go import", local)
+				return reportBodyf(span, "js-import", "JS import local name %q conflicts with Go import", local)
 			}
 		}
 	}
 	return nil
 }
 
-func (ctx importLocalContext) checkDuplicate(local, pathKey string, kind importlocal.Kind, seen map[string]string) error {
+func (ctx importLocalContext) checkDuplicate(local, pathKey string, kind importlocal.Kind, seen map[string]string, span ast.SourceSpan) error {
 	if local == "" {
 		return nil
 	}
 	if prev, dup := seen[local]; dup && prev != pathKey {
 		switch kind {
 		case importlocal.KindGo:
-			return diagnosticf(ast.SourceSpan{}, "go-import", "duplicate Go import local name %q", local)
+			return reportBodyf(span, "go-import", "duplicate Go import local name %q", local)
 		default:
-			return diagnosticf(ast.SourceSpan{}, "js-import", "duplicate JS import local name %q", local)
+			return reportBodyf(span, "js-import", "duplicate JS import local name %q", local)
 		}
 	}
 	seen[local] = pathKey
@@ -124,10 +124,11 @@ func (tc *TypeChecker) validateGoImportAtCollect(imp ast.ImportNode) error {
 		Kind:     importlocal.KindGo,
 		ModuleID: importlocal.GoModuleID(imp.Path),
 	})
-	if err := ctx.checkReserved(b, importlocal.KindGo); err != nil {
+	span := importNodeSpan(imp)
+	if err := ctx.checkReserved(b, importlocal.KindGo, span); err != nil {
 		return err
 	}
-	if err := ctx.checkCrossKindConflict(b.Local, importlocal.KindGo); err != nil {
+	if err := ctx.checkCrossKindConflict(b.Local, importlocal.KindGo, span); err != nil {
 		return err
 	}
 	for _, existing := range tc.imports {
@@ -138,7 +139,7 @@ func (tc *TypeChecker) validateGoImportAtCollect(imp ast.ImportNode) error {
 		if eb.Skip || eb.Local != b.Local {
 			continue
 		}
-		return diagnosticf(ast.SourceSpan{}, "go-import", "duplicate Go import local name %q", b.Local)
+		return reportBodyf(span, "go-import", "duplicate Go import local name %q", b.Local)
 	}
 	return nil
 }
@@ -152,13 +153,13 @@ func (tc *TypeChecker) validateGoImportLocalsAfterLoad(loaded map[string]*packag
 		if b.Skip {
 			continue
 		}
-		if err := ctx.checkReserved(b, importlocal.KindGo); err != nil {
+		if err := ctx.checkReserved(b, importlocal.KindGo, importNodeSpan(imp)); err != nil {
 			return err
 		}
-		if err := ctx.checkCrossKindConflict(b.Local, importlocal.KindGo); err != nil {
+		if err := ctx.checkCrossKindConflict(b.Local, importlocal.KindGo, importNodeSpan(imp)); err != nil {
 			return err
 		}
-		if err := ctx.checkDuplicate(b.Local, goPath, importlocal.KindGo, seen); err != nil {
+		if err := ctx.checkDuplicate(b.Local, goPath, importlocal.KindGo, seen, importNodeSpan(imp)); err != nil {
 			return err
 		}
 	}
@@ -179,15 +180,16 @@ func goBindingFromLoaded(imp ast.ImportNode, loaded map[string]*packages.Package
 	return importlocal.BindingFromAST(imp, opts)
 }
 
-func (tc *TypeChecker) validateNodeImportLocal(binding importlocal.Binding, seen map[string]string) error {
+func (tc *TypeChecker) validateNodeImportLocal(binding importlocal.Binding, seen map[string]string, imp ast.ImportNode) error {
 	ctx := tc.importLocalContext()
-	if err := ctx.checkReserved(binding, importlocal.KindBridge); err != nil {
+	span := importNodeSpan(imp)
+	if err := ctx.checkReserved(binding, importlocal.KindBridge, span); err != nil {
 		return err
 	}
-	if err := ctx.checkCrossKindConflict(binding.Local, importlocal.KindBridge); err != nil {
+	if err := ctx.checkCrossKindConflict(binding.Local, importlocal.KindBridge, span); err != nil {
 		return err
 	}
-	return ctx.checkDuplicate(binding.Local, binding.ModuleID, importlocal.KindBridge, seen)
+	return ctx.checkDuplicate(binding.Local, binding.ModuleID, importlocal.KindBridge, seen, span)
 }
 
 func (tc *TypeChecker) registerImportLocalsFromAST() {

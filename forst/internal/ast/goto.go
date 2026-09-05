@@ -5,6 +5,7 @@ import "fmt"
 // GotoNode is a goto statement: goto Label.
 type GotoNode struct {
 	Label *Ident
+	Span  SourceSpan
 }
 
 func (g GotoNode) Kind() NodeKind { return NodeKindGoto }

@@ -108,8 +108,8 @@ func main() {
 	if !errors.As(err, &diag) || diag.Code != "go-call" {
 		t.Fatalf("want go-call diagnostic, got %v", err)
 	}
-	if !strings.Contains(diag.Msg, "cannot spread") {
-		t.Fatalf("want cannot spread in message, got %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "cannot spread") {
+		t.Fatalf("want cannot spread in message, got %q", diag.Error())
 	}
 }
 
@@ -131,8 +131,8 @@ func main() {
 	if !errors.As(err, &diag) || diag.Code != "go-call" {
 		t.Fatalf("want go-call diagnostic, got %v", err)
 	}
-	if !strings.Contains(diag.Msg, "only trailing argument") {
-		t.Fatalf("want trailing spread message, got %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "only trailing argument") {
+		t.Fatalf("want trailing spread message, got %q", diag.Error())
 	}
 }
 

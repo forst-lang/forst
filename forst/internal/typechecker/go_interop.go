@@ -254,13 +254,18 @@ func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallN
 		var diag *Diagnostic
 		if errors.As(err, &diag) {
 			switch {
-			case strings.Contains(diag.Msg, "not found in Go package"):
+			case diag.Code == "go-member-missing" || strings.Contains(diag.Error(), "not found"):
+				// Soft miss: fall through to Forst builtins (e.g. println).
 				return nil, false, nil
-			case strings.Contains(diag.Msg, "is not a function"):
+			case strings.Contains(diag.Error(), "is not a function"):
 				return nil, false, nil
 			default:
 				return nil, true, err
 			}
+		}
+		var mm *gointerop.MemberMissingError
+		if errors.As(err, &mm) {
+			return nil, false, nil
 		}
 		return nil, true, err
 	}
@@ -324,13 +329,13 @@ func (tc *TypeChecker) lookupDotImportFunc(funcName string, sp ast.SourceSpan) (
 		return nil, nil
 	}
 	if len(matched) > 1 {
-		return nil, diagnosticf(sp, "dot-import", "%s is ambiguous (multiple dot-imported packages)", funcName)
+		return nil, reportBodyf(sp, "dot-import", "%s is ambiguous (multiple dot-imported packages)", funcName)
 	}
 	return matched[0], nil
 }
 
 func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+	out, err := gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
 		Pkg:             pkg,
 		QualDisplay:     qualDisplay,
 		FuncName:        funcName,
@@ -338,10 +343,11 @@ func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName
 		ArgTypes:        argTypes,
 		WantSingleValue: wantSingleValue,
 	})
+	return out, tc.mapGoInteropError(err)
 }
 
 func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+	out, err := gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
 		Pkg:             pkg,
 		QualDisplay:     pkgDisplay,
 		FuncName:        funcName,
@@ -350,6 +356,18 @@ func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, func
 		WantSingleValue: wantSingleValue,
 		RequireExported: true,
 	})
+	return out, tc.mapGoInteropError(err)
+}
+
+func (tc *TypeChecker) mapGoInteropError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var mm *gointerop.MemberMissingError
+	if errors.As(err, &mm) && mm != nil {
+		return goMemberMissingError(mm.Pkg, mm.Member, mm.Exports, mm.Span)
+	}
+	return err
 }
 
 func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
@@ -366,7 +384,7 @@ func (tc *TypeChecker) forstAssignableToGoType(f ast.TypeNode, g types.Type) boo
 	return gointerop.ForstAssignableToGoType(tc.goInteropHost(), f, g)
 }
 
-func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fieldPath []string) (ast.TypeNode, error) {
+func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fieldPath []string, span ast.SourceSpan) (ast.TypeNode, error) {
 	if len(fieldPath) == 0 {
 		return ast.TypeNode{}, fmt.Errorf("package %s used as value", local)
 	}
@@ -376,7 +394,7 @@ func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fie
 	}
 	obj := gp.Scope().Lookup(fieldPath[0])
 	if obj == nil {
-		return ast.TypeNode{}, fmt.Errorf("%s.%s not found in Go package", local, fieldPath[0])
+		return ast.TypeNode{}, goMemberMissingError(string(local), fieldPath[0], goExportedNames(gp.Scope()), span)
 	}
 	var goTyp types.Type
 	switch o := obj.(type) {
@@ -624,10 +642,18 @@ func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 	return nil
 }
 
-func (tc *TypeChecker) checkGoMethodCall(recv types.Type, methodName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkGoMethodCall(recv types.Type, method ast.Ident, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+	methodName := string(method.ID)
+	if methodName == "" {
+		methodName = string(e.Function.ID)
+	}
+	if i := strings.LastIndex(methodName, "."); i >= 0 {
+		methodName = methodName[i+1:]
+	}
 	return gointerop.CheckMethodCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.MethodCall{
 		Recv:            recv,
 		MethodName:      methodName,
+		Method:          method,
 		Call:            e,
 		ArgTypes:        argTypes,
 		WantSingleValue: wantSingleValue,

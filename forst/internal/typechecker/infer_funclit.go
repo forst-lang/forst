@@ -86,7 +86,7 @@ func (tc *TypeChecker) inferCalleeCall(
 				sp = vn.Ident.Span
 			}
 		}
-		return nil, diagnosticf(sp, "type-error", "cannot call non-function value of type %s", formatTypeList(calleeTypes))
+		return nil, reportBodyf(sp, "type-error", "cannot call non-function value of type %s", formatTypeList(calleeTypes))
 	}
 	fnType := calleeTypes[0]
 	if err := tc.checkFunctionTypeCall(fnType, args, argSpans, callSpan); err != nil {
@@ -110,7 +110,7 @@ func (tc *TypeChecker) checkFunctionTypeCall(
 ) error {
 	params := fnType.FuncParams
 	if len(args) != len(params) {
-		return diagnosticf(callSpan, "type-error", "function call expects %d arguments, got %d", len(params), len(args))
+		return reportBodyf(callSpan, "type-error", "function call expects %d arguments, got %d", len(params), len(args))
 	}
 	for i, arg := range args {
 		param, ok := params[i].(ast.SimpleParamNode)
@@ -126,7 +126,7 @@ func (tc *TypeChecker) checkFunctionTypeCall(
 			if i < len(argSpans) && argSpans[i].IsSet() {
 				sp = argSpans[i]
 			}
-			return diagnosticf(sp, "type-error", "argument %d type %s is not compatible with parameter type %s",
+			return reportBodyf(sp, "type-error", "argument %d type %s is not compatible with parameter type %s",
 				i+1, formatTypeList(argTypes), param.Type.String())
 		}
 	}

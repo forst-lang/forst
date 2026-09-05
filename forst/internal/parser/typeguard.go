@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"forst/internal/ast"
 
 	"github.com/sirupsen/logrus"
@@ -10,7 +11,9 @@ func (p *Parser) parseInlineTypeGuardBody(subjectParam ast.ParamNode) []ast.Node
 	// If the body is inline, parse it as an ensure statement
 	ensure := p.parseEnsureStatement()
 	if ensure.Variable.GetIdent() != subjectParam.GetIdent() {
-		p.FailWithParseError(p.current(), "inline type guard must refine the subject parameter")
+		p.FailWithReport(p.current(), "typeguard-subject-refine", "inline type guard must refine the subject parameter",
+			"An inline type guard body must refine the subject parameter.",
+			fmt.Sprintf("write `ensure %s is ...` matching the guard parameter", subjectParam.GetIdent()))
 	}
 	return []ast.Node{ensure}
 }
@@ -32,7 +35,9 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 
 	// Parse subject parameter (required)
 	if p.current().Type == ast.TokenRParen {
-		p.FailWithParseError(p.current(), "type guard requires a subject parameter")
+		p.FailWithReport(p.current(), "typeguard-subject-required", "type guard requires a subject parameter",
+			"A type guard declaration needs a subject parameter inside `( … )`.",
+			"write `is (user User) MyGuard() { ... }`")
 	}
 	p.log.WithFields(logrus.Fields{
 		"function": "parseTypeGuard",
@@ -79,7 +84,9 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 			p.expect(ast.TokenRParen)
 		}
 	} else {
-		p.FailWithParseError(p.current(), "expected guard name")
+		p.FailWithReport(p.current(), "typeguard-name-required", "expected guard name",
+			"A type guard declaration needs a guard name after the subject parameter.",
+			"write `is (user User) MyGuard() { ... }`")
 	}
 
 	// Parse body - can be either a block or a single expression

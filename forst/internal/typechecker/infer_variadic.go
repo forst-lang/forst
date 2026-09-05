@@ -50,7 +50,7 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 			if !sp.IsSet() {
 				sp = e.Function.Span
 			}
-			return diagnosticf(sp, "call-arity", "function %s expects %d arguments, got %d",
+			return reportBodyf(sp, "call-arity", "function %s expects %d arguments, got %d",
 				fn, len(sig.Parameters), nArgs)
 		}
 		for i, param := range sig.Parameters {
@@ -77,7 +77,7 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 		if !sp.IsSet() {
 			sp = e.Function.Span
 		}
-		return diagnosticf(sp, "call-arity", "function %s expects at least %d arguments, got %d",
+		return reportBodyf(sp, "call-arity", "function %s expects at least %d arguments, got %d",
 			fn, fixed, nArgs)
 	}
 
@@ -95,7 +95,7 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 		if spread, isSpread := e.Arguments[nArgs-1].(ast.SpreadExpressionNode); isSpread {
 			if nArgs != fixed+1 {
 				sp := spanForCallArg(e.ArgSpans, fixed+1, e.Arguments, e.CallSpan)
-				return diagnosticf(sp, "call-arity", "function %s: variadic spread must be the only trailing argument", fn)
+				return reportBodyf(sp, "call-arity", "function %s: variadic spread must be the only trailing argument", fn)
 			}
 			spreadTypes, err := tc.inferExpressionType(spread.Expr)
 			if err != nil {
@@ -104,7 +104,7 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 			wantSlice := ast.NewArrayType(elem)
 			if len(spreadTypes) != 1 || !tc.IsTypeCompatible(spreadTypes[0], wantSlice) {
 				sp := spanForCallArg(e.ArgSpans, fixed, e.Arguments, e.CallSpan)
-				return diagnosticf(sp, "call-type", "function %s: cannot spread %s into ...%s",
+				return reportBodyf(sp, "call-type", "function %s: cannot spread %s into ...%s",
 					fn, formatTypeForDiag(spreadTypes), elem.Ident)
 			}
 			return nil
@@ -123,7 +123,7 @@ func formatTypeForDiag(types []ast.TypeNode) string {
 		return "?"
 	}
 	if len(types) == 1 {
-		return string(types[0].Ident)
+		return formatTypeNodeForDiag(types[0])
 	}
 	return fmt.Sprintf("%d types", len(types))
 }
@@ -131,12 +131,12 @@ func formatTypeForDiag(types []ast.TypeNode) string {
 func (tc *TypeChecker) checkUserCallArg(fn ast.Identifier, argIdx int, want ast.TypeNode, got []ast.TypeNode, e ast.FunctionCallNode) error {
 	sp := spanForCallArg(e.ArgSpans, argIdx, e.Arguments, e.CallSpan)
 	if len(got) != 1 {
-		return diagnosticf(sp, "call-type", "argument %d to %s must have a single type, got %d",
+		return reportBodyf(sp, "call-type", "argument %d to %s must have a single type, got %d",
 			argIdx+1, fn, len(got))
 	}
 	if !tc.IsTypeCompatible(got[0], want) {
-		return diagnosticf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
-			argIdx+1, fn, want.Ident, got[0].Ident)
+		return reportBodyf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
+			argIdx+1, fn, formatTypeIdentForDiag(want.Ident), formatTypeIdentForDiag(got[0].Ident))
 	}
 	return nil
 }

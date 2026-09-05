@@ -22,8 +22,8 @@ func check(ok Bool): Result(String, Error) {
 		t.Fatal("expected parse error for bare ensure ok or …")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "ensure requires 'is'") {
-		t.Fatalf("expected 'ensure requires is' diagnostic, got: %v", err)
+	if !strings.Contains(msg, "ensure-missing-is") && !strings.Contains(msg, "ensure needs `is`") {
+		t.Fatalf("expected ensure-missing-is diagnostic, got: %v", err)
 	}
 	if !strings.Contains(msg, "ensure ok is True()") {
 		t.Fatalf("expected suggestion ensure ok is True(), got: %v", err)

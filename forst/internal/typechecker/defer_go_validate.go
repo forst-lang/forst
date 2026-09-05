@@ -36,7 +36,11 @@ var builtinsNotPermittedInDeferGoOperand = map[string]struct{}{
 func validateDeferGoBuiltinRestriction(keyword string, call ast.FunctionCallNode) error {
 	name := string(call.Function.ID)
 	if _, bad := builtinsNotPermittedInDeferGoOperand[name]; bad {
-		return fmt.Errorf("%s: built-in %q cannot be used as operand (Go: same restriction as expression statements for this builtin)", keyword, name)
+		sp := firstSetSpan(call.CallSpan, call.Function.Span)
+		return reportf(sp, "defer-go-builtin",
+			fmt.Sprintf("%s cannot call built-in `%s`", keyword, name),
+			fmt.Sprintf("Go disallows `%s` as the sole operand of `%s` (same rule as expression statements).", name, keyword),
+			"wrap the call in a function or use a different statement form")
 	}
 	return nil
 }

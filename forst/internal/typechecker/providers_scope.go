@@ -32,7 +32,7 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 			return ProviderScope{}, fmt.Errorf("wiring field %s has no value", fieldName)
 		}
 		if _, isNil := expr.(ast.NilLiteralNode); isNil {
-			return ProviderScope{}, diagnosticf(fieldSpan, "providers-nil-wiring",
+			return ProviderScope{}, reportBodyf(fieldSpan, "providers-nil-wiring",
 				"wiring value for %s must not be nil", fieldName)
 		}
 		valTypes, err := tc.inferExpressionType(expr)
@@ -47,14 +47,14 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 			if eng.DeferWiringRootCheck {
 				contractType = ast.TypeNode{Ident: ast.TypeIdent(fieldName)}
 			} else {
-				return ProviderScope{}, diagnosticf(fieldSpan, "providers-unknown-key",
+				return ProviderScope{}, reportBodyf(fieldSpan, "providers-unknown-key",
 					"unknown wiring key %q", fieldName)
 			}
 		}
 		if knownContract || !eng.DeferWiringRootCheck {
 			if !tc.wiringValueAssignable(valTypes[0], contractType) {
-				return ProviderScope{}, diagnosticf(fieldSpan, "providers-wiring-type",
-					"wiring field %s: expected type %s, got %s", fieldName, contractType.Ident, valTypes[0].Ident)
+				return ProviderScope{}, reportBodyf(fieldSpan, "providers-wiring-type",
+					"wiring field %s: expected type %s, got %s", fieldName, formatTypeIdentForDiag(contractType.Ident), formatTypeIdentForDiag(valTypes[0].Ident))
 			}
 		}
 		amb.Keys[fieldName] = contractType
@@ -80,7 +80,7 @@ func (tc *TypeChecker) ambientFromInferredBundle(types []ast.TypeNode, span ast.
 	}
 	shape, ok := tc.shapeFieldsForType(types[0])
 	if !ok {
-		return ProviderScope{}, diagnosticf(span, "providers-wiring-shape",
+		return ProviderScope{}, reportBodyf(span, "providers-wiring-shape",
 			"with wiring expression must be a Providers shape")
 	}
 	eng := tc.providersEngine()
@@ -94,7 +94,7 @@ func (tc *TypeChecker) ambientFromInferredBundle(types []ast.TypeNode, span ast.
 			if eng.DeferWiringRootCheck {
 				contractType = ast.TypeNode{Ident: ast.TypeIdent(fieldName)}
 			} else {
-				return ProviderScope{}, diagnosticf(span, "providers-unknown-key",
+				return ProviderScope{}, reportBodyf(span, "providers-unknown-key",
 					"unknown wiring key %q", fieldName)
 			}
 		}
@@ -142,7 +142,7 @@ func (tc *TypeChecker) validateWiringKey(key string, span ast.SourceSpan) error 
 				ae.Assertion.BaseType != nil && len(ae.Assertion.Constraints) == 0 {
 				canonical := string(tc.providerRootIdent(ast.TypeNode{Ident: *ae.Assertion.BaseType}))
 				if canonical != key {
-					return diagnosticf(span, "providers-alias-key",
+					return reportBodyf(span, "providers-alias-key",
 						"wiring key must be root contract ident %q, not alias %q", canonical, key)
 				}
 			}
@@ -154,7 +154,7 @@ func (tc *TypeChecker) validateWiringKey(key string, span ast.SourceSpan) error 
 	if tc.providersEngine().DeferWiringRootCheck {
 		return nil
 	}
-	return diagnosticf(span, "providers-unknown-key", "unknown wiring key %q", key)
+	return reportBodyf(span, "providers-unknown-key", "unknown wiring key %q", key)
 }
 
 func (tc *TypeChecker) scopeSatisfiesSlot(slot ProviderSlot, scope map[string]ast.TypeNode) bool {

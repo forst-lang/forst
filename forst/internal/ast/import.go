@@ -4,6 +4,8 @@ import "fmt"
 
 // ImportNode represents a single Go-style import statement
 type ImportNode struct {
+	// Span covers the import path (and alias when present) for diagnostics.
+	Span SourceSpan
 	// The canonical import path (e.g., fmt, github.com/user/repo)
 	Path string
 	// The optional local name for the import (e.g., "f" in `import f "fmt"`)

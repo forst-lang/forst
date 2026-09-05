@@ -26,7 +26,9 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 	if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
 		ident := p.expect(ast.TokenIdentifier)
 		if p.current().Type == ast.TokenLParen {
-			p.FailWithParseError(p.current(), "Shape({...}) wrapper is not allowed. Use {...} directly for shape types.")
+			p.FailWithReport(p.current(), "shape-wrapper-disallowed", "Shape({...}) wrapper is not allowed",
+				"Shape({...}) wrapper is not allowed. Use {...} directly for shape types.",
+				"write `{ field: Type }` instead of `Shape({ field: Type })`")
 		}
 		return ast.TypeNode{
 			Ident: ast.TypeIdent(ident.Value),
@@ -117,7 +119,9 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	if tok.Type == ast.TokenIdentifier && tok.Value == "Shape" {
 		// Check if this is Shape({...})
 		if p.peek().Type == ast.TokenLParen {
-			p.FailWithParseError(tok, "Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }.")
+			p.FailWithReport(tok, "shape-wrapper-disallowed", "Shape({...}) is not allowed",
+				"Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }.",
+				"write `{ field: Type }` instead of `Shape({ field: Type })`")
 		}
 		// Allow direct usage of Shape as a type name
 		p.advance()
@@ -211,7 +215,9 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	p.expect(ast.TokenRParen)
 	for i, param := range params {
 		if sp, ok := param.(ast.SimpleParamNode); ok && sp.Variadic && i != len(params)-1 {
-			p.FailWithParseError(p.current(), "variadic parameter must be the last parameter in the list")
+			p.FailWithReport(p.current(), "func-variadic-last", "variadic parameter must be last",
+				"variadic parameter must be the last parameter in the list.",
+				"move `...T` to the final parameter position")
 		}
 	}
 	return params
@@ -223,7 +229,9 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 		p.advance() // Consume the colon
 		// Single return type only (use Result(T, Error) or Tuple(...) instead of Go-style (T, U))
 		if p.current().Type == ast.TokenLParen {
-			p.FailWithParseError(p.current(), "multi-value return types are not supported; use Result(Success, Error) or Tuple(T1, ...)")
+			p.FailWithReport(p.current(), "func-multi-return", "multi-value return types are not supported",
+				"multi-value return types are not supported; use Result(Success, Error) or Tuple(T1, ...).",
+				"write `: Result(T, Error)` or `: Tuple(T1, T2)` instead of `: (T1, T2)`")
 		}
 		returnType = append(returnType, p.parseReturnTypeSingle())
 	}
@@ -329,7 +337,9 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	typeParams := p.parseTypeParamList()
 	if receiver != nil && len(typeParams) > 0 {
-		p.FailWithParseError(name, "generic methods are not supported")
+		p.FailWithReport(name, "func-generic-method", "generic methods are not supported",
+			"Generic methods are not supported.",
+			"declare type parameters on the enclosing type, not on methods")
 	}
 
 	params := p.parseFunctionSignature() // Parse function parameters

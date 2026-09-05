@@ -177,7 +177,7 @@ func main() {
 }
 `,
 			fileID:      "generic_fixed_array.ft",
-			expectError: "array literal has 3 elements",
+			expectError: "Array literal has 3 elements",
 		},
 		{
 			name: "explicitTypeArgConflict",

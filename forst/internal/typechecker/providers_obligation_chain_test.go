@@ -27,8 +27,8 @@ func TestX(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T: %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "TestX") || !strings.Contains(diag.Msg, "needsLogger") {
-		t.Fatalf("expected obligation chain in message: %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "TestX") || !strings.Contains(diag.Error(), "needsLogger") {
+		t.Fatalf("expected obligation chain in message: %q", diag.Error())
 	}
 	chain := tc.BuildProvidersObligationChain("TestX", "Logger")
 	if !strings.Contains(chain, "TestX") || !strings.Contains(chain, "Logger") {

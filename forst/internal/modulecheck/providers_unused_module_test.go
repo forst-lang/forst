@@ -49,11 +49,11 @@ func TestX(t *testing.T) {
 	}
 	foundClock := false
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Clock") {
 			foundClock = true
 		}
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Logger") {
-			t.Fatalf("Logger should be required, got warning: %s", w.Msg)
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Logger") {
+			t.Fatalf("Logger should be required, got warning: %s", w.Error())
 		}
 	}
 	if !foundClock {
@@ -122,11 +122,11 @@ func TestHandleRequest(t *testing.T) {
 	}
 	foundClock := false
 	for _, w := range apiTC.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Clock") {
 			foundClock = true
 		}
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Logger") {
-			t.Fatalf("Logger required via cross-package HandleRequest → auth.LogEvent, got warning: %s", w.Msg)
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Logger") {
+			t.Fatalf("Logger required via cross-package HandleRequest → auth.LogEvent, got warning: %s", w.Error())
 		}
 	}
 	if !foundClock {

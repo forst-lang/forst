@@ -200,6 +200,7 @@ type codeActionDiagnosticParam struct {
 	Range   LSPRange `json:"range"`
 	Message string   `json:"message"`
 	Code    string   `json:"code"`
+	Data    any      `json:"data"`
 }
 
 func providersQuickFixActions(uri, content string, diags []codeActionDiagnosticParam) []LSPCodeAction {

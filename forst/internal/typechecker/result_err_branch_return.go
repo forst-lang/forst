@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"fmt"
 	"slices"
 
 	"forst/internal/ast"
@@ -30,7 +29,7 @@ func (tc *TypeChecker) ifConditionIsBuiltinResultErrNarrowing(condition ast.Node
 	if a == nil {
 		return false
 	}
-	handled, _, err := tc.refinedTypesForResultIsNarrowing(varLeftTypes[0], a)
+	handled, _, err := tc.refinedTypesForResultIsNarrowing(varLeftTypes[0], a, spanOfNode(leftmostVar))
 	if !handled || err != nil {
 		return false
 	}
@@ -54,7 +53,20 @@ func (tc *TypeChecker) checkReturnDisallowedInResultErrBranch(ret ast.ReturnNode
 		return nil
 	}
 	if slices.ContainsFunc(ret.Values, isErrExprAST) {
-		return fmt.Errorf("propagate Result failures with `ensure` (e.g. `ensure x is Ok()`), not `if` + `return Err(...)` in an `Err` branch")
+		sp := ast.SourceSpan{}
+		for _, v := range ret.Values {
+			if isErrExprAST(v) {
+				sp = spanOfExpression(v)
+				break
+			}
+		}
+		if !sp.IsSet() && tc.currentFunction != nil {
+			sp = tc.currentFunction.Ident.Span
+		}
+		return reportf(sp, "result-err-branch-return",
+			"use ensure to propagate Result failures",
+			"Inside an `if r is Err(...)` branch, do not `return Err(...)`. Propagate with ensure instead.",
+			"write `ensure x is Ok()` (or `ensure … else err`) instead of `if` + `return Err(...)`")
 	}
 	return nil
 }

@@ -22,15 +22,25 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 	}).Trace("Starting type inference for assignment")
 
 	if assign.CompoundOp != "" {
+		asSpan := spanOfNode(assign)
 		if assign.IsShort {
-			return fmt.Errorf("cannot use compound assignment with :=")
+			return reportf(asSpan, "compound-assign-short",
+				"compound assignment cannot use `:=",
+				"Compound operators like `+=` require an existing variable (`=`).",
+				"declare the variable first, then use `=` with `+=` / `-=` / …")
 		}
 		if len(assign.LValues) != 1 || len(assign.RValues) != 1 {
-			return fmt.Errorf("compound assignment requires a single left- and right-hand side")
+			return reportf(asSpan, "compound-assign-arity",
+				"compound assignment needs one value on each side",
+				"Compound assignment requires exactly one left- and right-hand side.",
+				"split into separate statements or use a single target")
 		}
 		for _, et := range assign.ExplicitTypes {
 			if et != nil {
-				return fmt.Errorf("compound assignment does not support explicit types")
+				return reportf(asSpan, "compound-assign-explicit-type",
+					"compound assignment does not support explicit types",
+					"Left-hand explicit types are not allowed with `+=`, `-=`, etc.",
+					"drop the type annotation or use plain `=` assignment")
 			}
 		}
 		return tc.inferCompoundAssignmentTypes(assign)
@@ -172,13 +182,19 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 				return err
 			}
 			if len(targetTypes) == 1 && targetTypes[0].Ident == ast.TypeMap {
-				return fmt.Errorf("map index comma-ok assignment (v, ok := m[k]) is not supported")
+				return reportf(spanIndexExpr(idx), "map-comma-ok-unsupported",
+					"map comma-ok assignment is not supported",
+					"Forst does not support Go's `(v, ok := m[k])` map comma-ok form.",
+					"use a single-value map read and handle missing keys with Result or explicit checks")
 			}
 		}
 	}
 
 	if len(assign.RValues) > 0 && len(resolvedTypes) != len(assign.LValues) {
-		return fmt.Errorf("assignment: %d left-hand values but right-hand produces %d value(s)", len(assign.LValues), len(resolvedTypes))
+		return reportf(spanOfNode(assign), "assignment-arity",
+			"assignment arity mismatch",
+			fmt.Sprintf("%d left-hand value(s) but the right-hand side produces %d value(s).", len(assign.LValues), len(resolvedTypes)),
+			"match the number of names to the return values or split the assignment")
 	}
 
 	if tc.log != nil {
@@ -200,7 +216,10 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 						return err
 					}
 					if len(resolvedTypes[i]) != 1 {
-						return fmt.Errorf("field assignment: right-hand side must have a single type")
+						return reportf(l.Ident.Span, "assignment-type",
+							"field assignment needs a single right-hand type",
+							"The right-hand side must infer to exactly one type for field assignment.",
+							"return or bind a single value")
 					}
 					lhsGo := tc.goTypeForExpression(l)
 					if lhsGo == nil {
@@ -218,18 +237,26 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 						break
 					}
 					if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsType) {
-						return fmt.Errorf("assignment type mismatch: cannot assign %s to %s (expected %s)",
-							resolvedTypes[i][0].Ident, l.Ident.ID, lhsType.Ident)
+						return reportf(l.Ident.Span, "assignment-type-mismatch",
+							"assignment type mismatch",
+							fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", formatTypeIdentForDiag(resolvedTypes[i][0].Ident), l.Ident.ID, formatTypeIdentForDiag(lhsType.Ident)),
+							"convert the value or change the field type")
 					}
 					tc.storeInferredType(l, []ast.TypeNode{lhsType})
 					break
 				}
 				_, exists := tc.scopeStack.LookupVariableType(l.Ident.ID)
 				if !exists {
-					return fmt.Errorf("assignment to undeclared variable '%s' is not allowed; use 'var' or ':='", l.Ident.ID)
+					return reportf(l.Ident.Span, "assignment-undeclared",
+						fmt.Sprintf("assignment to undeclared variable `%s`", l.Ident.ID),
+						fmt.Sprintf("Variable `%s` is not declared; plain `=` requires an existing binding.", l.Ident.ID),
+						"declare it with `var` or use `:=` for a new binding")
 				}
 				if tc.isPackageConst(l.Ident.ID) {
-					return fmt.Errorf("cannot assign to const %s", l.Ident.ID)
+					return reportf(l.Ident.Span, "assign-to-const",
+						fmt.Sprintf("cannot assign to const `%s`", l.Ident.ID),
+						fmt.Sprintf("`%s` is a const and cannot be reassigned.", l.Ident.ID),
+						"use a `var` binding instead")
 				}
 			}
 
@@ -239,7 +266,10 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 				isBuiltin := explicitType.Ident == ast.TypeString || explicitType.Ident == ast.TypeInt || explicitType.Ident == ast.TypeFloat || explicitType.Ident == ast.TypeBool || explicitType.Ident == ast.TypeError || explicitType.Ident == ast.TypeVoid || explicitType.Ident == ast.TypeArray || explicitType.Ident == ast.TypeMap || explicitType.Ident == ast.TypeShape || explicitType.Ident == ast.TypeObject
 				_, isDefined := tc.Defs[explicitType.Ident]
 				if !isPointer && !isBuiltin && !isDefined {
-					return fmt.Errorf("undefined type name '%s' in variable declaration", explicitType.Ident)
+					return reportf(l.Ident.Span, "undefined-type",
+						fmt.Sprintf("undefined type `%s`", formatTypeIdentForDiag(explicitType.Ident)),
+						fmt.Sprintf("Type name `%s` in the variable declaration is not defined.", formatTypeIdentForDiag(explicitType.Ident)),
+						"declare the type or use a built-in name")
 				}
 			}
 
@@ -252,7 +282,10 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					isArray := explicitType.Ident == ast.TypeArray
 					isFunc := explicitType.Ident == ast.TypeIdent("Func")
 					if !isPointer && !isInterface && !isMap && !isArray && !isFunc {
-						return fmt.Errorf("cannot assign nil to variable of type '%s'", explicitType.Ident)
+						return reportf(l.Ident.Span, "nil-assign-type",
+							fmt.Sprintf("cannot assign nil to `%s`", formatTypeIdentForDiag(explicitType.Ident)),
+							fmt.Sprintf("Type `%s` cannot be initialized with `nil`.", formatTypeIdentForDiag(explicitType.Ident)),
+							"use a pointer, map, slice, interface, or func type — or supply a value")
 					}
 				}
 			}
@@ -268,8 +301,10 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					ok = tc.IsTypeCompatible(rhs, lhs)
 				}
 				if !ok {
-					return fmt.Errorf("assignment type mismatch: cannot assign %s to %s (expected %s)",
-						rhs.Ident, l.Ident.ID, lhs.Ident)
+					return reportf(l.Ident.Span, "assignment-type-mismatch",
+						"assignment type mismatch",
+						fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", formatTypeIdentForDiag(rhs.Ident), l.Ident.ID, formatTypeIdentForDiag(lhs.Ident)),
+						"convert the initializer or change the declared type")
 				}
 			}
 
@@ -292,42 +327,66 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 			}
 
 		case ast.IndexExpressionNode:
+			idxSpan := spanIndexExpr(l)
 			if assign.IsShort {
-				return fmt.Errorf("cannot use := on indexed assignment")
+				return reportf(idxSpan, "indexed-assign-short",
+					"indexed assignment cannot use `:=",
+					"Subscript assignment requires an existing container (`=`).",
+					"declare the container first, then assign with `xs[i] = v`")
 			}
 			if len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil {
-				return fmt.Errorf("indexed assignment does not support explicit types on the left-hand side")
+				return reportf(idxSpan, "indexed-assign-explicit-type",
+					"indexed assignment does not support explicit types",
+					"Left-hand explicit types are not allowed on subscript targets.",
+					"drop the type annotation on the index target")
 			}
 			lhsTypes, err := tc.inferIndexExpressionAsAssignTarget(l)
 			if err != nil {
 				return err
 			}
 			if len(lhsTypes) != 1 {
-				return fmt.Errorf("indexed assignment: left-hand side must have a single type")
+				return reportf(idxSpan, "indexed-assign-type",
+					"indexed assignment left-hand side must have a single type",
+					"The subscript target must refer to one element type.",
+					"index a slice, array, map, or string element")
 			}
 			if len(resolvedTypes[i]) != 1 {
-				return fmt.Errorf("indexed assignment: right-hand side must have a single type")
+				return reportf(idxSpan, "indexed-assign-type",
+					"indexed assignment right-hand side must have a single type",
+					"The assigned value must have exactly one type.",
+					"bind a single value on the right-hand side")
 			}
 			if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsTypes[0]) {
-				return fmt.Errorf("assignment type mismatch: cannot assign %s to element (expected %s)",
-					resolvedTypes[i][0].Ident, lhsTypes[0].Ident)
+				return reportf(idxSpan, "assignment-type-mismatch",
+					"assignment type mismatch",
+					fmt.Sprintf("Cannot assign `%s` to element type `%s`.", resolvedTypes[i][0].Ident, lhsTypes[0].Ident),
+					"convert the value or change the container element type")
 			}
 			tc.storeInferredType(l, lhsTypes)
 
 		case ast.DereferenceNode:
+			derefSpan := spanOfExpression(l.Value)
 			if assign.IsShort {
-				return fmt.Errorf("cannot use := on dereferenced assignment")
+				return reportf(derefSpan, "deref-assign-short",
+					"dereferenced assignment cannot use `:=",
+					"Assignment through `*` requires an existing pointer variable (`=`).",
+					"declare the pointer first, then use `*p = v`")
 			}
 			lhsTypes, err := tc.inferDerefExpressionAsAssignTarget(l)
 			if err != nil {
 				return err
 			}
 			if len(lhsTypes) != 1 || len(resolvedTypes[i]) != 1 {
-				return fmt.Errorf("dereference assignment: expected single type on both sides")
+				return reportf(derefSpan, "deref-assign-type",
+					"dereference assignment expects single types on both sides",
+					"Both the pointer target and the assigned value must have exactly one type.",
+					"use `*p = v` where `p` is a pointer and `v` matches the pointee type")
 			}
 			if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsTypes[0]) {
-				return fmt.Errorf("assignment type mismatch: cannot assign %s through pointer (expected %s)",
-					resolvedTypes[i][0].Ident, lhsTypes[0].Ident)
+				return reportf(derefSpan, "assignment-type-mismatch",
+					"assignment type mismatch",
+					fmt.Sprintf("Cannot assign `%s` through pointer (expected `%s`).", resolvedTypes[i][0].Ident, lhsTypes[0].Ident),
+					"convert the value or change the pointee type")
 			}
 			tc.storeInferredType(l, lhsTypes)
 

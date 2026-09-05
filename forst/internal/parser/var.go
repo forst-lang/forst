@@ -39,7 +39,9 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 		p.advance() // consume '='
 		rvalue := p.parseExpression()
 		if _, isNil := rvalue.(ast.NilLiteralNode); isNil {
-			p.FailWithParseError(ident, "'var x = nil' is not allowed: explicit type required for nil assignment")
+			p.FailWithReport(ident, "var-nil-type-required", "explicit type required for nil assignment",
+				"'var x = nil' is not allowed: explicit type required for nil assignment.",
+				"write `var x: *T = nil` with an explicit pointer type")
 		}
 		return ast.AssignmentNode{
 			LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}}},

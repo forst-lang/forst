@@ -102,12 +102,20 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return nil, err
 			}
 			if len(ts) != 1 {
-				return nil, fmt.Errorf("array element %d: expected a single type", i)
+				elSpan := spanOfExpression(el)
+				return nil, reportf(elSpan, "array-element-type",
+					fmt.Sprintf("array element %d must have a single type", i),
+					fmt.Sprintf("Element %d of the array literal must infer to exactly one type.", i),
+					"ensure each element has one type")
 			}
 			if i == 0 {
 				elemType = ts[0]
 			} else if elemType.Ident != ts[0].Ident {
-				return nil, fmt.Errorf("array literal: mixed element types %s and %s", elemType.Ident, ts[0].Ident)
+				elSpan := spanOfExpression(el)
+				return nil, reportf(elSpan, "array-mixed-types",
+					"array literal has mixed element types",
+					fmt.Sprintf("Array elements must share one type; got `%s` and `%s`.", formatTypeIdentForDiag(elemType.Ident), formatTypeIdentForDiag(ts[0].Ident)),
+					"use the same type for every element or add an explicit element type")
 			}
 		}
 		if e.Type.Ident != ast.TypeImplicit && e.Type.Ident != "" {
@@ -150,7 +158,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return nil, err
 		}
 		if len(targetTypes) != 1 {
-			return nil, fmt.Errorf("index expression: target must have a single type, got %d", len(targetTypes))
+			return nil, reportf(spanIndexExpr(e), "index-target-type",
+				"index target must have a single type",
+				fmt.Sprintf("The indexed value has %d types; subscript needs exactly one.", len(targetTypes)),
+				"bind the container to a single-typed name")
 		}
 		t := targetTypes[0]
 		indexTypes, err := tc.inferExpressionType(e.Index)
@@ -158,12 +169,18 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return nil, err
 		}
 		if len(indexTypes) != 1 {
-			return nil, fmt.Errorf("index expression: index must have a single type")
+			return nil, reportf(spanIndexExpr(e), "index-type",
+				"index expression must have a single index type",
+				"The index expression must infer to exactly one type.",
+				"use an Int index for slices/arrays/strings or the map key type")
 		}
 		if t.Ident == ast.TypeMap && len(t.TypeParams) >= 2 {
 			wantK, wantV := t.TypeParams[0], t.TypeParams[1]
 			if !tc.IsTypeCompatible(indexTypes[0], wantK) {
-				return nil, fmt.Errorf("map index: key type want %s, got %s", wantK.Ident, indexTypes[0].Ident)
+				return nil, reportf(spanIndexExpr(e), "index-type",
+					"map index key type mismatch",
+					fmt.Sprintf("Map key type must be `%s`, got `%s`.", formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(indexTypes[0].Ident)),
+					"convert the key or change the map's key type")
 			}
 			// Rvalue map lookup is Result(V, Error): present key → Ok(value); missing key → Err.
 			resultType := ast.TypeNode{
@@ -178,7 +195,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 		if t.Ident == ast.TypeString {
 			if indexTypes[0].Ident != ast.TypeInt {
-				return nil, fmt.Errorf("index expression: string index must be Int, got %s", indexTypes[0].Ident)
+				return nil, reportf(spanIndexExpr(e), "index-type",
+					"string index must be Int",
+					fmt.Sprintf("String indexing requires Int, got `%s`.", indexTypes[0].Ident),
+					"use an integer index")
 			}
 			elem := ast.TypeNode{Ident: ast.TypeInt}
 			tc.storeInferredType(e, []ast.TypeNode{elem})
@@ -186,17 +206,26 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 		if t.Ident == ast.TypeBytes {
 			if indexTypes[0].Ident != ast.TypeInt {
-				return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+				return nil, reportf(spanIndexExpr(e), "index-type",
+					"[]byte index must be Int",
+					fmt.Sprintf("`[]byte` indexing requires Int, got `%s`.", indexTypes[0].Ident),
+					"use an integer index")
 			}
 			elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
 			tc.storeInferredType(e, []ast.TypeNode{elem})
 			return []ast.TypeNode{elem}, nil
 		}
 		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
-			return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
+			return nil, reportf(spanIndexExpr(e), "index-target-type",
+				"index target must be map, slice, or array",
+				fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", formatTypeIdentForDiag(t.Ident)),
+				"index a supported container type")
 		}
 		if indexTypes[0].Ident != ast.TypeInt {
-			return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
+			return nil, reportf(spanIndexExpr(e), "index-type",
+				"slice/array index must be Int",
+				fmt.Sprintf("Slice and array indexes must be Int, got `%s`.", indexTypes[0].Ident),
+				"use an integer index")
 		}
 		if err := checkFixedArrayIndexBounds(t, e.Index); err != nil {
 			return nil, err
@@ -214,7 +243,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			case *types.Array:
 				elem = u.Elem()
 			default:
-				return nil, fmt.Errorf("slice expression: target must be a slice or array, got %s", goT.String())
+				return nil, reportf(spanSliceExpr(e), "slice-target-type",
+					"slice target must be a slice or array",
+					fmt.Sprintf("Cannot slice type `%s`; expected a slice or array.", goT.String()),
+					"slice a []T or [N]T value")
 			}
 			if e.Low != nil {
 				lowTypes, err := tc.inferExpressionType(e.Low)
@@ -222,7 +254,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					return nil, err
 				}
 				if len(lowTypes) != 1 || lowTypes[0].Ident != ast.TypeInt {
-					return nil, fmt.Errorf("slice expression: low bound must be Int")
+					return nil, reportf(spanSliceExpr(e), "slice-bound",
+						"slice low bound must be Int",
+						"The low bound of a slice expression must be Int.",
+						"use an integer low bound")
 				}
 			}
 			if e.High != nil {
@@ -231,12 +266,18 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					return nil, err
 				}
 				if len(highTypes) != 1 || highTypes[0].Ident != ast.TypeInt {
-					return nil, fmt.Errorf("slice expression: high bound must be Int")
+					return nil, reportf(spanSliceExpr(e), "slice-bound",
+						"slice high bound must be Int",
+						"The high bound of a slice expression must be Int.",
+						"use an integer high bound")
 				}
 			}
 			ft, ok := tc.mapGoType(types.NewSlice(elem))
 			if !ok {
-				return nil, fmt.Errorf("slice expression: cannot map Go slice element type")
+				return nil, reportf(spanSliceExpr(e), "slice-target-type",
+					"cannot map Go slice element type",
+					"The Go slice element type could not be mapped to a Forst type.",
+					"slice a supported Go slice or array type")
 			}
 			tc.storeInferredType(e, []ast.TypeNode{ft})
 			return []ast.TypeNode{ft}, nil
@@ -246,7 +287,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return nil, err
 		}
 		if len(targetTypes) != 1 || targetTypes[0].Ident != ast.TypeArray || len(targetTypes[0].TypeParams) < 1 {
-			return nil, fmt.Errorf("slice expression: target must be a slice or array")
+			return nil, reportf(spanSliceExpr(e), "slice-target-type",
+				"slice target must be a slice or array",
+				"The slice target must be a Forst slice or array type.",
+				"slice a []T or [N]T value")
 		}
 		if e.Low != nil {
 			lowTypes, err := tc.inferExpressionType(e.Low)
@@ -254,7 +298,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return nil, err
 			}
 			if len(lowTypes) != 1 || lowTypes[0].Ident != ast.TypeInt {
-				return nil, fmt.Errorf("slice expression: low bound must be Int")
+				return nil, reportf(spanSliceExpr(e), "slice-bound",
+					"slice low bound must be Int",
+					"The low bound of a slice expression must be Int.",
+					"use an integer low bound")
 			}
 		}
 		if e.High != nil {
@@ -263,7 +310,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return nil, err
 			}
 			if len(highTypes) != 1 || highTypes[0].Ident != ast.TypeInt {
-				return nil, fmt.Errorf("slice expression: high bound must be Int")
+				return nil, reportf(spanSliceExpr(e), "slice-bound",
+					"slice high bound must be Int",
+					"The high bound of a slice expression must be Int.",
+					"use an integer high bound")
 			}
 		}
 		elem := targetTypes[0].TypeParams[0]
@@ -287,7 +337,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if len(targetTypes) == 1 && targetTypes[0].IsTupleType() {
 			idx, convErr := strconv.Atoi(string(e.Field.ID))
 			if convErr != nil || idx < 0 || idx >= len(targetTypes[0].TypeParams) {
-				return nil, diagnosticf(e.Field.Span, "tuple-index", "tuple index %s out of range for %s", e.Field.ID, targetTypes[0].String())
+				return nil, reportBodyf(e.Field.Span, "tuple-index", "tuple index %s out of range for %s", e.Field.ID, targetTypes[0].String())
 			}
 			ft := targetTypes[0].TypeParams[idx]
 			tc.storeInferredType(e, []ast.TypeNode{ft})
@@ -296,16 +346,16 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if goRecv := tc.goTypeForExpression(e.Target); goRecv != nil {
 			obj, _, _ := types.LookupFieldOrMethod(goRecv, false, nil, string(e.Field.ID))
 			if obj == nil {
-				return nil, diagnosticf(e.Field.Span, "go-field", "%s has no field %s", goRecv.String(), e.Field.ID)
+				return nil, reportBodyf(e.Field.Span, "go-field", "%s has no field %s", goRecv.String(), e.Field.ID)
 			}
 			ft, ok := tc.mapGoType(obj.Type())
 			if !ok {
-				return nil, diagnosticf(e.Field.Span, "go-field", "cannot map Go field type %s", obj.Type().String())
+				return nil, reportBodyf(e.Field.Span, "go-field", "cannot map Go field type %s", obj.Type().String())
 			}
 			tc.storeInferredType(e, []ast.TypeNode{ft})
 			return []ast.TypeNode{ft}, nil
 		}
-		return nil, diagnosticf(e.Field.Span, "field-access", "field access on non-Go expression is not supported")
+		return nil, reportBodyf(e.Field.Span, "field-access", "field access on non-Go expression is not supported")
 
 	case ast.MethodCallNode:
 		argTypes := make([][]ast.TypeNode, 0, len(e.Arguments))
@@ -318,7 +368,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
 			fc := ast.FunctionCallNode{Arguments: e.Arguments, CallSpan: e.CallSpan, ArgSpans: e.ArgSpans}
-			ret, err := tc.checkGoMethodCall(goRecv, string(e.Method.ID), fc, argTypes, true)
+			ret, err := tc.checkGoMethodCall(goRecv, e.Method, fc, argTypes, true)
 			if err != nil {
 				return nil, err
 			}
@@ -347,7 +397,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if !sp.IsSet() {
 			sp = e.CallSpan
 		}
-		return nil, diagnosticf(sp, "undefined-identifier", "method %s on receiver type %T", e.Method.ID, e.Receiver)
+		return nil, reportBodyf(sp, "undefined-identifier", "method %s on receiver type %T", e.Method.ID, e.Receiver)
 
 	case ast.FunctionCallNode:
 		if e.Callee != nil {
@@ -537,7 +587,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					}
 				}
 				if loadErr := tc.goImportLoadErrorForPath(importPath); loadErr != nil {
-					return nil, diagnosticf(callSpan, "go-import", "failed to load Go package %q: %v", importPath, loadErr)
+					return nil, reportBodyf(callSpan, "go-import", "failed to load Go package %q: %v", importPath, loadErr)
 				}
 				tc.log.WithFields(logrus.Fields{
 					"function":           "inferExpressionType",
@@ -547,12 +597,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					"goPackagesPreloaded": tc.goPackagesPreloaded,
 					"missingGoImports":   tc.missingGoImportPaths(),
 				}).Debug("Go import package types not loaded")
-				return nil, diagnosticf(callSpan, "go-import", "%s", goload.GoImportTypesNotLoadedMsg(pkgName, importPath, tc.GoWorkspaceDir, tc.NodeBoundaryRoot))
+				return nil, reportBodyf(callSpan, "go-import", "%s", goload.GoImportTypesNotLoadedMsg(pkgName, importPath, tc.GoWorkspaceDir, tc.NodeBoundaryRoot))
 			}
 		} else if len(parts) >= 3 {
 			base := ast.Identifier(parts[0])
 			if gt, ok := tc.variableGoTypes[base]; ok && gt != nil {
-				methodName := parts[len(parts)-1]
 				fieldPath := parts[1 : len(parts)-1]
 				recvGo, err := goTypeAtFieldPath(gt, fieldPath)
 				if err == nil {
@@ -562,7 +611,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 						CallSpan:  e.CallSpan,
 						ArgSpans:  e.ArgSpans,
 					}
-					ret, err := tc.checkGoMethodCall(recvGo, methodName, fc, argTypes, true)
+					ret, err := tc.checkGoMethodCall(recvGo, e.Function, fc, argTypes, true)
 					if err != nil {
 						return nil, err
 					}
@@ -624,7 +673,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if !sp.IsSet() {
 			sp = e.CallSpan
 		}
-		return nil, diagnosticf(sp, "undefined-identifier", "unknown identifier: %s", e.Function.ID)
+		return nil, reportBodyf(sp, "undefined-identifier", "unknown identifier: %s", e.Function.ID)
 
 	case ast.ShapeNode:
 		inferredType, err := tc.inferShapeType(e, nil)
@@ -660,11 +709,17 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return nil, err
 		}
 		if len(valueType) != 1 {
-			return nil, fmt.Errorf("dereference is only valid on single types, got %s", formatTypeList(valueType))
+			return nil, reportf(spanOfExpression(e.Value), "deref-type",
+				"dereference requires a single pointer type",
+				fmt.Sprintf("Dereference is only valid on a single type, got %s.", formatTypeList(valueType)),
+				"use `*p` where `p` has exactly one pointer type")
 		}
 		tc.log.Tracef("Dereference type identifier: %+v", valueType[0].Node)
 		if valueType[0].Ident != ast.TypePointer {
-			return nil, fmt.Errorf("dereference is only valid on pointer types, got %s", valueType[0].Ident)
+			return nil, reportf(spanOfExpression(e.Value), "deref-type",
+				"dereference requires a pointer type",
+				fmt.Sprintf("Cannot dereference type `%s`; expected a pointer.", valueType[0].Ident),
+				"use `*p` on a pointer value")
 		}
 		tc.log.Tracef("Dereference type: %+v", valueType[0].TypeParams)
 		tc.storeInferredType(e, valueType[0].TypeParams)
@@ -683,47 +738,84 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return ret, nil
 
 	case ast.IotaLiteralNode:
-		return nil, fmt.Errorf("iota is only valid in const declarations")
+		return nil, reportf(spanOfNode(e), "iota-outside-const",
+			"iota is only valid in const declarations",
+			"The predeclared `iota` may only appear in a const group.",
+			"move `iota` into a const declaration")
 
 	case ast.TypeExpressionNode:
 		tc.storeInferredType(e, []ast.TypeNode{e.Type})
 		return []ast.TypeNode{e.Type}, nil
 
 	case ast.MapLiteralNode:
+		mapSpan := ast.SourceSpan{}
+		if len(e.Entries) > 0 {
+			mapSpan = spanOfExpression(e.Entries[0].Key)
+		}
 		if e.Type.Ident != ast.TypeMap || len(e.Type.TypeParams) != 2 {
-			return nil, fmt.Errorf("map literal: invalid type %v", e.Type)
+			return nil, reportf(mapSpan, "map-literal-type",
+				"map literal has invalid type",
+				fmt.Sprintf("Map literal type must be Map(K, V); got %v.", e.Type),
+				"annotate the literal as Map(keyType, valueType)")
 		}
 		wantK, wantV := e.Type.TypeParams[0], e.Type.TypeParams[1]
 		for i, ent := range e.Entries {
+			entrySpan := firstSetSpan(spanOfExpression(ent.Key), spanOfExpression(ent.Value), mapSpan)
 			kt, err := tc.inferExpressionType(ent.Key)
 			if err != nil {
-				return nil, fmt.Errorf("map literal entry %d key: %w", i, err)
+				return nil, err
 			}
 			if len(kt) != 1 {
-				return nil, fmt.Errorf("map literal entry %d key: expected one type", i)
+				return nil, reportf(entrySpan, "map-literal-key-type",
+					fmt.Sprintf("map literal entry %d key must have one type", i),
+					fmt.Sprintf("Key %d must infer to exactly one type.", i),
+					"ensure each map key has a single type")
 			}
 			if !tc.IsTypeCompatible(kt[0], wantK) {
-				return nil, fmt.Errorf("map literal entry %d key: want %s, got %s", i, wantK.Ident, kt[0].Ident)
+				return nil, reportf(entrySpan, "map-literal-key-type",
+					fmt.Sprintf("map literal entry %d key type mismatch", i),
+					fmt.Sprintf("Key %d must have type `%s`, got `%s`.", i, formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(kt[0].Ident)),
+					"convert the key or change the map key type")
 			}
 			vt, err := tc.inferExpressionType(ent.Value)
 			if err != nil {
-				return nil, fmt.Errorf("map literal entry %d value: %w", i, err)
+				return nil, err
 			}
 			if len(vt) != 1 {
-				return nil, fmt.Errorf("map literal entry %d value: expected one type", i)
+				return nil, reportf(entrySpan, "map-literal-value-type",
+					fmt.Sprintf("map literal entry %d value must have one type", i),
+					fmt.Sprintf("Value %d must infer to exactly one type.", i),
+					"ensure each map value has a single type")
 			}
 			if !tc.IsTypeCompatible(vt[0], wantV) {
-				return nil, fmt.Errorf("map literal entry %d value: want %s, got %s", i, wantV.Ident, vt[0].Ident)
+				return nil, reportf(entrySpan, "map-literal-value-type",
+					fmt.Sprintf("map literal entry %d value type mismatch", i),
+					fmt.Sprintf("Value %d must have type `%s`, got `%s`.", i, formatTypeIdentForDiag(wantV.Ident), formatTypeIdentForDiag(vt[0].Ident)),
+					"convert the value or change the map value type")
 			}
 		}
 		tc.storeInferredType(e, []ast.TypeNode{e.Type})
 		return []ast.TypeNode{e.Type}, nil
 
 	case ast.OkExprNode:
-		return nil, fmt.Errorf("Ok(...) is not a value constructor; use `is Ok()` / `ensure ... is Ok()` guards, or return a plain success value of type S for Result(S, F)")
+		sp := e.Span
+		if !sp.IsSet() {
+			sp = spanOfExpression(e.Value)
+		}
+		return nil, reportf(sp, "result-value-constructor",
+			"Ok(...) is not a value constructor",
+			"`Ok(...)` is a Result discriminant for `is` / `ensure`, not a runtime value constructor.",
+			"use `if r is Ok()` / `ensure r is Ok()`, or return a plain success value of type S for Result(S, F)")
 
 	case ast.ErrExprNode:
-		return nil, fmt.Errorf("Err(...) is not a value constructor; use `is Err()` / `ensure ...` and FFI/interop for failure values")
+		sp := e.Span
+		if !sp.IsSet() {
+			sp = spanOfExpression(e.Value)
+		}
+		return nil, reportf(sp, "result-value-constructor",
+			"Err(...) is not a value constructor",
+			"`Err(...)` is a Result discriminant for `is` / `ensure`, not a runtime value constructor.",
+			"use `is Err()` / `ensure ... is Err()` and FFI/interop for failure values")
 
 	default:
 		tc.log.Tracef("Unhandled expression type: %T", expr)
@@ -741,14 +833,19 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 	}).Tracef("inferMethodCallType")
 
 	if len(varType) != 1 {
+		callSpan := firstSetSpan(e.CallSpan, e.Function.Span)
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferMethodCallType",
 			"varType":  varType,
 		}).Tracef("Method calls are only valid on single types, got %s", formatTypeList(varType))
-		return nil, fmt.Errorf("method calls are only valid on single types, got %s", formatTypeList(varType))
+		return nil, reportf(callSpan, "method-receiver-type",
+			"method call requires a single receiver type",
+			fmt.Sprintf("Method calls require exactly one receiver type, got %s.", formatTypeList(varType)),
+			"call the method on a single-typed receiver")
 	}
 
 	t := varType[0]
+	callSpan := firstSetSpan(e.CallSpan, e.Function.Span)
 	if t.IsResultType() && len(t.TypeParams) >= 2 {
 		switch methodName {
 		case "Ok":
@@ -756,12 +853,19 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 		case "Err":
 			return []ast.TypeNode{t.TypeParams[1]}, nil
 		default:
-			return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, t.String())
+			return nil, reportf(callSpan, "method-undefined",
+				fmt.Sprintf("method `%s()` not valid on Result", methodName),
+				fmt.Sprintf("Result types only support `.Ok()` and `.Err()`; `%s()` is not valid.", methodName),
+				"use `.Ok()` or `.Err()`, or call a method on the success/failure payload after narrowing")
 		}
 	}
 
 	if goRecv, ok := tc.variableGoTypes[receiver]; ok && goRecv != nil {
-		ret, err := tc.checkGoMethodCall(goRecv, methodName, e, argTypes, true)
+		method := e.Function
+		if method.ID == "" {
+			method = ast.Ident{ID: ast.Identifier(methodName)}
+		}
+		ret, err := tc.checkGoMethodCall(goRecv, method, e, argTypes, true)
 		if err != nil {
 			return nil, err
 		}
@@ -778,7 +882,7 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 		t = t.TypeParams[0]
 	}
 
-	if ret, err := tc.checkUserTypeMethod(t, methodName, e.Arguments); err == nil {
+	if ret, err := tc.checkUserTypeMethod(t, methodName, e.Arguments, callSpan); err == nil {
 		return ret, nil
 	} else if tc.TypeMethods != nil {
 		// Only fall through when the type has no method table; otherwise surface the error.
@@ -787,7 +891,7 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 		}
 	}
 
-	if ret, err := tc.checkContractShapeMethod(t, methodName, e.Arguments); err == nil {
+	if ret, err := tc.checkContractShapeMethod(t, methodName, e.Arguments, callSpan); err == nil {
 		return ret, nil
 	}
 
@@ -817,7 +921,10 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 		return nil, err
 	}
 	if len(targetTypes) != 1 {
-		return nil, fmt.Errorf("index expression: target must have a single type, got %d", len(targetTypes))
+		return nil, reportf(spanIndexExpr(e), "index-target-type",
+			"index target must have a single type",
+			fmt.Sprintf("The indexed value has %d types; subscript needs exactly one.", len(targetTypes)),
+			"bind the container to a single-typed name")
 	}
 	t := targetTypes[0]
 	indexTypes, err := tc.inferExpressionType(e.Index)
@@ -825,19 +932,28 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 		return nil, err
 	}
 	if len(indexTypes) != 1 {
-		return nil, fmt.Errorf("index expression: index must have a single type")
+		return nil, reportf(spanIndexExpr(e), "index-type",
+			"index expression must have a single index type",
+			"The index expression must infer to exactly one type.",
+			"use an Int index for slices/arrays/strings or the map key type")
 	}
 	if t.Ident == ast.TypeMap && len(t.TypeParams) >= 2 {
 		wantK, wantV := t.TypeParams[0], t.TypeParams[1]
 		if !tc.IsTypeCompatible(indexTypes[0], wantK) {
-			return nil, fmt.Errorf("map index: key type want %s, got %s", wantK.Ident, indexTypes[0].Ident)
+			return nil, reportf(spanIndexExpr(e), "index-type",
+				"map index key type mismatch",
+				fmt.Sprintf("Map key type must be `%s`, got `%s`.", formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(indexTypes[0].Ident)),
+				"convert the key or change the map's key type")
 		}
 		tc.storeInferredType(e, []ast.TypeNode{wantV})
 		return []ast.TypeNode{wantV}, nil
 	}
 	if t.Ident == ast.TypeString {
 		if indexTypes[0].Ident != ast.TypeInt {
-			return nil, fmt.Errorf("index expression: string index must be Int, got %s", indexTypes[0].Ident)
+			return nil, reportf(spanIndexExpr(e), "index-type",
+				"string index must be Int",
+				fmt.Sprintf("String indexing requires Int, got `%s`.", indexTypes[0].Ident),
+				"use an integer index")
 		}
 		elem := ast.TypeNode{Ident: ast.TypeInt}
 		tc.storeInferredType(e, []ast.TypeNode{elem})
@@ -845,17 +961,26 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 	}
 	if t.Ident == ast.TypeBytes {
 		if indexTypes[0].Ident != ast.TypeInt {
-			return nil, fmt.Errorf("index expression: []byte index must be Int, got %s", indexTypes[0].Ident)
+			return nil, reportf(spanIndexExpr(e), "index-type",
+				"[]byte index must be Int",
+				fmt.Sprintf("`[]byte` indexing requires Int, got `%s`.", indexTypes[0].Ident),
+				"use an integer index")
 		}
 		elem := ast.TypeNode{Ident: ast.TypeIdent("byte")}
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
 	}
 	if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
-		return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
+		return nil, reportf(spanIndexExpr(e), "index-target-type",
+			"index target must be map, slice, or array",
+			fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", formatTypeIdentForDiag(t.Ident)),
+			"index a supported container type")
 	}
 	if indexTypes[0].Ident != ast.TypeInt {
-		return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
+		return nil, reportf(spanIndexExpr(e), "index-type",
+			"slice/array index must be Int",
+			fmt.Sprintf("Slice and array indexes must be Int, got `%s`.", indexTypes[0].Ident),
+			"use an integer index")
 	}
 	elem := t.TypeParams[0]
 	tc.storeInferredType(e, []ast.TypeNode{elem})
@@ -869,7 +994,10 @@ func (tc *TypeChecker) inferDerefExpressionAsAssignTarget(e ast.DereferenceNode)
 		return nil, err
 	}
 	if len(ptrTypes) != 1 || ptrTypes[0].Ident != ast.TypePointer || len(ptrTypes[0].TypeParams) != 1 {
-		return nil, fmt.Errorf("dereference assignment: left-hand side must be a pointer, got %s", formatTypeList(ptrTypes))
+		return nil, reportf(spanOfExpression(e.Value), "deref-assign-type",
+			"dereference assignment requires a pointer on the left",
+			fmt.Sprintf("Left-hand side of `*p = v` must be a pointer, got %s.", formatTypeList(ptrTypes)),
+			"dereference a pointer variable or field")
 	}
 	elem := ptrTypes[0].TypeParams[0]
 	tc.storeInferredType(e, []ast.TypeNode{elem})
@@ -906,7 +1034,11 @@ func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *
 				return []ast.TypeNode{arr}, nil
 			}
 			if expected.IsFixedArray() && len(expected.TypeParams) == 1 {
-				if err := checkFixedArrayLiteralLength(*expected, len(x.Value)); err != nil {
+				arrSpan := ast.SourceSpan{}
+				if len(x.Value) > 0 {
+					arrSpan = spanOfExpression(x.Value[0])
+				}
+				if err := checkFixedArrayLiteralLength(*expected, len(x.Value), arrSpan); err != nil {
 					return nil, err
 				}
 			}

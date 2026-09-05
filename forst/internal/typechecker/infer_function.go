@@ -50,7 +50,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 				if isNilableType(tc, expectedType) {
 					retTypes = append(retTypes, expectedType)
 				} else {
-					return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", expectedType.Ident)
+					return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", formatTypeIdentForDiag(expectedType.Ident))
 				}
 			} else {
 				retType, err := tc.inferReturnValueTypes(value)

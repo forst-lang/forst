@@ -40,6 +40,7 @@ type labelBlock struct {
 
 type gotoPending struct {
 	ident *ast.Ident
+	span  ast.SourceSpan
 	block *labelBlock
 	index int
 }
@@ -275,9 +276,9 @@ func (lc *labelChecker) walkStmt(b *labelBlock, index int, stmt ast.Node) error 
 		return lc.walkBlock(child)
 	case *ast.GotoNode:
 		if n.Label == nil {
-			return diagnosticf(ast.SourceSpan{}, "goto", "goto requires a label")
+			return reportBodyf(n.Span, "goto", "goto requires a label")
 		}
-		lc.gotos = append(lc.gotos, gotoPending{ident: n.Label, block: b, index: index})
+		lc.gotos = append(lc.gotos, gotoPending{ident: n.Label, span: n.Span, block: b, index: index})
 		return nil
 	case *ast.BreakNode:
 		if n.Label != nil {
@@ -348,7 +349,7 @@ func (lc *labelChecker) declareLabel(b *labelBlock, index int, label *ast.Ident,
 	}
 	if prev, ok := lc.all[label.ID]; ok {
 		sp := label.Span
-		return diagnosticf(sp, "goto", "label %q already defined", prev.ident.ID)
+		return reportBodyf(sp, "goto", "label %q already defined", prev.ident.ID)
 	}
 	lc.all[label.ID] = &labelObj{ident: label, block: b, index: index, isFor: isFor}
 	if lc.tc.log != nil && lc.tc.log.IsLevelEnabled(logrus.DebugLevel) {
@@ -364,11 +365,11 @@ func (lc *labelChecker) declareLabel(b *labelBlock, index int, label *ast.Ident,
 func (lc *labelChecker) resolve() error {
 	for _, g := range lc.gotos {
 		if g.ident == nil {
-			return diagnosticf(ast.SourceSpan{}, "goto", "goto requires a label")
+			return reportBodyf(g.span, "goto", "goto requires a label")
 		}
 		obj, ok := lc.all[g.ident.ID]
 		if !ok {
-			return diagnosticf(g.ident.Span, "goto", "label %q not declared", g.ident.ID)
+			return reportBodyf(g.ident.Span, "goto", "label %q not declared", g.ident.ID)
 		}
 		obj.used = true
 		if lc.tc.log != nil {
@@ -379,7 +380,7 @@ func (lc *labelChecker) resolve() error {
 			}).Debug("Resolved goto target")
 		}
 		if jumpsIntoBlock(g.block, obj.block) {
-			return diagnosticf(g.ident.Span, "goto", "goto %s jumps into block", g.ident.ID)
+			return reportBodyf(g.ident.Span, "goto", "goto %s jumps into block", g.ident.ID)
 		}
 		if err := checkGotoOverDecl(g, obj); err != nil {
 			return err
@@ -391,11 +392,11 @@ func (lc *labelChecker) resolve() error {
 		}
 		obj, ok := lc.all[br.ident.ID]
 		if !ok {
-			return diagnosticf(br.ident.Span, "goto", "undefined label %q for break/continue", br.ident.ID)
+			return reportBodyf(br.ident.Span, "goto", "undefined label %q for break/continue", br.ident.ID)
 		}
 		obj.used = true
 		if !obj.isFor {
-			return diagnosticf(br.ident.Span, "goto", "invalid break/continue label %q (not a for loop)", br.ident.ID)
+			return reportBodyf(br.ident.Span, "goto", "invalid break/continue label %q (not a for loop)", br.ident.ID)
 		}
 	}
 	for _, obj := range lc.all {
@@ -408,7 +409,7 @@ func (lc *labelChecker) resolve() error {
 			if obj.ident != nil {
 				name = obj.ident.ID
 			}
-			return diagnosticf(sp, "goto", "label %s defined and not used", name)
+			return reportBodyf(sp, "goto", "label %s defined and not used", name)
 		}
 	}
 	return nil
@@ -463,11 +464,8 @@ func checkGotoOverDecl(g gotoPending, obj *labelObj) error {
 			break
 		}
 		if names := declNamesIntroduced(common.stmts[i]); len(names) > 0 {
-			sp := ast.SourceSpan{}
-			if g.ident != nil {
-				sp = g.ident.Span
-			}
-			return diagnosticf(sp, "goto", "goto %s jumps over declaration of %s", g.ident.ID, names[0])
+			sp := firstSetSpan(g.ident.Span, g.span)
+			return reportBodyf(sp, "goto", "goto %s jumps over declaration of %s", g.ident.ID, names[0])
 		}
 	}
 	return nil

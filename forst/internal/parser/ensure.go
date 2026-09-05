@@ -6,19 +6,27 @@ import (
 	"strings"
 )
 
-// ensureMissingIsMessage explains that ensure requires `is` (bare Bool / `or` is not enough).
-func ensureMissingIsMessage(subject string, found ast.Token) string {
-	hint := fmt.Sprintf("for Bool use: ensure %s is True()", subject)
+// ensureMissingIsReport explains that ensure requires `is` (bare Bool / `or` is not enough).
+func ensureMissingIsReport(subject string, found ast.Token) (code, title, problem, help string) {
+	help = fmt.Sprintf("for Bool values write:\n\n    ensure %s is True()", subject)
 	switch found.Type {
 	case ast.TokenOr:
-		return fmt.Sprintf("ensure requires 'is' before 'or'; %s", hint)
+		return "ensure-missing-is", "ensure needs `is` before `or`",
+			"After the subject, Forst expects `is` plus a constraint — not a bare `or`.",
+			help
 	case ast.TokenGreater, ast.TokenLess, ast.TokenGreaterEqual, ast.TokenLessEqual,
 		ast.TokenEquals, ast.TokenNotEquals, ast.TokenLogicalOr, ast.TokenLogicalAnd:
-		return fmt.Sprintf("refinement-boolean-ensure: ensure requires 'is' with a constraint (not a comparison); %s", hint)
+		return "ensure-missing-is", "ensure needs `is`, not a comparison",
+			"ensure requires `is` with a constraint — not a boolean comparison.",
+			help
 	case ast.TokenLParen:
-		return fmt.Sprintf("ensure subject must be an identifier (bind the call first); %s (found %s)", hint, found.Type)
+		return "ensure-missing-is", "ensure subject must be a name",
+			"Bind the call to a variable first, then ensure on that name.",
+			help
 	default:
-		return fmt.Sprintf("ensure requires 'is' after the subject; %s (found %s)", hint, found.Type)
+		return "ensure-missing-is", "ensure needs `is`",
+			fmt.Sprintf("After the subject, Forst expects `is` plus a constraint (found %s).", found.Type),
+			help
 	}
 }
 
@@ -68,7 +76,9 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	if p.current().Type == ast.TokenLogicalNot && p.peek().Type == ast.TokenIdentifier {
 		p.advance() // Move past !
 		if p.peek().Type == ast.TokenLParen {
-			p.FailWithParseError(p.current(), "Expected variable after ensure !")
+			p.FailWithReport(p.current(), "ensure-negation-subject", "ensure ! needs a variable",
+				"After `ensure !`, Forst expects a variable name, not a call.",
+				"write `ensure !flag is True()`")
 		}
 		tok := p.current()
 		variable = ast.VariableNode{
@@ -95,23 +105,27 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		switch p.current().Type {
 		case ast.TokenStringLiteral, ast.TokenIntLiteral, ast.TokenFloatLiteral,
 			ast.TokenRuneLiteral, ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
-			p.FailWithParseError(p.current(),
-				"refinement-non-place-subject: ensure subject must be an identifier or field path, not a literal")
+			p.FailWithReport(p.current(), "refinement-non-place-subject", "ensure subject must be a place",
+				"ensure subject must be an identifier or field path, not a literal.",
+				"bind the value to a variable, then ensure on that name")
 		case ast.TokenLParen:
-			p.FailWithParseError(p.current(),
-				"refinement-non-place-subject: ensure subject must be an identifier or field path")
+			p.FailWithReport(p.current(), "refinement-non-place-subject", "ensure subject must be a place",
+				"ensure subject must be an identifier or field path.",
+				"bind the expression to a variable, then ensure on that name")
 		}
 
 		if p.current().Type != ast.TokenIdentifier {
-			p.FailWithParseError(p.current(), ensureMissingIsMessage("?", p.current()))
+			code, title, problem, help := ensureMissingIsReport("?", p.current())
+			p.FailWithReport(p.current(), code, title, problem, help)
 		}
 
 		// Parse the left side as a variable or field access (identifiers only — no call subjects).
 		firstTok := p.expect(ast.TokenIdentifier)
 		// Call subject: ident(
 		if p.current().Type == ast.TokenLParen {
-			p.FailWithParseError(firstTok,
-				"refinement-non-place-subject: ensure subject must be an identifier (bind the call first)")
+			p.FailWithReport(firstTok, "refinement-non-place-subject", "ensure subject must be a place",
+				"ensure subject must be an identifier (bind the call first).",
+				"assign the call result to a variable, then ensure on that name")
 		}
 		curIdent := ast.Identifier(firstTok.Value)
 		lastTok := firstTok
@@ -121,8 +135,9 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			p.advance() // Consume dot
 			nextTok := p.expect(ast.TokenIdentifier)
 			if p.current().Type == ast.TokenLParen {
-				p.FailWithParseError(nextTok,
-					"refinement-non-place-subject: ensure subject must be an identifier or field path, not a call")
+				p.FailWithReport(nextTok, "refinement-non-place-subject", "ensure subject must be a place",
+					"ensure subject must be an identifier or field path, not a call.",
+					"bind the call result to a variable, then ensure on that name")
 			}
 			curIdent = ast.Identifier(string(curIdent) + "." + nextTok.Value)
 			lastTok = nextTok
@@ -134,10 +149,12 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			tok := p.current()
 			if tok.Type.IsArithmeticBinaryOperator() || tok.Type.IsComparisonBinaryOperator() ||
 				tok.Type == ast.TokenLogicalOr || tok.Type == ast.TokenLogicalAnd {
-				p.FailWithParseError(tok,
-					fmt.Sprintf("refinement-non-place-subject: ensure subject must be a place, not an expression (%s)", tok.Type))
+				p.FailWithReport(tok, "refinement-non-place-subject", "ensure subject must be a place",
+					fmt.Sprintf("ensure subject must be a place, not an expression (%s).", tok.Type),
+					"bind the expression to a variable, then ensure on that name")
 			}
-			p.FailWithParseError(tok, ensureMissingIsMessage(string(curIdent), tok))
+			code, title, problem, help := ensureMissingIsReport(string(curIdent), tok)
+			p.FailWithReport(tok, code, title, problem, help)
 		}
 		p.expect(ast.TokenIs)
 		if tok := p.current(); tok.Type == ast.TokenTrue || tok.Type == ast.TokenFalse {
@@ -145,10 +162,9 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			if tok.Type == ast.TokenFalse {
 				want = "False()"
 			}
-			p.FailWithParseError(tok, fmt.Sprintf(
-				"ensure predicate must be a constraint, not a boolean literal; use `ensure %s is %s`",
-				curIdent, want,
-			))
+			p.FailWithReport(tok, "ensure-boolean-literal", "ensure predicate must be a constraint",
+				"ensure predicate must be a constraint, not a boolean literal.",
+				fmt.Sprintf("use `ensure %s is %s`", curIdent, want))
 		}
 
 		subjectSpan := ast.SpanBetweenTokens(firstTok, lastTok)
@@ -186,46 +202,54 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			p.advance() // consume else
 			if p.current().Type == ast.TokenLBrace {
 				if inGuard {
-					p.FailWithParseError(elseTok,
-						"refinement-failure-block-in-guard: failure blocks are not allowed inside type guards")
+					p.FailWithReport(elseTok, "refinement-failure-block-in-guard", "failure blocks are not allowed inside type guards",
+						"Typed failure blocks (`else { … }`) cannot appear inside type guards.",
+						"use a typed `else Error()` or move the ensure outside the guard")
 				}
 				block = p.parseEnsureBlock()
 			} else {
 				if inGuard {
-					p.FailWithParseError(elseTok,
-						"refinement-else-in-guard: typed `else` is not allowed inside type guards")
+					p.FailWithReport(elseTok, "refinement-else-in-guard", "typed `else` is not allowed inside type guards",
+						"Typed failure (`else Error()`) cannot appear inside type guards.",
+						"move the ensure outside the guard or use a failure block only in ordinary functions")
 				}
 				if inMain {
-					p.FailWithParseError(elseTok,
-						`"else" typed failure in ensure statements is not allowed in main function`)
+					p.FailWithReport(elseTok, "refinement-else-in-main", "typed failure is not allowed in main",
+						`"else" typed failure in ensure statements is not allowed in main function.`,
+						"use a failure block `else { … }` in main, or move typed failure to another function")
 				}
 				errNode = p.parseEnsureError()
 				if p.current().Type == ast.TokenLBrace {
-					p.FailWithParseError(p.current(),
-						"refinement-else-and-block: use either `else <error>` or a failure block `else { … }`, not both")
+					p.FailWithReport(p.current(), "refinement-else-and-block", "cannot combine typed `else` and failure block",
+						"use either `else <error>` or a failure block `else { … }`, not both.",
+						"pick one failure form per ensure statement")
 				}
 			}
 		}
 	} else if p.current().Type == ast.TokenLBrace {
 		if inGuard {
-			p.FailWithParseError(p.current(),
-				"refinement-failure-block-in-guard: failure blocks are not allowed inside type guards")
+			p.FailWithReport(p.current(), "refinement-failure-block-in-guard", "failure blocks are not allowed inside type guards",
+				"Typed failure blocks (`else { … }`) cannot appear inside type guards.",
+				"use a typed `else Error()` or move the ensure outside the guard")
 		}
-		p.FailWithParseError(p.current(),
-			"refinement-bare-ensure-block: ensure failure block requires 'else'; write: ensure … else { … }")
+		p.FailWithReport(p.current(), "refinement-bare-ensure-block", "ensure failure block requires `else`",
+			"ensure failure block requires 'else'; write: ensure … else { … }",
+			"prefix the block with `else`")
 	}
 
 	// `else` after block
 	if p.current().Type == ast.TokenElse && block != nil {
-		p.FailWithParseError(p.current(),
-			"refinement-else-and-block: use either `else <error>` or a failure block `else { … }`, not both")
+		p.FailWithReport(p.current(), "refinement-else-and-block", "cannot combine typed `else` and failure block",
+			"use either `else <error>` or a failure block `else { … }`, not both.",
+			"pick one failure form per ensure statement")
 	}
 
 	// Legacy `or` as typed failure: if somehow still present after a complete target
 	// without having been consumed as Join (e.g. orphaned), suggest else.
 	if p.current().Type == ast.TokenOr && errNode == nil && block == nil {
-		p.FailWithParseError(p.current(),
-			"refinement-legacy-failure-or: typed failure uses `else`, not `or`; `or` joins assertion alternatives")
+		p.FailWithReport(p.current(), "refinement-legacy-failure-or", "typed failure uses `else`, not `or`",
+			"typed failure uses `else`, not `or`; `or` joins assertion alternatives.",
+			"write `ensure x is Foo() else MyError()` instead of `… or MyError()`")
 	}
 
 	return ast.EnsureNode{

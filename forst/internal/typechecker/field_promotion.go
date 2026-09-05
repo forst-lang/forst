@@ -67,7 +67,7 @@ func (tc *TypeChecker) lookupPromotedFieldInPayload(
 		var ft ast.TypeNode
 		var ferr error
 		if innerShape != nil {
-			ft, ferr = tc.lookupFieldPathOnShape(innerShape, fieldPath)
+			ft, ferr = tc.lookupFieldPathOnShape(innerShape, fieldPath, spanOfShapeField(field))
 		} else {
 			ft, ferr = tc.lookupFieldPath(innerType, fieldPath)
 		}
@@ -75,13 +75,13 @@ func (tc *TypeChecker) lookupPromotedFieldInPayload(
 			continue
 		}
 		if len(matches) > 0 {
-			return ast.TypeNode{}, fmt.Errorf("ambiguous selector %s in type %s", fieldPath[0], baseType.Ident)
+			return ast.TypeNode{}, fmt.Errorf("ambiguous selector %s in type %s", fieldPath[0], formatTypeIdentForDiag(baseType.Ident))
 		}
 		matches = append(matches, embedName)
 		result = ft
 	}
 	if len(matches) == 0 {
-		return ast.TypeNode{}, fmt.Errorf("field path %v not found in type %s", fieldPath, baseType.Ident)
+		return ast.TypeNode{}, fmt.Errorf("field path %v not found in type %s", fieldPath, formatTypeIdentForDiag(baseType.Ident))
 	}
 	return result, nil
 }

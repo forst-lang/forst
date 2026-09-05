@@ -23,22 +23,25 @@ func (tc *TypeChecker) typeIdentIsNominalError(id ast.TypeIdent) bool {
 
 // rejectNominalErrorAsBareIsGuard rejects `x is ParseError`-style guards: nominal errors must be
 // discriminated via Result and `Err()` / `Err(...)` (built-in Result guards), not as the RHS base type.
-func (tc *TypeChecker) rejectNominalErrorAsBareIsGuard(assertionNode *ast.AssertionNode) error {
+func (tc *TypeChecker) rejectNominalErrorAsBareIsGuard(assertionNode *ast.AssertionNode, span ast.SourceSpan) error {
 	if assertionNode == nil || assertionNode.BaseType == nil {
 		return nil
 	}
 	if tc.typeIdentIsNominalError(*assertionNode.BaseType) {
-		return fmt.Errorf("nominal error type %q cannot be used as an `is` guard; narrow failure values via Result using `Err()` or `Err(...)`", *assertionNode.BaseType)
+		return reportf(span, "nominal-error-not-is-guard",
+			fmt.Sprintf("%s is not an `is` guard", *assertionNode.BaseType),
+			fmt.Sprintf("Nominal error types are not used as `is %s`. Narrow Result failures with Err instead.", *assertionNode.BaseType),
+			fmt.Sprintf("write `if r is Err(%s)` or `ensure r is Ok()`", *assertionNode.BaseType))
 	}
 	return nil
 }
 
 // validateTypeDefAssertion validates a TypeDefAssertionExpr against the left-hand side type
-func (tc *TypeChecker) validateTypeDefAssertion(assertionNode *ast.AssertionNode, varLeftType ast.TypeNode) error {
+func (tc *TypeChecker) validateTypeDefAssertion(assertionNode *ast.AssertionNode, varLeftType ast.TypeNode, span ast.SourceSpan) error {
 	if assertionNode == nil {
 		return fmt.Errorf("right-hand side of 'is' must be an assertion")
 	}
-	if err := tc.rejectNominalErrorAsBareIsGuard(assertionNode); err != nil {
+	if err := tc.rejectNominalErrorAsBareIsGuard(assertionNode, span); err != nil {
 		return err
 	}
 
@@ -46,7 +49,7 @@ func (tc *TypeChecker) validateTypeDefAssertion(assertionNode *ast.AssertionNode
 	if assertionNode.BaseType != nil {
 		baseType := ast.TypeNode{Ident: *assertionNode.BaseType}
 		if !tc.IsTypeCompatible(varLeftType, baseType) {
-			return fmt.Errorf("assertion base type %s is not compatible with left-hand side type %s", baseType.Ident, varLeftType.Ident)
+			return fmt.Errorf("assertion base type %s is not compatible with left-hand side type %s", formatTypeIdentForDiag(baseType.Ident), formatTypeIdentForDiag(varLeftType.Ident))
 		}
 	}
 
@@ -145,12 +148,12 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 }
 
 // validateAssertionNode validates a direct assertion node
-func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, varLeftType ast.TypeNode) error {
-	if err := tc.rejectNominalErrorAsBareIsGuard(&assertionNode); err != nil {
+func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, varLeftType ast.TypeNode, span ast.SourceSpan) error {
+	if err := tc.rejectNominalErrorAsBareIsGuard(&assertionNode, span); err != nil {
 		return err
 	}
 	if len(assertionNode.OrChains) > 0 {
-		if err := tc.validateAssertionOrChains(assertionNode, varLeftType); err != nil {
+		if err := tc.validateAssertionOrChains(assertionNode, varLeftType, span); err != nil {
 			return err
 		}
 	}
@@ -158,11 +161,11 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		c := assertionNode.Constraints[0]
 		if c.Name == "Ok" || c.Name == "Err" {
 			if varLeftType.IsResultType() {
-				return tc.validateResultDiscriminatorAssertion(assertionNode, varLeftType)
+				return tc.validateResultDiscriminatorAssertion(assertionNode, varLeftType, span)
 			}
 			// Otherwise only valid if a user-defined type guard uses this name (e.g. `is (v N) Ok()`).
 			if _, hasGuard := tc.Defs[ast.TypeIdent(c.Name)]; !hasGuard {
-				return fmt.Errorf("%s assertion requires Result subject, got %s", c.Name, varLeftType.String())
+				return resultOkSubjectError(c.Name, varLeftType.String(), span)
 			}
 		}
 	}
@@ -170,12 +173,12 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		if constraint.Name != ConstraintMatch &&
 			!isBuiltinAssertionConstraintName(constraint.Name) &&
 			!tc.IsTypeGuardConstraint(constraint.Name) {
-			return fmt.Errorf("type guard %s not found", constraint.Name)
+			return guardUndefinedError(constraint.Name, span)
 		}
 		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
 			if varLeftType.Ident != ast.TypePointer {
-				return fmt.Errorf("present assertion requires a pointer type, got %s", varLeftType.Ident)
+				return fmt.Errorf("present assertion requires a pointer type, got %s", formatTypeIdentForDiag(varLeftType.Ident))
 			}
 		} else {
 			// Check type guard subject type for other constraints
@@ -194,13 +197,13 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 }
 
 // validateAssertionOrChains checks Join alternatives; error constructors after `or` need `else`.
-func (tc *TypeChecker) validateAssertionOrChains(assertion ast.AssertionNode, varLeftType ast.TypeNode) error {
+func (tc *TypeChecker) validateAssertionOrChains(assertion ast.AssertionNode, varLeftType ast.TypeNode, span ast.SourceSpan) error {
 	for _, chain := range assertion.OrChains {
 		if tc.assertionChainLooksLikeErrorConstructor(chain) {
-			return diagnosticf(ast.SourceSpan{}, "refinement-legacy-failure-or",
+			return reportBodyf(span, "refinement-legacy-failure-or",
 				"refinement-legacy-failure-or: `or` starts another constraint chain; use `else` for typed failure")
 		}
-		if err := tc.validateAssertionNode(chain, varLeftType); err != nil {
+		if err := tc.validateAssertionNode(chain, varLeftType, span); err != nil {
 			return err
 		}
 	}
@@ -228,19 +231,23 @@ func (tc *TypeChecker) assertionChainLooksLikeErrorConstructor(chain ast.Asserti
 }
 
 // validateResultDiscriminatorAssertion validates `x is Ok(...)` / `Err(...)` when the subject is Result(S,F).
-func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode, varLeftType ast.TypeNode) error {
+func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode, varLeftType ast.TypeNode, span ast.SourceSpan) error {
 	if !varLeftType.IsResultType() || len(varLeftType.TypeParams) < 2 {
 		c := "Ok"
 		if len(a.Constraints) == 1 && a.Constraints[0].Name == "Err" {
 			c = "Err"
 		}
-		return fmt.Errorf("%s assertion requires Result subject, got %s", c, varLeftType.String())
+		return resultOkSubjectError(c, varLeftType.String(), span)
 	}
 	if a.BaseType != nil {
-		return fmt.Errorf("Ok/Err discriminator cannot use a base type")
+		return reportf(span, "result-ok-no-base", "Ok/Err cannot follow a base type",
+			"Write the discriminator alone (with optional payload type), not as a chain on another type.",
+			"use `is Ok()` or `is Ok(User)`, not `is Something.Ok()`")
 	}
 	if len(a.Constraints) != 1 {
-		return fmt.Errorf("Ok/Err assertion requires exactly one constraint")
+		return reportf(span, "result-ok-arity", "Ok/Err takes at most one type argument",
+			"Result discriminators are a single constraint.",
+			"write `is Ok()`, `is Ok(T)`, `is Err()`, or `is Err(E)`")
 	}
 	c := a.Constraints[0]
 	succ := varLeftType.TypeParams[0]
@@ -252,21 +259,29 @@ func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode,
 			return nil
 		case 1:
 			if c.Args[0].Value == nil {
-				return fmt.Errorf("Ok(...) requires a value argument")
+				return reportf(span, "result-ok-arity", "Ok(...) needs a value argument",
+					"`Ok(...)` with parentheses expects a value (or use bare `Ok()`).",
+					"write `is Ok()` or `is Ok(value)`")
 			}
 			vt, err := tc.inferExpressionType(*c.Args[0].Value)
 			if err != nil {
 				return err
 			}
 			if len(vt) != 1 {
-				return fmt.Errorf("ok argument: expected a single type")
+				return reportf(span, "result-ok-arity", "Ok(...) needs a single value",
+					"The Ok payload argument must have exactly one type.",
+					"pass one value: `is Ok(value)`")
 			}
 			if !tc.IsTypeCompatible(vt[0], succ) {
-				return fmt.Errorf("Ok(...) value incompatible with success type %s", succ.String())
+				return reportf(span, "result-ok-payload", "Ok(...) value does not match success type",
+					fmt.Sprintf("Expected success type `%s`, got `%s`.", succ.String(), vt[0].String()),
+					"pass a value compatible with the Result success type")
 			}
 			return nil
 		default:
-			return fmt.Errorf("Ok(...) expects at most one argument")
+			return reportf(span, "result-ok-arity", "Ok(...) expects at most one argument",
+				"`Ok` takes zero or one argument.",
+				"write `is Ok()` or `is Ok(value)`")
 		}
 	case "Err":
 		switch len(c.Args) {
@@ -276,28 +291,40 @@ func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode,
 			arg := c.Args[0]
 			if arg.Type != nil {
 				if !tc.IsTypeCompatible(*arg.Type, fail) {
-					return fmt.Errorf("Err(...) type argument incompatible with failure type %s", fail.String())
+					return reportf(span, "result-err-payload", "Err(...) type does not match failure type",
+						fmt.Sprintf("Expected failure type `%s`, got `%s`.", fail.String(), arg.Type.String()),
+						"pass a type or value compatible with the Result failure type")
 				}
 				return nil
 			}
 			if arg.Value == nil {
-				return fmt.Errorf("Err(...) requires a value or type argument")
+				return reportf(span, "result-ok-arity", "Err(...) needs a value or type argument",
+					"`Err(...)` with parentheses expects a failure value or type (or use bare `Err()`).",
+					"write `is Err()` or `is Err(ParseError)`")
 			}
 			vt, err := tc.inferExpressionType(*arg.Value)
 			if err != nil {
 				return err
 			}
 			if len(vt) != 1 {
-				return fmt.Errorf("err argument: expected a single type")
+				return reportf(span, "result-ok-arity", "Err(...) needs a single value",
+					"The Err payload argument must have exactly one type.",
+					"pass one value: `is Err(err)`")
 			}
 			if !tc.IsTypeCompatible(vt[0], fail) {
-				return fmt.Errorf("Err(...) value incompatible with failure type %s", fail.String())
+				return reportf(span, "result-err-payload", "Err(...) value does not match failure type",
+					fmt.Sprintf("Expected failure type `%s`, got `%s`.", fail.String(), vt[0].String()),
+					"pass a value compatible with the Result failure type")
 			}
 			return nil
 		default:
-			return fmt.Errorf("Err(...) expects at most one argument")
+			return reportf(span, "result-ok-arity", "Err(...) expects at most one argument",
+				"`Err` takes zero or one argument.",
+				"write `is Err()` or `is Err(E)`")
 		}
 	default:
-		return fmt.Errorf("internal: not Ok/Err discriminator")
+		return reportf(span, "result-ok-arity", "not an Ok/Err discriminator",
+			"This path expected a Result Ok/Err constraint.",
+			"write `is Ok()` or `is Err()`")
 	}
 }
