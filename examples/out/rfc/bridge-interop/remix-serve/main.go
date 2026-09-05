@@ -64,7 +64,7 @@ type T_LKhz7DyfNqT struct {
 func AddTodo(input AddTodoRequest) AddTodoResponse {
 	println("api:AddTodo:" + input.Title)
 	created, createdErr := forst_bridge_callsync_legacy_todos_js_addTodo(input.Title)
-	if !(createdErr == nil) {
+	if createdErr != nil {
 		return AddTodoResponse{Id: "", Title: "", Status: ""}
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
@@ -72,43 +72,43 @@ func AddTodo(input AddTodoRequest) AddTodoResponse {
 func CompleteTodo(input CompleteTodoRequest) AddTodoResponse {
 	println("api:CompleteTodo:" + input.Id)
 	updated, updatedErr := forst_bridge_callsync_legacy_todos_js_toggleTodo(input.Id)
-	if !(updatedErr == nil) {
-		return AddTodoResponse{Title: "", Status: "", Id: ""}
+	if updatedErr != nil {
+		return AddTodoResponse{Status: "", Id: "", Title: ""}
 	}
 	return AddTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
 }
 func GetDashboard() T_7nWLvcjQ76D {
 	println("api:GetDashboard")
 	open, openErr := forst_bridge_callsync_legacy_todos_js_openCount()
-	if !(openErr == nil) {
-		return T_7nWLvcjQ76D{RecentTitles: "", ActivityKinds: "", SavedAt: "", Open: 0.0}
+	if openErr != nil {
+		return T_7nWLvcjQ76D{SavedAt: "", Open: 0.0, RecentTitles: "", ActivityKinds: ""}
 	}
 	snap, snapErr := forst_bridge_callasync_legacy_todos_js_persistSnapshot()
-	if !(snapErr == nil) {
-		return T_7nWLvcjQ76D{RecentTitles: "", ActivityKinds: "", SavedAt: "", Open: 0.0}
+	if snapErr != nil {
+		return T_7nWLvcjQ76D{Open: 0.0, RecentTitles: "", ActivityKinds: "", SavedAt: ""}
 	}
 	return T_7nWLvcjQ76D{Open: open, RecentTitles: "", ActivityKinds: "ready", SavedAt: snap.SavedAt}
 }
 func ListTodos() T_D415raHQ7uQ {
 	println("api:ListTodos")
 	encoded, encodedErr := forst_bridge_callsync_legacy_todos_js_formatTodoList()
-	if !(encodedErr == nil) {
-		return T_D415raHQ7uQ{Done: 0.0, Encoded: "", Open: 0.0}
+	if encodedErr != nil {
+		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	open, openErr := forst_bridge_callsync_legacy_todos_js_openCount()
-	if !(openErr == nil) {
+	if openErr != nil {
 		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	total, totalErr := forst_bridge_callsync_legacy_todos_js_todoCount()
-	if !(totalErr == nil) {
-		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
+	if totalErr != nil {
+		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	done := total - open
 	return T_D415raHQ7uQ{Open: open, Done: done, Encoded: encoded}
 }
 func main() {
 	first, firstErr := forst_bridge_callsync_legacy_todos_js_bumpEditCount()
-	if !(firstErr == nil) {
+	if firstErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", firstErr)
 			os.Exit(1)
@@ -116,7 +116,7 @@ func main() {
 	}
 	println("sync:" + strconv.FormatFloat(first, 'f', 0, 64))
 	second, secondErr := forst_bridge_callsync_legacy_todos_js_bumpEditCount()
-	if !(secondErr == nil) {
+	if secondErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", secondErr)
 			os.Exit(1)
@@ -124,7 +124,7 @@ func main() {
 	}
 	println("sync:" + strconv.FormatFloat(second, 'f', 0, 64))
 	snap, snapErr := forst_bridge_callasync_legacy_todos_js_persistSnapshot()
-	if !(snapErr == nil) {
+	if snapErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", snapErr)
 			os.Exit(1)
@@ -133,7 +133,7 @@ func main() {
 	println("async:" + snap.SavedAt)
 	var titleCount int = 0
 	titleSeq, titleSeqErr := forst_bridge_open_seq_legacy_activity_js_recentTitles()
-	if !(titleSeqErr == nil) {
+	if titleSeqErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", titleSeqErr)
 			os.Exit(1)
@@ -175,7 +175,7 @@ func main() {
 	println("gen:" + strconv.Itoa(titleCount))
 	var feedCount int = 0
 	feed, feedErr := forst_bridge_open_seq_legacy_activity_js_activityFeed()
-	if !(feedErr == nil) {
+	if feedErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", feedErr)
 			os.Exit(1)

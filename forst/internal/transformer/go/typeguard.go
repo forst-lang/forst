@@ -293,8 +293,9 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 				return nil, fmt.Errorf("first statement is not an expression statement")
 			}
 
+			// Constraints emit success polarity; fail the guard when success is false.
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
-				Cond: exprStmt.X,
+				Cond: negateCondition(exprStmt.X),
 				Body: &goast.BlockStmt{
 					List: []goast.Stmt{
 						&goast.ReturnStmt{

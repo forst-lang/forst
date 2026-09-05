@@ -49,7 +49,7 @@ func TestEnsurePackageLevelVarRegistered_deferredNonLiteral(t *testing.T) {
 	n := ast.AssignmentNode{
 		IsPackageLevel: true,
 		LValues:        []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "N"}}},
-		RValues:        []ast.ExpressionNode{ast.FunctionCallNode{
+		RValues: []ast.ExpressionNode{ast.FunctionCallNode{
 			Function:  ast.Ident{ID: "len"},
 			Arguments: []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}},
 		}},

@@ -25,8 +25,8 @@ func TestEmitORPC_routerFixture(t *testing.T) {
 		t.Fatalf("contract missing invoke wiring:\n%s", contract)
 	}
 	zod := fileContent(resp, "zod.ts")
-	if !strings.Contains(zod, "UsernameSchema") || !strings.Contains(zod, ".min(3)") {
-		t.Fatalf("zod missing Username constraints:\n%s", zod)
+	if !strings.Contains(zod, "UsernameSchema") || !strings.Contains(zod, "[...v].length >= 3") {
+		t.Fatalf("zod missing Username code-point Min:\n%s", zod)
 	}
 	invoke := fileContent(resp, "invoke.ts")
 	if !strings.Contains(invoke, "invokeFunction") {
@@ -121,6 +121,57 @@ func TestZodEnc_valueConstraint(t *testing.T) {
 	out := z.emit()
 	if !strings.Contains(out, `z.literal("active")`) {
 		t.Fatalf("expected Value literal:\n%s", out)
+	}
+}
+
+func TestZodEnc_stringMinMax_codePointsNotUtf16(t *testing.T) {
+	types := map[string]semantic.Type{
+		"p.Name": {
+			ID: "p.Name", Kind: "string",
+			Constraints: []semantic.Constraint{
+				{Name: "Min", Args: []any{float64(3)}, Origin: "builtin", Applies: "length"},
+				{Name: "Max", Args: []any{float64(10)}, Origin: "builtin", Applies: "length"},
+				{Name: "MaxBytes", Args: []any{float64(32)}, Origin: "builtin", Applies: "bytes"},
+			},
+		},
+		"p.Qty": {
+			ID: "p.Qty", Kind: "int",
+			Constraints: []semantic.Constraint{
+				{Name: "Min", Args: []any{float64(1)}, Origin: "builtin", Applies: "value"},
+			},
+		},
+	}
+	z := newZodEnc(types)
+	z.need("p.Name")
+	z.need("p.Qty")
+	out := z.emit()
+	for _, want := range []string{
+		`[...v].length >= 3`,
+		`[...v].length <= 10`,
+		`new TextEncoder().encode(v).length <= 32`,
+		`.min(1)`, // int Min stays numeric
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "NameSchema") && strings.Contains(out, "z.string().min(") {
+		t.Fatalf("string Min must not use Zod UTF-16 .min:\n%s", out)
+	}
+}
+
+func TestZodEnc_stringNotEmpty_codePoints(t *testing.T) {
+	types := map[string]semantic.Type{
+		"p.Tag": {
+			ID: "p.Tag", Kind: "string",
+			Constraints: []semantic.Constraint{{Name: "NotEmpty", Origin: "builtin"}},
+		},
+	}
+	z := newZodEnc(types)
+	z.need("p.Tag")
+	out := z.emit()
+	if !strings.Contains(out, `[...v].length >= 1`) {
+		t.Fatalf("NotEmpty on string should use code points:\n%s", out)
 	}
 }
 

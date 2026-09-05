@@ -9,8 +9,8 @@ import (
 // BridgeRuntimeInfo holds compile-time facts about bridge interop for the linked program.
 type BridgeRuntimeInfo struct {
 	NeedsBridgeRuntime bool
-	Manifest         bridgeinterop.ManifestV1
-	ManifestJSON     string
+	Manifest           bridgeinterop.ManifestV1
+	ManifestJSON       string
 }
 
 // BridgeRuntimeInfo returns bridge runtime facts for this typecheck (zero value when not needed).

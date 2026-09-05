@@ -7,7 +7,7 @@ import os "os"
 func main() {
 	var syncSum float64 = 0
 	syncSeq, syncSeqErr := forst_bridge_open_seq_legacy_generators_js_syncNumbers()
-	if !(syncSeqErr == nil) {
+	if syncSeqErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", syncSeqErr)
 			os.Exit(1)
@@ -50,7 +50,7 @@ func main() {
 	println("sync:" + strconv.FormatFloat(syncSum, 'f', 0, 64))
 	var asyncSum float64 = 0
 	asyncSeq, asyncSeqErr := forst_bridge_open_seq_legacy_generators_js_asyncNumbers()
-	if !(asyncSeqErr == nil) {
+	if asyncSeqErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", asyncSeqErr)
 			os.Exit(1)
@@ -93,7 +93,7 @@ func main() {
 	println("async:" + strconv.FormatFloat(asyncSum, 'f', 0, 64))
 	var emptyCount int = 0
 	emptySeq, emptySeqErr := forst_bridge_open_seq_legacy_generators_js_emptyGen()
-	if !(emptySeqErr == nil) {
+	if emptySeqErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", emptySeqErr)
 			os.Exit(1)
@@ -135,7 +135,7 @@ func main() {
 	println("empty:" + strconv.Itoa(emptyCount))
 	var breakCount int = 0
 	finallySeq, finallySeqErr := forst_bridge_open_seq_legacy_generators_js_withFinally()
-	if !(finallySeqErr == nil) {
+	if finallySeqErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", finallySeqErr)
 			os.Exit(1)

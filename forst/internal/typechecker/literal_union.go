@@ -195,7 +195,6 @@ func (tc *TypeChecker) isLiteralUnionType(t ast.TypeNode) bool {
 	return ok
 }
 
-
 // expressionLiteralValue returns the literal if expr is a string/int/bool literal.
 func expressionLiteralValue(expr ast.Node) (ast.ValueNode, bool) {
 	switch e := expr.(type) {

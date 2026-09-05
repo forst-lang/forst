@@ -24,7 +24,7 @@ func checkFlag(ok bool) (string, error) {
 }
 func main() {
 	r, rErr := checkFlag(true)
-	if !(rErr == nil) {
+	if rErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", rErr)
 			os.Exit(1)

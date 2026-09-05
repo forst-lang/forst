@@ -67,18 +67,24 @@ Constraints **chain with dots** on the base type. All chained rules must pass:
 
 | Type | Constraints | Meaning |
 | --- | --- | --- |
-| **`String`** | `.Min(n)`, `.Max(n)` | String **length** bounds |
-| | `.HasPrefix("…")` | Must start with literal prefix |
+| **`String`** | `.Min(n)`, `.Max(n)` | Unicode **character** count bounds |
+| | `.MinBytes(n)`, `.MaxBytes(n)` | UTF-8 **byte** size bounds |
+| | `.HasPrefix("…")`, `.HasSuffix("…")` | Must start or end with a literal |
 | | `.Contains("…")` | Must contain substring |
 | | `.NotEmpty()` | `len != 0` |
 | **`Int`** | `.Min(n)`, `.Max(n)` | Inclusive numeric bounds |
 | | `.LessThan(n)` | Strictly below `n` |
 | | `.GreaterThan(n)` | Strictly above `n` |
-| **`Float`** | `.Min(n)`, `.Max(n)`, `.GreaterThan(n)` | Same numeric semantics as `Int` |
+| **`Float`** | `.Min(n)`, `.Max(n)`, `.LessThan(n)`, `.GreaterThan(n)` | Same numeric semantics as `Int` |
+| | `.Finite()` | Not `NaN` or ±Inf |
 | **`Array(T)`** | `.Min(n)`, `.Max(n)` | **Element count** bounds |
 | | `.NotEmpty()` | At least one element |
+| **`Map(K, V)`** | `.Min(n)`, `.Max(n)`, `.NotEmpty()` | **Key count** bounds |
+| **`Bytes`** | `.Min(n)`, `.Max(n)`, `.NotEmpty()` | Slice **byte** length |
 | **`Bool`** | `.True()`, `.False()` | Must be `true` or `false` |
 | **`*T` (pointers)** | `.Nil()`, `.Present()` | Optional vs required fields |
+
+`String.Min` and `Max` limit length by Unicode character count. That matches JSON Schema `minLength` and `maxLength`. Use `MinBytes` and `MaxBytes` when you need a UTF-8 size limit, such as a header or payload cap.
 
 Use constraints on struct fields, function parameters, and nested shapes. Validation follows the data structure, including deeply nested records.
 
@@ -101,31 +107,37 @@ Invalid nested data fails at the same boundary. You do not re-walk the tree in a
 
 ## Caveats
 
-### Use `ensure` for runtime checks
+## Constraints stay small and composable
 
-Constraints on types document the rules. The compiler does **not** emit automatic parameter checks before your function body yet. Use **`ensure`** explicitly inside handlers for runtime validation.
+Built-in constraints are a **fixed set of simple checks**: length, bounds, prefixes, suffixes, and a few similar rules. You combine them with dots (all must pass) and `or` (one must pass). That keeps types readable and lets the compiler reuse the same rules for `ensure`, JSON Schema, and generated clients.
 
-### Compile time vs runtime
+Forst intentionally omits a regex constraint on `String`. Free regular expressions can express almost anything, which replaces clear, composable rules with opaque patterns. Build your formats from simple built-in constraints instead:
 
-The compiler proves constraints only where values are known at compile time. Dynamic or untrusted input still needs **`ensure`** at the boundary.
+```ft
+type Username = String.Min(3).Max(30).HasPrefix("u_")
+```
 
-### Wire serialization
+For a closed list of allowed values, use a [literal union](/language/union-and-intersection-types) such as `"todo" | "done"`. For richer domain rules, write a [type guard](/language/type-guards). If you need a true regular expression, put it in an ordinary function. That validates at runtime. It does not become part of the type’s built-in constraint chain.
 
-By default, shape struct fields lower to **unexported** Go identifiers with **no** `json` tags. For HTTP or JSON marshaling, pass **`-export-struct-fields`** on `forst run` / `forst build`, or set **`compiler.exportStructFields`: true** in `ftconfig.json`.
+### Write `ensure` to check values at runtime
 
-### Built-in semantics still maturing
+A constraint on a type records the rule. Runtime checks happen when you write **`ensure`**. Put those checks in handlers that take untrusted input, before the rest of the function uses the value.
 
-The typechecker does not fully validate every built-in constraint beyond presence wiring. Prefer explicit constraints or [type guards](/language/type-guards). Names such as `Valid` are available for user-defined type guards.
+### The compiler only proves values it can see
 
-Generated TypeScript types reflect structure only. Client-side validation is your job unless you call the Forst server. See [Generate client types § Caveats](/interop/invoke/generate-types#caveats).
+If the value is a literal in your source, the compiler can prove the constraint when you compile. Request bodies, query params, and other input from outside the program are unknown until the function runs. Write **`ensure`** at that boundary so invalid data never reaches your logic.
 
-<Info>
-  Constraint and emission behavior is still expanding. See the [roadmap](/resources/roadmap).
-</Info>
+### Export fields when you serve JSON
+
+Generated Go structs keep their fields private and omit `json` tags. In-process Go can use those structs as they are. If you marshal the shape to JSON for HTTP, export the fields. Pass **`-export-struct-fields`** on `forst run` or `forst build`. You can also set **`compiler.exportStructFields`** to `true` in `ftconfig.json`.
+
+### Generated TypeScript types are structural
+
+`forst generate` emits TypeScript types that match field names and shapes. Constraints such as `String.Min(1)` stay on the Forst side. If you need the same checks in the browser or in Node before you call the server, write them in TypeScript. Calling the Forst server runs the checks you wrote with `ensure`. See [Generate client types § Caveats](/interop/invoke/generate-types#caveats).
 
 ## What gets emitted
 
-The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import.
+The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `utf8.RuneCountInString` comparison, `String.MaxBytes(64)` a `len` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `HasSuffix` / `Contains` call `strings.*` with an auto-added import.
 
 ## Examples
 

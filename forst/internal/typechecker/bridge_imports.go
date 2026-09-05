@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/bridgeinterop"
 	"forst/internal/ftconfig"
 	"forst/internal/importlocal"
-	"forst/internal/bridgeinterop"
 )
 
 type nodeImportBinding struct {
@@ -22,7 +22,7 @@ type nodeImportBinding struct {
 // BridgeRuntimeState holds compile-time bridge interop facts for the compiler pipeline.
 type BridgeRuntimeState struct {
 	NeedsBridgeRuntime bool
-	Manifest         bridgeinterop.ManifestV1
+	Manifest           bridgeinterop.ManifestV1
 }
 
 // BridgeRuntimeState returns bridge runtime facts for this typecheck.
@@ -32,7 +32,7 @@ func (tc *TypeChecker) BridgeRuntimeState() BridgeRuntimeState {
 	}
 	return BridgeRuntimeState{
 		NeedsBridgeRuntime: tc.bridgeRuntime.NeedsBridgeRuntime,
-		Manifest:         tc.bridgeRuntime.Manifest,
+		Manifest:           tc.bridgeRuntime.Manifest,
 	}
 }
 
@@ -185,8 +185,8 @@ func (tc *TypeChecker) resolveNodeImports() error {
 	}
 	tc.bridgeRuntime = BridgeRuntimeInfo{
 		NeedsBridgeRuntime: true,
-		Manifest:         manifest,
-		ManifestJSON:     string(manifestJSON),
+		Manifest:           manifest,
+		ManifestJSON:       string(manifestJSON),
 	}
 	return nil
 }

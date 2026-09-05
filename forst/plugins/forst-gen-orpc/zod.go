@@ -264,76 +264,156 @@ func applyZodConstraints(expr, kind string, chain []semantic.Constraint) string 
 		if c.Origin != "builtin" {
 			continue
 		}
-		switch c.Name {
-		case "Min":
-			if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
-				expr += fmt.Sprintf(".min(%v)", intOrFloat(n, kind, c.Applies))
+		switch kind {
+		case "string":
+			expr = applyZodStringConstraint(expr, c)
+		case "array":
+			expr = applyZodArrayConstraint(expr, c)
+		case "int", "float":
+			expr = applyZodNumericConstraint(expr, kind, c)
+		case "bool":
+			expr = applyZodBoolConstraint(expr, c)
+		default:
+			expr = applyZodSharedConstraint(expr, c)
+		}
+	}
+	return expr
+}
+
+// applyZodStringConstraint maps string builtins. Min/Max use Unicode code points
+// ([...v].length), matching Go RuneCount / JSON Schema — not JS UTF-16 length.
+func applyZodStringConstraint(expr string, c semantic.Constraint) string {
+	switch c.Name {
+	case "Min":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies("string", c.Applies) {
+			return expr + fmt.Sprintf(".refine((v) => [...v].length >= %d)", int(n))
+		}
+	case "Max":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies("string", c.Applies) {
+			return expr + fmt.Sprintf(".refine((v) => [...v].length <= %d)", int(n))
+		}
+	case "HasPrefix":
+		if prefix, ok := stringArg(c.Args); ok {
+			return expr + fmt.Sprintf(".regex(/^%s/)", quoteMeta(prefix))
+		}
+	case "HasSuffix":
+		if suffix, ok := stringArg(c.Args); ok {
+			return expr + fmt.Sprintf(".regex(/%s$/)", quoteMeta(suffix))
+		}
+	case "Contains":
+		if sub, ok := stringArg(c.Args); ok {
+			return expr + fmt.Sprintf(".regex(/.*%s.*/)", quoteMeta(sub))
+		}
+	case "MinBytes", "MaxBytes":
+		if n, ok := numericArg(c.Args); ok {
+			op := ">="
+			if c.Name == "MaxBytes" {
+				op = "<="
 			}
-		case "Max":
-			if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
-				expr += fmt.Sprintf(".max(%v)", intOrFloat(n, kind, c.Applies))
-			}
-		case "LessThan":
-			if (kind == "int" || kind == "float") {
-				if n, ok := numericArg(c.Args); ok {
-					expr += fmt.Sprintf(".lt(%v)", n)
-				}
-			}
-		case "GreaterThan":
-			if kind == "int" || kind == "float" {
-				if n, ok := numericArg(c.Args); ok {
-					expr += fmt.Sprintf(".gt(%v)", n)
-				}
-			}
-		case "HasPrefix":
-			if prefix, ok := stringArg(c.Args); ok && kind == "string" {
-				expr += fmt.Sprintf(".regex(/^%s/)", quoteMeta(prefix))
-			}
-		case "Contains":
-			if sub, ok := stringArg(c.Args); ok && kind == "string" {
-				expr += fmt.Sprintf(".regex(/.*%s.*/)", quoteMeta(sub))
-			}
-		case "NotEmpty":
-			if kind == "string" || kind == "array" {
-				expr += ".min(1)"
-			}
-		case "True":
-			expr = "z.literal(true)"
-		case "False":
-			expr = "z.literal(false)"
-		case "Nil":
-			expr = expr + ".nullable()"
-		case "Present":
-			expr = expr + ".refine((v) => v != null)"
-		case "Value":
-			if len(c.Args) >= 1 {
-				expr = fmt.Sprintf("z.literal(%v)", zodLiteral(c.Args[0]))
-			}
+			return expr + fmt.Sprintf(".refine((v) => new TextEncoder().encode(v).length %s %v)", op, int(n))
+		}
+	case "NotEmpty":
+		return expr + ".refine((v) => [...v].length >= 1)"
+	default:
+		return applyZodSharedConstraint(expr, c)
+	}
+	return expr
+}
+
+func applyZodArrayConstraint(expr string, c semantic.Constraint) string {
+	switch c.Name {
+	case "Min":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies("array", c.Applies) {
+			return expr + fmt.Sprintf(".min(%v)", intOrFloat(n, "array", c.Applies))
+		}
+	case "Max":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies("array", c.Applies) {
+			return expr + fmt.Sprintf(".max(%v)", intOrFloat(n, "array", c.Applies))
+		}
+	case "NotEmpty":
+		return expr + ".min(1)"
+	default:
+		return applyZodSharedConstraint(expr, c)
+	}
+	return expr
+}
+
+func applyZodNumericConstraint(expr, kind string, c semantic.Constraint) string {
+	switch c.Name {
+	case "Min":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
+			return expr + fmt.Sprintf(".min(%v)", intOrFloat(n, kind, c.Applies))
+		}
+	case "Max":
+		if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
+			return expr + fmt.Sprintf(".max(%v)", intOrFloat(n, kind, c.Applies))
+		}
+	case "LessThan":
+		if n, ok := numericArg(c.Args); ok {
+			return expr + fmt.Sprintf(".lt(%v)", n)
+		}
+	case "GreaterThan":
+		if n, ok := numericArg(c.Args); ok {
+			return expr + fmt.Sprintf(".gt(%v)", n)
+		}
+	case "Finite":
+		if kind == "float" {
+			return expr + ".finite()"
+		}
+	default:
+		return applyZodSharedConstraint(expr, c)
+	}
+	return expr
+}
+
+func applyZodBoolConstraint(expr string, c semantic.Constraint) string {
+	switch c.Name {
+	case "True":
+		return "z.literal(true)"
+	case "False":
+		return "z.literal(false)"
+	default:
+		return applyZodSharedConstraint(expr, c)
+	}
+}
+
+func applyZodSharedConstraint(expr string, c semantic.Constraint) string {
+	switch c.Name {
+	case "Nil":
+		return expr + ".nullable()"
+	case "Present":
+		return expr + ".refine((v) => v != null)"
+	case "Value":
+		if len(c.Args) >= 1 {
+			return fmt.Sprintf("z.literal(%v)", zodLiteral(c.Args[0]))
 		}
 	}
 	return expr
 }
 
 func zodBoundApplies(kind, applies string) bool {
-	target := applies
-	if target == "" {
-		switch kind {
-		case "string", "array", "int", "float":
-			return true
-		default:
-			return false
-		}
-	}
-	switch target {
-	case "length":
-		return kind == "string"
-	case "items":
-		return kind == "array"
-	case "value":
-		return kind == "int" || kind == "float"
+	switch kind {
+	case "string":
+		return zodStringBoundApplies(applies)
+	case "array":
+		return zodArrayBoundApplies(applies)
+	case "int", "float":
+		return zodNumericBoundApplies(applies)
 	default:
 		return false
 	}
+}
+
+func zodStringBoundApplies(applies string) bool {
+	return applies == "" || applies == "length"
+}
+
+func zodArrayBoundApplies(applies string) bool {
+	return applies == "" || applies == "items"
+}
+
+func zodNumericBoundApplies(applies string) bool {
+	return applies == "" || applies == "value"
 }
 
 func zodLiteral(v any) string {

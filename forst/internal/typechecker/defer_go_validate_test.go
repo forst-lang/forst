@@ -9,7 +9,7 @@ import (
 func TestValidateDeferGoBuiltinRestriction_specDenylist(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		callee string
+		callee  string
 		wantErr bool
 	}{
 		{"len", true},

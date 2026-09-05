@@ -18,7 +18,7 @@ func Redact(text string) (RedactOut, error) {
 }
 func main() {
 	r, rErr := Redact("baa")
-	if !(rErr == nil) {
+	if rErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", rErr)
 			os.Exit(1)
