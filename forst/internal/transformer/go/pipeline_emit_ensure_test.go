@@ -19,7 +19,7 @@ is (password Password) Strong {
 
 func main() {
 	password: Password = "123456789012345"
-	ensure password is Strong() {
+	ensure password is Strong() else {
 		println("weak")
 	}
 	println("done")

@@ -37,8 +37,8 @@ func TestRestoreScope_distinctEnsureSubjectsDistinctScopes(t *testing.T) {
 type Named = { name: String }
 
 func F(a: Named, b: Named): Void {
-	ensure a.name is Min(1) {}
-	ensure b.name is Min(1) {}
+	ensure a.name is Min(1) else {}
+	ensure b.name is Min(1) else {}
 }
 `)
 	nodes := parseNodesForTest(t, src)

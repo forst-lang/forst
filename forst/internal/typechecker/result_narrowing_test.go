@@ -519,7 +519,7 @@ func okInt(): Result(Int, Error) {
 
 func main() {
 	x := okInt()
-	ensure x is Ok() {
+	ensure x is Ok() else {
 		println(x)
 	}
 }
@@ -749,7 +749,7 @@ func TestEnsureResult_fieldPath_blockBody_seesFailureBranchNarrowing_whenOk(t *t
 func main() {
 	x := okInt()
 	w := { r: x }
-	ensure w.r is Ok() {
+	ensure w.r is Ok() else {
 		println(w.r)
 	}
 }
@@ -791,7 +791,7 @@ func bad(): Result(Int, Error) {
 
 func main() {
 	x := bad()
-	ensure x is Err() {
+	ensure x is Err() else {
 		println(x)
 	}
 }

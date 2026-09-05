@@ -74,6 +74,57 @@ func check(ok Bool): Result(String, Error) {
 	}
 }
 
+func TestParseEnsure_ElseFailureBlockInMain(t *testing.T) {
+	t.Parallel()
+
+	// 1. main accepts ensure !err else { ... }
+	srcValid := `package main
+func main() {
+	err := false
+	ensure !err else {
+		println("failed")
+	}
+}
+`
+	_, err := NewTestParser(srcValid, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatalf("expected valid parse for ensure !err else { ... } in main, got: %v", err)
+	}
+
+	// 2. main rejects bare block ensure !err { ... }
+	srcBareBlock := `package main
+func main() {
+	err := false
+	ensure !err {
+		println("failed")
+	}
+}
+`
+	errBare := parseShouldFail(srcBareBlock)
+	if errBare == nil {
+		t.Fatal("expected parse error for bare block in main")
+	}
+	if !strings.Contains(errBare.Error(), "ensure failure block requires 'else'") {
+		t.Fatalf("expected 'ensure failure block requires else' message, got: %v", errBare)
+	}
+
+	// 3. main rejects typed else
+	srcTypedElse := `package main
+error Fail { msg: String }
+func main() {
+	err := false
+	ensure !err else Fail("no")
+}
+`
+	errTyped := parseShouldFail(srcTypedElse)
+	if errTyped == nil {
+		t.Fatal("expected parse error for typed else in main")
+	}
+	if !strings.Contains(errTyped.Error(), "typed failure in ensure statements is not allowed in main function") {
+		t.Fatalf("expected typed failure in main error message, got: %v", errTyped)
+	}
+}
+
 func TestParseEnsure_callSubjectRejected(t *testing.T) {
 	t.Parallel()
 	src := `package main

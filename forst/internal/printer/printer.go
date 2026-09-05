@@ -742,7 +742,7 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		}
 	}
 	if e.Block != nil && len(e.Block.Body) > 0 {
-		b.WriteString(" {\n")
+		b.WriteString(" else {\n")
 		p.push()
 		body, err := p.printBlock(e.Block.Body)
 		if err != nil {

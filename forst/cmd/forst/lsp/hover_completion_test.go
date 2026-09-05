@@ -76,7 +76,7 @@ func checkConditions(): Error {
 
 func main() {
 	err := checkConditions()
-	ensure !err {
+	ensure !err else {
 		fmt.Println(err.Error())
 	}
 }
@@ -488,7 +488,7 @@ type MyStr = String
 
 func main() {
 	x := "hi"
-	ensure x is MyStr {
+	ensure x is MyStr else {
 		y := x
 		return
 	}

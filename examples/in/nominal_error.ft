@@ -15,7 +15,7 @@ func Test() {
 
 func main() {
 	err := Test()
-	ensure !err {
+	ensure !err else {
 		fmt.Println(err)
 	}
 }

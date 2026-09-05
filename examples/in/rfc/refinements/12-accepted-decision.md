@@ -126,7 +126,7 @@ ensure user is LoggedIn() else Unauthorized()
 ### 3.3 Assertion with custom failure block
 
 ```ft
-ensure config is Valid() {
+ensure config is Valid() else {
     println("Invalid configuration")
 }
 ```
@@ -483,7 +483,7 @@ Example:
 
 ```ft
 def main() {
-    ensure config is Valid() {
+    ensure config is Valid() else {
         println("Invalid configuration")
     }
 
@@ -500,7 +500,7 @@ The failure block can perform context-specific handling such as:
 
 The language/runtime may then perform the context's standard termination behavior if appropriate.
 
-Existing sugar such as `ensure !err { … }` (implicit `Nil()`) remains a failure block on that assertion.
+Existing sugar such as `ensure !err else { … }` (implicit `Nil()`) remains a failure block on that assertion.
 
 ---
 
@@ -510,7 +510,7 @@ This is invalid:
 
 ```ft
 is (user User) LoggedIn {
-    ensure user.session is Present() {
+    ensure user.session is Present() else {
         log("missing session")
     }
 }
@@ -539,7 +539,7 @@ That loophole must be closed.
 Do not support:
 
 ```ft
-ensure x is Valid() {
+ensure x is Valid() else {
     log("invalid")
 } else InvalidX()
 ```
@@ -557,7 +557,7 @@ or:
 ### Custom failure block
 
 ```ft
-ensure x is Valid() {
+ensure x is Valid() else {
     handleInvalidX()
 }
 ```
@@ -1195,7 +1195,7 @@ Ensure an unmatched guard branch returns false.
 ### Failure block in ordinary function
 
 ```ft
-ensure x is A() {
+ensure x is A() else {
     ...
 }
 ```
@@ -1208,7 +1208,7 @@ Verify current intended entry-point behavior remains supported.
 
 ```ft
 is (x X) Valid {
-    ensure x is A() {
+    ensure x is A() else {
         ...
     }
 }
@@ -1219,7 +1219,7 @@ must fail compilation.
 ### `else` plus block rejected
 
 ```ft
-ensure x is A() {
+ensure x is A() else {
     ...
 } else Error()
 ```
@@ -1307,7 +1307,7 @@ The intended mental model is:
 
 > **`else` specifies typed failure.**
 
-> **An `ensure { ... }` block performs custom failure handling outside type guards.**
+> **An `ensure … else { ... }` block performs custom failure handling outside type guards.**
 
 > **After a successful `ensure`, the compiler remembers only facts it can establish soundly.**
 

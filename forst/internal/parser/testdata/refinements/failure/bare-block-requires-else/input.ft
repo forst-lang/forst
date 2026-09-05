@@ -1,5 +1,5 @@
 func main() {
-    ensure config is Valid() else {
+    ensure config is Valid() {
         println("bad config")
     }
 }

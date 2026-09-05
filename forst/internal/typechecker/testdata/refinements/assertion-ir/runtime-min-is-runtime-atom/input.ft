@@ -3,5 +3,5 @@ func loadMinimum(): Int {
 }
 func testMain(password String) {
     n := loadMinimum()
-    ensure password is Min(n) {}
+    ensure password is Min(n) else {}
 }

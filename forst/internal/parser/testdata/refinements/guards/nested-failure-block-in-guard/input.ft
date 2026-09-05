@@ -1,6 +1,6 @@
 is (x X) Valid {
     if x.kind is A() {
-        ensure x is ABody() {
+        ensure x is ABody() else {
             println("no")
         }
     }

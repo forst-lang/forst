@@ -4,7 +4,7 @@ type ActiveStatus = "pending" | "processing"
 type FailedStatus = "failed"
 
 func check(status String) {
-	ensure status is ActiveStatus or FailedStatus {
+	ensure status is ActiveStatus or FailedStatus else {
 		return
 	}
 }

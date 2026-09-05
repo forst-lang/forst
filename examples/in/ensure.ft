@@ -25,7 +25,7 @@ func checkConditions() {
 
 func main() {
 	result := checkConditions()
-	ensure result is Ok() {
+	ensure result is Ok() else {
 		fmt.Printf("Conditions not met: %s", result.Error())
 		fmt.Println()
 	}

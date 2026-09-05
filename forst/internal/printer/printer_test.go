@@ -377,7 +377,7 @@ func TestFormatSource_ensureNegatedBlock_noDoubleIndent(t *testing.T) {
 import "fmt"
 
 func main() {
-	ensure !err {
+	ensure !err else {
 		fmt.Printf("x")
 	}
 }

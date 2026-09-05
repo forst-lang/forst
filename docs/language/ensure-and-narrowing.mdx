@@ -81,7 +81,7 @@ only specific enum members.
 `main` starts the process. A failed `ensure` there ends the process with exit
 status 1. There is no caller to return an error to, so a typed `else` is not allowed.
 
-Write `ensure !err` when you only need that exit. Add a `{ ... }` block when
+Write `ensure !err` when you only need that exit. Add `else { ... }` when
 you want to log or clean up first. The block runs on failure. The process
 still exits afterward.
 

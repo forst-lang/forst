@@ -397,7 +397,7 @@ is (s S) NonEmpty() {
 }
 func main() {
 	v: S = "a"
-	ensure v is NonEmpty() {
+	ensure v is NonEmpty() else {
 		println("no")
 	}
 	println("y")

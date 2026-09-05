@@ -158,7 +158,7 @@ func TestCheckTypes_ensureBlockNestedControlFlow(t *testing.T) {
 
 func F(): Result(String, Error) {
 	s := "hello"
-	ensure s is Min(1) {
+	ensure s is Min(1) else {
 		if s != "" {
 			for i := 0; i < 2; i++ {
 				s = s + "!"

@@ -53,7 +53,7 @@ is (n Score) Positive() {
 
 func main() {
 	v := 1
-	ensure v is Positive() {
+	ensure v is Positive() else {
 		println("bad")
 	}
 	println("ok")

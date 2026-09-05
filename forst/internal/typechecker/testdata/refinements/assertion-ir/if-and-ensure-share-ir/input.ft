@@ -2,7 +2,7 @@ type Name = String
 is (s Name) A {}
 is (s Name) B {}
 func testMain(x Name) {
-    ensure x is A() or B() {}
+    ensure x is A() or B() else {}
     if x is A() or B() {
     }
 }

@@ -178,48 +178,47 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	var errNode *ast.EnsureErrorNode
 	var block *ast.EnsureBlockNode
 
-	// Optional typed failure: `else <Error()|errVar>`
+	// Failure handling: `else <Error()|errVar>` or `else { … }`
 	if p.current().Type == ast.TokenElse {
 		elseTok := p.current()
-		// `else if` / `else {` belong to surrounding if — but after ensure, `else {` is invalid
-		// (failure blocks use bare `{`; typed else takes Error()/var).
-		if p.peek().Type == ast.TokenIf {
-			// Not an ensure else; leave for outer parse (shouldn't appear mid-ensure).
-		} else {
+		// `else if` belongs to surrounding control flow
+		if p.peek().Type != ast.TokenIf {
 			p.advance() // consume else
-			if inGuard {
-				p.FailWithParseError(elseTok,
-					"refinement-else-in-guard: typed `else` is not allowed inside type guards")
-			}
-			if inMain {
-				p.FailWithParseError(elseTok,
-					`"else" typed failure in ensure statements is not allowed in main function`)
-			}
 			if p.current().Type == ast.TokenLBrace {
-				p.FailWithParseError(elseTok,
-					"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
+				if inGuard {
+					p.FailWithParseError(elseTok,
+						"refinement-failure-block-in-guard: failure blocks are not allowed inside type guards")
+				}
+				block = p.parseEnsureBlock()
+			} else {
+				if inGuard {
+					p.FailWithParseError(elseTok,
+						"refinement-else-in-guard: typed `else` is not allowed inside type guards")
+				}
+				if inMain {
+					p.FailWithParseError(elseTok,
+						`"else" typed failure in ensure statements is not allowed in main function`)
+				}
+				errNode = p.parseEnsureError()
+				if p.current().Type == ast.TokenLBrace {
+					p.FailWithParseError(p.current(),
+						"refinement-else-and-block: use either `else <error>` or a failure block `else { … }`, not both")
+				}
 			}
-			errNode = p.parseEnsureError()
 		}
-	}
-
-	// Optional failure block `{ … }` (XOR with else)
-	if p.current().Type == ast.TokenLBrace {
-		if errNode != nil {
-			p.FailWithParseError(p.current(),
-				"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
-		}
+	} else if p.current().Type == ast.TokenLBrace {
 		if inGuard {
 			p.FailWithParseError(p.current(),
 				"refinement-failure-block-in-guard: failure blocks are not allowed inside type guards")
 		}
-		block = p.parseEnsureBlock()
+		p.FailWithParseError(p.current(),
+			"refinement-bare-ensure-block: ensure failure block requires 'else'; write: ensure … else { … }")
 	}
 
 	// `else` after block
 	if p.current().Type == ast.TokenElse && block != nil {
 		p.FailWithParseError(p.current(),
-			"refinement-else-and-block: use either `else <error>` or a failure block `{ … }`, not both")
+			"refinement-else-and-block: use either `else <error>` or a failure block `else { … }`, not both")
 	}
 
 	// Legacy `or` as typed failure: if somehow still present after a complete target
