@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
 import { readForstConfig, clearCompilerResolutionCache, resolveForstExecutableWithCli } from "./config";
+import { DidChangeDebouncer } from "./didChangeDebounce";
 import { formatForstDebugInfo, gatherForstDebugInfo } from "./debugInfo";
 import { applyPublishDiagnostics } from "./lsp/diagnostics";
 import { registerForstLanguageFeatures } from "./lsp/languageFeatures";
@@ -125,6 +126,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   };
 
+  const didChangeDebouncer = new DidChangeDebouncer(async (payload) => {
+    await withClient(async (c, token) => {
+      if (token !== restartToken) {
+        return;
+      }
+      const pub = await c.didChange({
+        uri: payload.uri,
+        version: payload.version,
+        text: payload.text,
+      });
+      if (token !== restartToken) {
+        return;
+      }
+      if (!didChangeDebouncer.shouldApply(payload.uri, payload.version)) {
+        output.debug(
+          `Dropped stale didChange diagnostics for ${payload.uri} v${payload.version}.`
+        );
+        return;
+      }
+      applyPublishDiagnostics(diagnosticsCollection, pub, output);
+      didChangeDebouncer.markApplied(payload.uri, payload.version);
+    });
+  });
+  context.subscriptions.push({
+    dispose: () => didChangeDebouncer.clearAll(),
+  });
+
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((doc) => {
       if (!isTrackableForstDoc(doc)) {
@@ -150,16 +178,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (!isTrackableForstDoc(doc)) {
         return;
       }
-      void withClient(async (c, token) => {
-        if (token !== restartToken) {
-          return;
-        }
-        const pub = await c.didChange({
-          uri: doc.uri.toString(),
-          version: doc.version,
-          text: doc.getText(),
-        });
-        applyPublishDiagnostics(diagnosticsCollection, pub, output);
+      didChangeDebouncer.schedule({
+        uri: doc.uri.toString(),
+        version: doc.version,
+        text: doc.getText(),
       });
     })
   );
@@ -169,6 +191,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (!isTrackableForstDoc(doc)) {
         return;
       }
+      didChangeDebouncer.clear(doc.uri.toString());
       diagnosticsCollection.delete(doc.uri);
       void withClient(async (c, token) => {
         if (token !== restartToken) {
@@ -202,9 +225,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )
   );
 
-    context.subscriptions.push(
+  context.subscriptions.push(
     vscode.commands.registerCommand("forst.restartLanguageServer", async () => {
       restartToken++;
+      didChangeDebouncer.clearAll();
       resetLspSessionState(session);
       clearCompilerResolutionCache();
       compilerErrorNotified = false;
