@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"go/types"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -975,6 +976,40 @@ func lhsExpressionBeforeDot(lineToCursor string) string {
 }
 
 func memberCompletionsAfterDot(ctx *forstDocumentContext, pos LSPPosition, prefix string) []LSPCompletionItem {
+	line := lineUpToCursor(ctx.Content, pos)
+	lhs := lhsExpressionBeforeDot(line)
+	if lhs != "" && ctx.TC != nil && ctx.TC.IsImportedLocalName(lhs) {
+		exports := ctx.TC.ListExportedNamesForImportLocal(lhs, prefix)
+		var out []LSPCompletionItem
+		for _, name := range exports {
+			kind := LSPCompletionItemKindFunction
+			detail := lhs + "." + name
+			if obj := ctx.TC.GoExportObjectForImportLocal(lhs, name); obj != nil {
+				detail = obj.String()
+				switch obj.(type) {
+				case *types.TypeName:
+					kind = LSPCompletionItemKindStruct
+				case *types.Var, *types.Const:
+					kind = LSPCompletionItemKindVariable
+				case *types.Func:
+					kind = LSPCompletionItemKindFunction
+				}
+			}
+			out = append(out, LSPCompletionItem{
+				Label:            name,
+				Kind:             kind,
+				Detail:           detail,
+				InsertText:       name,
+				InsertTextFormat: LSPInsertTextFormatPlainText,
+				FilterText:       name,
+				SortText:         "0" + name,
+			})
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+
 	dotIdx := memberAccessDotIndex(ctx.Tokens, pos)
 	if dotIdx >= 0 {
 		if recv, ok := parseReceiverExpressionBeforeDot(ctx.Tokens, dotIdx, ctx.FileID); ok {
@@ -1001,8 +1036,9 @@ func memberCompletionsAfterDot(ctx *forstDocumentContext, pos LSPPosition, prefi
 		}
 	}
 
-	line := lineUpToCursor(ctx.Content, pos)
-	lhs := lhsExpressionBeforeDot(line)
+	if lhs == "" {
+		lhs = lhsExpressionBeforeDot(line)
+	}
 	if lhs == "" {
 		return nil
 	}

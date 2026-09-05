@@ -315,6 +315,15 @@ func CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{})
 }
 
+// CreateTempOutputFilesForEntry writes main and companion Go files into a temp dir and copies same-package handwritten .go files.
+func CreateTempOutputFilesForEntry(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, entryFilePath string) (string, error) {
+	var srcDir string
+	if entryFilePath != "" {
+		srcDir = filepath.Dir(entryFilePath)
+	}
+	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{srcDir: srcDir})
+}
+
 // CreateTempOutputFilesProfiled writes temp output files and records sandbox write timing.
 func CreateTempOutputFilesProfiled(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, sandboxTiming *CompileSandboxTiming) (string, error) {
 	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{sandboxTiming: sandboxTiming})
@@ -355,6 +364,16 @@ func createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 	}
 	if err := os.MkdirAll(tempDir, 0o755); err != nil {
 		return "", err
+	}
+
+	srcDir := opts.srcDir
+	if srcDir == "" && boundaryRoot != "" {
+		srcDir = boundaryRoot
+	}
+	if srcDir != "" {
+		if err := gowork.CopyHandwrittenGoSources(srcDir, tempDir); err != nil {
+			return "", fmt.Errorf("copy handwritten go sources: %w", err)
+		}
 	}
 
 	if needsCompiler && boundaryRoot != "" {

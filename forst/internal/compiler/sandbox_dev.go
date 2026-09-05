@@ -91,6 +91,7 @@ type sandboxWriteOpts struct {
 	stableDir     bool
 	modTidyCache  *SandboxModCache
 	sandboxTiming *CompileSandboxTiming
+	srcDir        string
 }
 
 func resolveSandboxDir(boundaryRoot string, stable bool) (string, error) {
