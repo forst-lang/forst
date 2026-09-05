@@ -156,7 +156,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		"result":    "not found",
 	}).Debugf("=== END FIELD PATH LOOKUP DEBUG ===")
 
-	return ast.TypeNode{}, shapeUnknownFieldError(string(baseType.Ident), string(fieldName.ID), nil, fieldName.Span)
+	return ast.TypeNode{}, shapeUnknownFieldError(baseType.Ident, string(fieldName.ID), nil, fieldName.Span)
 }
 
 // lookupFieldPathFromPayload handles field lookup for TypeDefShapeExpr and TypeDefErrorExpr (same payload shape semantics).
@@ -190,7 +190,7 @@ func (tc *TypeChecker) lookupFieldPathFromPayload(
 			"fieldName":       fieldName.ID,
 			"availableFields": fmt.Sprintf("%+v", payload.Fields),
 		}).Debugf("Field not found in typedef payload")
-		return ast.TypeNode{}, shapeUnknownFieldError(string(baseType.Ident), string(fieldName.ID), shapeFieldNames(payload.Fields), fieldName.Span)
+		return ast.TypeNode{}, shapeUnknownFieldError(baseType.Ident, string(fieldName.ID), shapeFieldNames(payload.Fields), fieldName.Span)
 	}
 
 	tc.log.WithFields(logrus.Fields{

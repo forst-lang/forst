@@ -49,7 +49,7 @@ func (tc *TypeChecker) validateTypeDefAssertion(assertionNode *ast.AssertionNode
 	if assertionNode.BaseType != nil {
 		baseType := ast.TypeNode{Ident: *assertionNode.BaseType}
 		if !tc.IsTypeCompatible(varLeftType, baseType) {
-			return fmt.Errorf("assertion base type %s is not compatible with left-hand side type %s", baseType.Ident, varLeftType.Ident)
+			return fmt.Errorf("assertion base type %s is not compatible with left-hand side type %s", formatTypeIdentForDiag(baseType.Ident), formatTypeIdentForDiag(varLeftType.Ident))
 		}
 	}
 
@@ -178,7 +178,7 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
 			if varLeftType.Ident != ast.TypePointer {
-				return fmt.Errorf("present assertion requires a pointer type, got %s", varLeftType.Ident)
+				return fmt.Errorf("present assertion requires a pointer type, got %s", formatTypeIdentForDiag(varLeftType.Ident))
 			}
 		} else {
 			// Check type guard subject type for other constraints

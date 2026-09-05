@@ -123,7 +123,7 @@ func formatTypeForDiag(types []ast.TypeNode) string {
 		return "?"
 	}
 	if len(types) == 1 {
-		return string(types[0].Ident)
+		return formatTypeNodeForDiag(types[0])
 	}
 	return fmt.Sprintf("%d types", len(types))
 }
@@ -136,7 +136,7 @@ func (tc *TypeChecker) checkUserCallArg(fn ast.Identifier, argIdx int, want ast.
 	}
 	if !tc.IsTypeCompatible(got[0], want) {
 		return reportBodyf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
-			argIdx+1, fn, want.Ident, got[0].Ident)
+			argIdx+1, fn, formatTypeIdentForDiag(want.Ident), formatTypeIdentForDiag(got[0].Ident))
 	}
 	return nil
 }

@@ -60,7 +60,7 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 			if leftType.Ident != ast.TypeBool {
 				return ast.TypeNode{}, reportf(opSpan(left, nil), "logical-not-type",
 					"logical not expects Bool",
-					fmt.Sprintf("Operator `!` requires a Bool operand, got `%s`.", leftType.Ident),
+					fmt.Sprintf("Operator `!` requires a Bool operand, got `%s`.", formatTypeIdentForDiag(leftType.Ident)),
 					"use a boolean expression or compare with `==` / `!=`")
 			}
 			return ast.TypeNode{Ident: ast.TypeBool}, nil
@@ -68,7 +68,7 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 			if leftType.Ident != ast.TypeInt && leftType.Ident != ast.TypeFloat {
 				return ast.TypeNode{}, reportf(opSpan(left, nil), "unary-minus-type",
 					"unary minus expects a numeric operand",
-					fmt.Sprintf("Operator `-` requires Int or Float, got `%s`.", leftType.Ident),
+					fmt.Sprintf("Operator `-` requires Int or Float, got `%s`.", formatTypeIdentForDiag(leftType.Ident)),
 					"convert the value or use a numeric literal")
 			}
 			return leftType, nil
@@ -76,7 +76,7 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 			if leftType.Ident != ast.TypeInt && leftType.Ident != ast.TypeFloat {
 				return ast.TypeNode{}, reportf(opSpan(left, nil), "increment-type",
 					"increment/decrement expects a numeric type",
-					fmt.Sprintf("Operator `%s` requires Int or Float, got `%s`.", operator, leftType.Ident),
+					fmt.Sprintf("Operator `%s` requires Int or Float, got `%s`.", operator, formatTypeIdentForDiag(leftType.Ident)),
 					"use a numeric variable or field")
 			}
 			return leftType, nil
@@ -131,7 +131,7 @@ func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode, sp
 	if !isIntFamilyIdent(leftType.Ident) || !isIntFamilyIdent(rightType.Ident) {
 		return ast.TypeNode{}, reportf(span, "bitwise-operand-type",
 			"bitwise operator requires Int operands",
-			fmt.Sprintf("Bitwise operators require Int operands, got `%s` and `%s`.", leftType.Ident, rightType.Ident),
+			fmt.Sprintf("Bitwise operators require Int operands, got `%s` and `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
 			"cast or convert both sides to Int")
 	}
 	byteID := ast.TypeIdent("byte")
@@ -168,7 +168,7 @@ func (tc *TypeChecker) unifyArithmeticOperator(leftType, rightType ast.TypeNode,
 	}
 	return ast.TypeNode{}, reportf(span, "arithmetic-type-mismatch",
 		"type mismatch in arithmetic expression",
-		fmt.Sprintf("Cannot combine `%s` and `%s` with this operator.", leftType.Ident, rightType.Ident),
+		fmt.Sprintf("Cannot combine `%s` and `%s` with this operator.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
 		"convert operands to the same numeric type (or use string concatenation for String)")
 }
 
@@ -217,7 +217,7 @@ func (tc *TypeChecker) unifyComparisonOperator(leftType, rightType ast.TypeNode,
 	if leftType.Ident != rightType.Ident {
 		return ast.TypeNode{}, reportf(span, "comparison-type-mismatch",
 			"type mismatch in comparison expression",
-			fmt.Sprintf("Cannot compare `%s` with `%s`.", leftType.Ident, rightType.Ident),
+			fmt.Sprintf("Cannot compare `%s` with `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
 			"compare values of the same type or convert one side")
 	}
 	return ast.TypeNode{Ident: ast.TypeBool}, nil
@@ -228,7 +228,7 @@ func (tc *TypeChecker) unifyLogicalOperator(leftType, rightType ast.TypeNode, sp
 	if leftType.Ident != rightType.Ident {
 		return ast.TypeNode{}, reportf(span, "logical-type-mismatch",
 			"type mismatch in logical expression",
-			fmt.Sprintf("Logical operators require Bool operands, got `%s` and `%s`.", leftType.Ident, rightType.Ident),
+			fmt.Sprintf("Logical operators require Bool operands, got `%s` and `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
 			"use boolean expressions or comparisons that produce Bool")
 	}
 	return ast.TypeNode{Ident: ast.TypeBool}, nil

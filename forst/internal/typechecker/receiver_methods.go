@@ -115,7 +115,7 @@ func (tc *TypeChecker) checkUserTypeMethod(typ ast.TypeNode, methodName string, 
 		if !tc.IsTypeCompatible(argTypes[0], sig.Parameters[i].Type) {
 			return nil, reportf(argSpan, "method-arg-mismatch",
 				fmt.Sprintf("method `%s()` argument %d type mismatch", methodName, i+1),
-				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, argTypes[0].Ident, methodName, sig.Parameters[i].Type.Ident),
+				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, formatTypeIdentForDiag(argTypes[0].Ident), methodName, formatTypeIdentForDiag(sig.Parameters[i].Type.Ident)),
 				"convert the argument or change the method parameter type")
 		}
 	}
@@ -130,29 +130,29 @@ func (tc *TypeChecker) checkContractShapeMethod(typ ast.TypeNode, methodName str
 	def, ok := tc.Defs[typ.Ident]
 	if !ok {
 		return nil, reportf(callSpan, "method-undefined",
-			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
-			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, formatTypeIdentForDiag(typ.Ident)),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", formatTypeIdentForDiag(typ.Ident), methodName),
 			"declare the method on the type or call an existing one")
 	}
 	typeDef, ok := def.(ast.TypeDefNode)
 	if !ok {
 		return nil, reportf(callSpan, "method-undefined",
-			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
-			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, formatTypeIdentForDiag(typ.Ident)),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", formatTypeIdentForDiag(typ.Ident), methodName),
 			"declare the method on the type or call an existing one")
 	}
 	fields := tc.typeDefMethodOnlyFields(typeDef)
 	if fields == nil {
 		return nil, reportf(callSpan, "method-undefined",
-			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
-			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, formatTypeIdentForDiag(typ.Ident)),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", formatTypeIdentForDiag(typ.Ident), methodName),
 			"declare the method on the type or call an existing one")
 	}
 	field, ok := fields[methodName]
 	if !ok || !field.IsMethod {
 		return nil, reportf(callSpan, "method-undefined",
-			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, typ.Ident),
-			fmt.Sprintf("Type `%s` has no method `%s()`.", typ.Ident, methodName),
+			fmt.Sprintf("method `%s()` not defined on `%s`", methodName, formatTypeIdentForDiag(typ.Ident)),
+			fmt.Sprintf("Type `%s` has no method `%s()`.", formatTypeIdentForDiag(typ.Ident), methodName),
 			"declare the method on the type or call an existing one")
 	}
 	if len(args) != len(field.MethodParams) {
@@ -180,7 +180,7 @@ func (tc *TypeChecker) checkContractShapeMethod(typ ast.TypeNode, methodName str
 		if !tc.IsTypeCompatible(argTypes[0], sp.Type) {
 			return nil, reportf(argSpan, "method-arg-mismatch",
 				fmt.Sprintf("method `%s()` argument %d type mismatch", methodName, i+1),
-				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, argTypes[0].Ident, methodName, sp.Type.Ident),
+				fmt.Sprintf("Argument %d has type `%s`, but `%s()` expects `%s`.", i+1, formatTypeIdentForDiag(argTypes[0].Ident), methodName, formatTypeIdentForDiag(sp.Type.Ident)),
 				"convert the argument or change the method parameter type")
 		}
 	}

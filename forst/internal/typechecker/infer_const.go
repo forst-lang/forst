@@ -39,7 +39,7 @@ func (tc *TypeChecker) inferConstInit(expr ast.ExpressionNode, iotaIdx int, expl
 		return nil, fmt.Errorf("const initializer: expected a single type")
 	}
 	if explicit != nil && !tc.IsTypeCompatible(inferred[0], *explicit) {
-		return nil, fmt.Errorf("const initializer type mismatch: got %s, expected %s", inferred[0].Ident, explicit.Ident)
+		return nil, fmt.Errorf("const initializer type mismatch: got %s, expected %s", formatTypeIdentForDiag(inferred[0].Ident), formatTypeIdentForDiag(explicit.Ident))
 	}
 	if explicit != nil {
 		return []ast.TypeNode{*explicit}, nil

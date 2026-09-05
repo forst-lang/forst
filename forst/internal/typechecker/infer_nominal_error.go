@@ -29,7 +29,7 @@ func (tc *TypeChecker) inferNominalErrorConstructorCall(e ast.FunctionCallNode, 
 		return nil, true, err
 	}
 	if !tc.shapesHaveSameStructure(payload, shape) && !tc.IsTypeCompatible(inferred, ast.TypeNode{Ident: def.Ident}) {
-		return nil, true, fmt.Errorf("%s payload does not match %s", e.Function.ID, def.Ident)
+		return nil, true, fmt.Errorf("%s payload does not match %s", e.Function.ID, formatTypeIdentForDiag(def.Ident))
 	}
 	_ = argTypes
 	return []ast.TypeNode{{Ident: def.Ident}}, true, nil

@@ -54,7 +54,7 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 		if knownContract || !eng.DeferWiringRootCheck {
 			if !tc.wiringValueAssignable(valTypes[0], contractType) {
 				return ProviderScope{}, reportBodyf(fieldSpan, "providers-wiring-type",
-					"wiring field %s: expected type %s, got %s", fieldName, contractType.Ident, valTypes[0].Ident)
+					"wiring field %s: expected type %s, got %s", fieldName, formatTypeIdentForDiag(contractType.Ident), formatTypeIdentForDiag(valTypes[0].Ident))
 			}
 		}
 		amb.Keys[fieldName] = contractType

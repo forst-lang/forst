@@ -120,7 +120,7 @@ func (tc *TypeChecker) registerRangeBinding(id *ast.Ident, typ ast.TypeNode, isS
 	if prev[0].Ident != typ.Ident {
 		return reportf(span, "range-assignment-type",
 			fmt.Sprintf("range assignment type mismatch for `%s`", id.ID),
-			fmt.Sprintf("Variable `%s` has type `%s`, but this range yields `%s`.", id.ID, prev[0].Ident, typ.Ident),
+			fmt.Sprintf("Variable `%s` has type `%s`, but this range yields `%s`.", id.ID, formatTypeIdentForDiag(prev[0].Ident), formatTypeIdentForDiag(typ.Ident)),
 			"change the variable type or iterate a compatible collection")
 	}
 	return nil
@@ -144,8 +144,8 @@ func (tc *TypeChecker) rangeTypesForOneVar(t ast.TypeNode, span ast.SourceSpan) 
 		}
 	}
 	return ast.TypeNode{}, reportf(span, "range-unsupported-type",
-		fmt.Sprintf("unsupported range over type `%s`", t.Ident),
-		fmt.Sprintf("Single-variable `for range` does not support type `%s`.", t.Ident),
+		fmt.Sprintf("unsupported range over type `%s`", formatTypeIdentForDiag(t.Ident)),
+		fmt.Sprintf("Single-variable `for range` does not support type `%s`.", formatTypeIdentForDiag(t.Ident)),
 		"use a slice, map, string, or Seq collection")
 }
 
@@ -167,8 +167,8 @@ func (tc *TypeChecker) rangeTypesForTwoVars(t ast.TypeNode, span ast.SourceSpan)
 		return ast.TypeNode{Ident: ast.TypeInt}, ast.TypeNode{Ident: ast.TypeInt}, nil
 	}
 	return ast.TypeNode{}, ast.TypeNode{}, reportf(span, "range-unsupported-type",
-		fmt.Sprintf("unsupported range over type `%s`", t.Ident),
-		fmt.Sprintf("Two-variable `for k, v := range` does not support type `%s`.", t.Ident),
+		fmt.Sprintf("unsupported range over type `%s`", formatTypeIdentForDiag(t.Ident)),
+		fmt.Sprintf("Two-variable `for k, v := range` does not support type `%s`.", formatTypeIdentForDiag(t.Ident)),
 		"use a slice, map, string, or Seq collection")
 }
 

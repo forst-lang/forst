@@ -12,7 +12,7 @@ func (tc *TypeChecker) dispatchLen(args []ast.ExpressionNode, argSpans []ast.Sou
 	}
 	if !lenOperandAllowed(argType) {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "len() invalid operand type %s", argType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "len() invalid operand type %s", formatTypeIdentForDiag(argType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeInt)}, true, nil
 }
@@ -27,7 +27,7 @@ func (tc *TypeChecker) dispatchCap(args []ast.ExpressionNode, argSpans []ast.Sou
 	}
 	if !capOperandAllowed(argType) {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "cap() invalid operand type %s", argType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "cap() invalid operand type %s", formatTypeIdentForDiag(argType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeInt)}, true, nil
 }
@@ -45,7 +45,7 @@ func (tc *TypeChecker) dispatchAppend(args []ast.ExpressionNode, argSpans []ast.
 		if sliceType.ArrayLen != nil {
 			return nil, true, reportBodyf(sp, "builtin-call", "append() first argument must be a slice, not a fixed array")
 		}
-		return nil, true, reportBodyf(sp, "builtin-call", "append() first argument must be a slice, got %s", sliceType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "append() first argument must be a slice, got %s", formatTypeIdentForDiag(sliceType.Ident))
 	}
 	elemType, ok := sliceElementType(sliceType)
 	if !ok {
@@ -155,11 +155,11 @@ func (tc *TypeChecker) dispatchDelete(args []ast.ExpressionNode, argSpans []ast.
 	mapKeyType, _, ok := mapKeyValueTypes(mapType)
 	if !ok {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "delete() first argument must be a map, got %s", mapType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "delete() first argument must be a map, got %s", formatTypeIdentForDiag(mapType.Ident))
 	}
 	if !tc.IsTypeCompatible(keyType, mapKeyType) {
 		sp := spanForCallArg(argSpans, 1, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "delete() key type incompatible with map key %s", mapKeyType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "delete() key type incompatible with map key %s", formatTypeIdentForDiag(mapKeyType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeVoid)}, true, nil
 }
@@ -184,7 +184,7 @@ func (tc *TypeChecker) dispatchClear(args []ast.ExpressionNode, argSpans []ast.S
 	}
 	if !clearOperandAllowed(argType) {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "clear() expects a map or slice, got %s", argType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "clear() expects a map or slice, got %s", formatTypeIdentForDiag(argType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeVoid)}, true, nil
 }
@@ -199,7 +199,7 @@ func (tc *TypeChecker) dispatchMinMax(functionName string, args []ast.Expression
 	}
 	if !isOrderedBuiltinType(firstType) {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "%s() expects ordered types (Int, Float, String), got %s", functionName, firstType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "%s() expects ordered types (Int, Float, String), got %s", functionName, formatTypeIdentForDiag(firstType.Ident))
 	}
 	for i := 1; i < len(args); i++ {
 		argType, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
@@ -228,7 +228,7 @@ func (tc *TypeChecker) dispatchComplex(args []ast.ExpressionNode, argSpans []ast
 	}
 	if leftType.Ident != ast.TypeFloat || rightType.Ident != ast.TypeFloat {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "complex() expects Float arguments, got %s and %s", leftType.Ident, rightType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "complex() expects Float arguments, got %s and %s", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeObject)}, true, nil
 }
@@ -243,7 +243,7 @@ func (tc *TypeChecker) dispatchRealImag(functionName string, args []ast.Expressi
 	}
 	if argType.Ident != ast.TypeObject {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "%s() expects a complex value, got %s", functionName, argType.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "%s() expects a complex value, got %s", functionName, formatTypeIdentForDiag(argType.Ident))
 	}
 	return []ast.TypeNode{ast.NewBuiltinType(ast.TypeFloat)}, true, nil
 }

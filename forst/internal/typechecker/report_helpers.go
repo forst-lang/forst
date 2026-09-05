@@ -35,7 +35,11 @@ func resultOkSubjectPlaceError(span ast.SourceSpan) error {
 		"bind it first:\n\n    r := fetch()\n    if r is Ok() { ... }")
 }
 
-func shapeUnknownFieldError(typeName, field string, known []string, span ast.SourceSpan) error {
+func shapeUnknownFieldError(typ ast.TypeIdent, field string, known []string, span ast.SourceSpan) error {
+	typeName := ""
+	if typ != "" {
+		typeName = formatTypeIdentForDiag(typ)
+	}
 	problem := fmt.Sprintf("Type `%s` has no field `%s`.", typeName, field)
 	if typeName == "" {
 		problem = fmt.Sprintf("This shape has no field `%s`.", field)

@@ -11,7 +11,7 @@ import (
 
 func TestShapeUnknownFieldError_reportAndFix(t *testing.T) {
 	t.Parallel()
-	err := shapeUnknownFieldError("User", "nme", []string{"name", "age", "email"}, ast.SourceSpan{
+	err := shapeUnknownFieldError(ast.TypeIdent("User"), "nme", []string{"name", "age", "email"}, ast.SourceSpan{
 		StartLine: 1, StartCol: 2, EndLine: 1, EndCol: 5,
 	})
 	msg := err.Error()
@@ -55,15 +55,26 @@ func TestGoMemberMissingError_reportAndFix(t *testing.T) {
 	_ = diag.FormatReport(d.Report())
 }
 
-func TestGuardUndefinedError(t *testing.T) {
+func TestShapeUnknownFieldError_builtinTypeUsesSurfaceName(t *testing.T) {
 	t.Parallel()
-	err := guardUndefinedError("Adult", ast.SourceSpan{
-		StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 6,
+	err := shapeUnknownFieldError(ast.TypeInt, "test", nil, ast.SourceSpan{
+		StartLine: 2, StartCol: 1, EndLine: 2, EndCol: 5,
 	})
-	if !strings.Contains(err.Error(), "guard-undefined") {
-		t.Fatalf("%v", err)
+	msg := err.Error()
+	if strings.Contains(msg, "TYPE_INT") {
+		t.Fatalf("leaked internal type ident: %s", msg)
 	}
-	if strings.Contains(err.Error(), "%T") || strings.Contains(err.Error(), "defs has") {
-		t.Fatalf("leaked internals: %v", err)
+	if !strings.Contains(msg, "Type `Int` has no field `test`") {
+		t.Fatalf("expected Int surface name: %s", msg)
+	}
+}
+
+func TestFormatTypeIdentForDiag_builtins(t *testing.T) {
+	t.Parallel()
+	if got := formatTypeIdentForDiag(ast.TypeInt); got != "Int" {
+		t.Fatalf("got %q", got)
+	}
+	if got := formatTypeIdentForDiag(ast.TypeString); got != "String" {
+		t.Fatalf("got %q", got)
 	}
 }

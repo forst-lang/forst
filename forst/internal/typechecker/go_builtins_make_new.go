@@ -22,7 +22,7 @@ func (tc *TypeChecker) requireIntBuiltinArg(args []ast.ExpressionNode, argSpans 
 	}
 	if argType.Ident != ast.TypeInt {
 		sp := spanForCallArg(argSpans, i, args, callSpan)
-		return reportBodyf(sp, "builtin-call", "%s() argument %d must be Int, got %s", builtin, i+1, argType.Ident)
+		return reportBodyf(sp, "builtin-call", "%s() argument %d must be Int, got %s", builtin, i+1, formatTypeIdentForDiag(argType.Ident))
 	}
 	return nil
 }
@@ -68,7 +68,7 @@ func (tc *TypeChecker) dispatchMake(args []ast.ExpressionNode, argSpans []ast.So
 		return []ast.TypeNode{typ}, true, nil
 	default:
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
-		return nil, true, reportBodyf(sp, "builtin-call", "make() first argument must be Array(T), map[K]V, or chan T, got %s", typ.Ident)
+		return nil, true, reportBodyf(sp, "builtin-call", "make() first argument must be Array(T), map[K]V, or chan T, got %s", formatTypeIdentForDiag(typ.Ident))
 	}
 }
 

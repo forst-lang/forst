@@ -114,7 +114,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				elSpan := spanOfExpression(el)
 				return nil, reportf(elSpan, "array-mixed-types",
 					"array literal has mixed element types",
-					fmt.Sprintf("Array elements must share one type; got `%s` and `%s`.", elemType.Ident, ts[0].Ident),
+					fmt.Sprintf("Array elements must share one type; got `%s` and `%s`.", formatTypeIdentForDiag(elemType.Ident), formatTypeIdentForDiag(ts[0].Ident)),
 					"use the same type for every element or add an explicit element type")
 			}
 		}
@@ -179,7 +179,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if !tc.IsTypeCompatible(indexTypes[0], wantK) {
 				return nil, reportf(spanIndexExpr(e), "index-type",
 					"map index key type mismatch",
-					fmt.Sprintf("Map key type must be `%s`, got `%s`.", wantK.Ident, indexTypes[0].Ident),
+					fmt.Sprintf("Map key type must be `%s`, got `%s`.", formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(indexTypes[0].Ident)),
 					"convert the key or change the map's key type")
 			}
 			// Rvalue map lookup is Result(V, Error): present key → Ok(value); missing key → Err.
@@ -218,7 +218,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
 			return nil, reportf(spanIndexExpr(e), "index-target-type",
 				"index target must be map, slice, or array",
-				fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", t.Ident),
+				fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", formatTypeIdentForDiag(t.Ident)),
 				"index a supported container type")
 		}
 		if indexTypes[0].Ident != ast.TypeInt {
@@ -774,7 +774,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if !tc.IsTypeCompatible(kt[0], wantK) {
 				return nil, reportf(entrySpan, "map-literal-key-type",
 					fmt.Sprintf("map literal entry %d key type mismatch", i),
-					fmt.Sprintf("Key %d must have type `%s`, got `%s`.", i, wantK.Ident, kt[0].Ident),
+					fmt.Sprintf("Key %d must have type `%s`, got `%s`.", i, formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(kt[0].Ident)),
 					"convert the key or change the map key type")
 			}
 			vt, err := tc.inferExpressionType(ent.Value)
@@ -790,7 +790,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if !tc.IsTypeCompatible(vt[0], wantV) {
 				return nil, reportf(entrySpan, "map-literal-value-type",
 					fmt.Sprintf("map literal entry %d value type mismatch", i),
-					fmt.Sprintf("Value %d must have type `%s`, got `%s`.", i, wantV.Ident, vt[0].Ident),
+					fmt.Sprintf("Value %d must have type `%s`, got `%s`.", i, formatTypeIdentForDiag(wantV.Ident), formatTypeIdentForDiag(vt[0].Ident)),
 					"convert the value or change the map value type")
 			}
 		}
@@ -942,7 +942,7 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 		if !tc.IsTypeCompatible(indexTypes[0], wantK) {
 			return nil, reportf(spanIndexExpr(e), "index-type",
 				"map index key type mismatch",
-				fmt.Sprintf("Map key type must be `%s`, got `%s`.", wantK.Ident, indexTypes[0].Ident),
+				fmt.Sprintf("Map key type must be `%s`, got `%s`.", formatTypeIdentForDiag(wantK.Ident), formatTypeIdentForDiag(indexTypes[0].Ident)),
 				"convert the key or change the map's key type")
 		}
 		tc.storeInferredType(e, []ast.TypeNode{wantV})
@@ -973,7 +973,7 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 	if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
 		return nil, reportf(spanIndexExpr(e), "index-target-type",
 			"index target must be map, slice, or array",
-			fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", t.Ident),
+			fmt.Sprintf("Cannot index type `%s`; expected map, slice, array, string, or []byte.", formatTypeIdentForDiag(t.Ident)),
 			"index a supported container type")
 	}
 	if indexTypes[0].Ident != ast.TypeInt {

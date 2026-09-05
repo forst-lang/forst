@@ -77,7 +77,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node) (ast.TypeN
 		}
 		rightType := rightTypes[0]
 		if rightType.Ident != ast.TypeShape {
-			return ast.TypeNode{}, fmt.Errorf("right-hand side of 'is' must be a Shape type or assertion, got %s", rightType.Ident)
+			return ast.TypeNode{}, fmt.Errorf("right-hand side of 'is' must be a Shape type or assertion, got %s", formatTypeIdentForDiag(rightType.Ident))
 		}
 	}
 

@@ -511,7 +511,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		if !tc.IsTypeCompatible(argType[0], expectedType) {
 			tc.log.WithFields(logrus.Fields{
 				"function": "checkBuiltinFunctionCall",
-			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
+			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, formatTypeIdentForDiag(expectedType.Ident), formatTypeIdentForDiag(argType[0].Ident))
 			return nil, reportBodyf(sp, "builtin-call", "%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 		}

@@ -239,7 +239,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsType) {
 						return reportf(l.Ident.Span, "assignment-type-mismatch",
 							"assignment type mismatch",
-							fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", resolvedTypes[i][0].Ident, l.Ident.ID, lhsType.Ident),
+							fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", formatTypeIdentForDiag(resolvedTypes[i][0].Ident), l.Ident.ID, formatTypeIdentForDiag(lhsType.Ident)),
 							"convert the value or change the field type")
 					}
 					tc.storeInferredType(l, []ast.TypeNode{lhsType})
@@ -267,8 +267,8 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 				_, isDefined := tc.Defs[explicitType.Ident]
 				if !isPointer && !isBuiltin && !isDefined {
 					return reportf(l.Ident.Span, "undefined-type",
-						fmt.Sprintf("undefined type `%s`", explicitType.Ident),
-						fmt.Sprintf("Type name `%s` in the variable declaration is not defined.", explicitType.Ident),
+						fmt.Sprintf("undefined type `%s`", formatTypeIdentForDiag(explicitType.Ident)),
+						fmt.Sprintf("Type name `%s` in the variable declaration is not defined.", formatTypeIdentForDiag(explicitType.Ident)),
 						"declare the type or use a built-in name")
 				}
 			}
@@ -283,8 +283,8 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					isFunc := explicitType.Ident == ast.TypeIdent("Func")
 					if !isPointer && !isInterface && !isMap && !isArray && !isFunc {
 						return reportf(l.Ident.Span, "nil-assign-type",
-							fmt.Sprintf("cannot assign nil to `%s`", explicitType.Ident),
-							fmt.Sprintf("Type `%s` cannot be initialized with `nil`.", explicitType.Ident),
+							fmt.Sprintf("cannot assign nil to `%s`", formatTypeIdentForDiag(explicitType.Ident)),
+							fmt.Sprintf("Type `%s` cannot be initialized with `nil`.", formatTypeIdentForDiag(explicitType.Ident)),
 							"use a pointer, map, slice, interface, or func type — or supply a value")
 					}
 				}
@@ -303,7 +303,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 				if !ok {
 					return reportf(l.Ident.Span, "assignment-type-mismatch",
 						"assignment type mismatch",
-						fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", rhs.Ident, l.Ident.ID, lhs.Ident),
+						fmt.Sprintf("Cannot assign `%s` to `%s` (expected `%s`).", formatTypeIdentForDiag(rhs.Ident), l.Ident.ID, formatTypeIdentForDiag(lhs.Ident)),
 						"convert the initializer or change the declared type")
 				}
 			}

@@ -95,7 +95,7 @@ func (tc *TypeChecker) validateEnsureTypeTarget(ensure ast.EnsureNode, subjectTy
 		// Also allow already-narrowed same-domain values.
 		subjCarrier, subOk := tc.carrierTypeForNamedType(subjectType)
 		if !subOk || subjCarrier.Ident != carrier.Ident {
-			return fmt.Errorf("type target %s expects carrier %s, got %s", name, carrier.Ident, subjectType.Ident)
+			return fmt.Errorf("type target %s expects carrier %s, got %s", name, formatTypeIdentForDiag(carrier.Ident), formatTypeIdentForDiag(subjectType.Ident))
 		}
 	}
 	return nil
