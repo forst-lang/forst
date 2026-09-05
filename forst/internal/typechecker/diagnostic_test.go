@@ -67,6 +67,49 @@ func TestSpanOfExpression_indexFallsBackToIndexLiteral(t *testing.T) {
 	}
 }
 
+func TestSpanOfExpression_indexPrefersNodeSpan(t *testing.T) {
+	t.Parallel()
+	idx := ast.IndexExpressionNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "a", Span: ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}}},
+		Index:  ast.IntLiteralNode{Value: 9, Span: ast.SourceSpan{StartLine: 1, StartCol: 3, EndLine: 1, EndCol: 4}},
+		Span:   ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 5},
+	}
+	if s := spanOfExpression(idx); !s.IsSet() || s.EndCol != 5 {
+		t.Fatalf("got %+v want EndCol 5", s)
+	}
+}
+
+func TestSpanOfExpression_typeShapeFuncLitPreferSpan(t *testing.T) {
+	t.Parallel()
+	te := ast.TypeExpressionNode{
+		Type: ast.TypeNode{Ident: ast.TypeInt},
+		Span: ast.SourceSpan{StartLine: 2, StartCol: 3, EndLine: 2, EndCol: 6},
+	}
+	if s := spanOfExpression(te); !s.IsSet() || s.StartLine != 2 {
+		t.Fatalf("type expr: %+v", s)
+	}
+	sh := ast.ShapeNode{Span: ast.SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 8}}
+	if s := spanOfExpression(sh); !s.IsSet() || s.StartLine != 3 {
+		t.Fatalf("shape: %+v", s)
+	}
+	fl := ast.FunctionLiteralNode{Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 20}}
+	if s := spanOfExpression(fl); !s.IsSet() || s.EndCol != 20 {
+		t.Fatalf("funclit: %+v", s)
+	}
+}
+
+func TestSpanSliceExpr_prefersNodeSpan(t *testing.T) {
+	t.Parallel()
+	sl := ast.SliceExpressionNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		Low:    ast.IntLiteralNode{Value: 1, Span: ast.FakeSpan()},
+		Span:   ast.SourceSpan{StartLine: 9, StartCol: 2, EndLine: 9, EndCol: 10},
+	}
+	if s := spanSliceExpr(sl); !s.IsSet() || s.StartLine != 9 || s.EndCol != 10 {
+		t.Fatalf("got %+v", s)
+	}
+}
+
 func TestSpanForCallArg_fallbackToCallSpan(t *testing.T) {
 	t.Parallel()
 	callSpan := ast.SourceSpan{StartLine: 3, StartCol: 1, EndLine: 3, EndCol: 9}

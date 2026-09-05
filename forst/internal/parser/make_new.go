@@ -16,7 +16,10 @@ func (p *Parser) parseMakeNewCallArguments(builtin ast.Identifier) ([]ast.Expres
 	}
 	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 	endTok := p.tokens[p.currentIndex-1]
-	args = append(args, ast.TypeExpressionNode{Type: typ})
+	args = append(args, ast.TypeExpressionNode{
+		Type: typ,
+		Span: ast.SpanBetweenTokens(startTok, endTok),
+	})
 	argSpans = append(argSpans, ast.SpanBetweenTokens(startTok, endTok))
 	for p.current().Type == ast.TokenComma {
 		p.advance()

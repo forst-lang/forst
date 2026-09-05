@@ -52,10 +52,34 @@ func spanOfExpression(expr ast.ExpressionNode) ast.SourceSpan {
 		}
 		return spanOfExpression(e.Right)
 	case ast.IndexExpressionNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
 		if s := spanOfExpression(e.Target); s.IsSet() {
 			return s
 		}
 		return spanOfExpression(e.Index)
+	case ast.SliceExpressionNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		if s := spanOfExpression(e.Target); s.IsSet() {
+			return s
+		}
+		if e.Low != nil {
+			if s := spanOfExpression(e.Low); s.IsSet() {
+				return s
+			}
+		}
+		if e.High != nil {
+			return spanOfExpression(e.High)
+		}
+	case ast.TypeExpressionNode:
+		return e.Span
+	case ast.ShapeNode:
+		return e.Span
+	case ast.FunctionLiteralNode:
+		return e.Span
 	}
 	return ast.SourceSpan{}
 }

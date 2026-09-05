@@ -58,6 +58,23 @@ func SpanBetweenTokens(start, end Token) SourceSpan {
 	}
 }
 
+// SpanFromTo merges start's start coordinates with end's end coordinates.
+// If only one side is set, that side is returned.
+func SpanFromTo(start, end SourceSpan) SourceSpan {
+	if start.IsSet() && end.IsSet() {
+		return SourceSpan{
+			StartLine: start.StartLine,
+			StartCol:  start.StartCol,
+			EndLine:   end.EndLine,
+			EndCol:    end.EndCol,
+		}
+	}
+	if start.IsSet() {
+		return start
+	}
+	return end
+}
+
 // FakeSpan is a non-zero SourceSpan for hand-built AST in unit tests.
 func FakeSpan() SourceSpan {
 	return SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}

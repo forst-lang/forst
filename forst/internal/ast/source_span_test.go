@@ -109,3 +109,29 @@ func TestFakeSpan_isSet(t *testing.T) {
 		t.Fatal("FakeSpan must be set")
 	}
 }
+
+func TestSpanFromTo_mergesEnds(t *testing.T) {
+	t.Parallel()
+	start := SourceSpan{StartLine: 1, StartCol: 2, EndLine: 1, EndCol: 3}
+	end := SourceSpan{StartLine: 1, StartCol: 8, EndLine: 1, EndCol: 9}
+	got := SpanFromTo(start, end)
+	if got.StartLine != 1 || got.StartCol != 2 || got.EndLine != 1 || got.EndCol != 9 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestExpressionSpanStart_variableAndIndex(t *testing.T) {
+	t.Parallel()
+	v := VariableNode{Ident: Ident{ID: "xs", Span: SourceSpan{StartLine: 1, StartCol: 5, EndLine: 1, EndCol: 7}}}
+	if s := ExpressionSpanStart(v); !s.IsSet() || s.StartCol != 5 {
+		t.Fatalf("variable: %+v", s)
+	}
+	idx := IndexExpressionNode{
+		Target: v,
+		Index:  IntLiteralNode{Value: 1, Span: FakeSpan()},
+		Span:   SourceSpan{StartLine: 1, StartCol: 5, EndLine: 1, EndCol: 10},
+	}
+	if s := ExpressionSpanStart(idx); !s.IsSet() || s.EndCol != 10 {
+		t.Fatalf("index: %+v", s)
+	}
+}

@@ -17,7 +17,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			refName := string(ident.ID)
 			if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(refName) && p.looksLikeTypedCompositeOrShapeBody() {
 				typeIdent := ast.TypeIdent(refName)
-				shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
+				shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent, StartSpan: ident.Span})
 				return ast.ReferenceNode{Value: shape}
 			}
 			return ast.ReferenceNode{
@@ -41,7 +41,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 
 		if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) && p.looksLikeTypedCompositeOrShapeBody() {
 			typeIdent := ast.TypeIdent(string(ident.ID))
-			shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
+			shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent, StartSpan: ident.Span})
 			return shape
 		}
 

@@ -14,6 +14,8 @@ type ShapeLiteralOpts struct {
 	BaseType *ast.TypeIdent
 	// ParseAsTypes parses field annotations as types (String, Int, nested `{...}`) rather than literal values.
 	ParseAsTypes bool
+	// StartSpan, when set, starts the shape span at the type name (typed `User{…}`) instead of `{`.
+	StartSpan ast.SourceSpan
 }
 
 // ShapeFieldTypeOpts configures parseShapeFieldTypeAfterColon.
@@ -278,7 +280,7 @@ func (p *Parser) parseShapeLiteral(opts ShapeLiteralOpts) ast.ShapeNode {
 	}).Debug("Starting parseShapeLiteral")
 
 	p.log.WithField("token", p.current()).Trace("Entering parseShapeLiteral")
-	p.expect(ast.TokenLBrace)
+	lbrace := p.expect(ast.TokenLBrace)
 
 	fields := make(map[string]ast.ShapeFieldNode)
 	var fieldOrder []string
@@ -370,11 +372,17 @@ func (p *Parser) parseShapeLiteral(opts ShapeLiteralOpts) ast.ShapeNode {
 		}
 	}
 
-	p.expect(ast.TokenRBrace)
+	rbrace := p.expect(ast.TokenRBrace)
+
+	span := ast.SpanBetweenTokens(lbrace, rbrace)
+	if opts.StartSpan.IsSet() {
+		span = ast.SpanFromTo(opts.StartSpan, ast.SpanFromToken(rbrace))
+	}
 
 	return ast.ShapeNode{
 		Fields:     fields,
 		FieldOrder: fieldOrder,
 		BaseType:   opts.BaseType,
+		Span:       span,
 	}
 }

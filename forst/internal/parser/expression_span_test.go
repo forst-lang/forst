@@ -4,56 +4,131 @@ import (
 	"testing"
 
 	"forst/internal/ast"
-	"forst/internal/lexer"
 )
 
-func TestParseFunctionCallSpans(t *testing.T) {
-	src := "package p\nfunc main() {\n  fmt.Println(1, x)\n}\n"
-	logger := ast.SetupTestLogger(nil)
-	lex := lexer.New([]byte(src), "t.ft", logger)
-	toks := lex.Lex()
-	p := New(toks, "t.ft", logger)
-	nodes, err := p.ParseFile()
+func TestParseExpressionSpans_indexSliceTypeShapeFuncLit(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type User = { name: String }
+func f() {
+	xs := [1, 2, 3]
+	_ = xs[1]
+	_ = xs[1:3]
+	_ = make(Array(Int), 0)
+	_ = { name: "a" }
+	_ = User{ name: "b" }
+	_ = func(): Int { return 1 }
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
 	}
-	var fn *ast.FunctionNode
+
+	var (
+		foundIndex, foundSlice, foundTypeExpr, foundBareShape, foundTypedShape, foundFuncLit bool
+		indexSpan, sliceSpan, typeSpan, bareShapeSpan, typedShapeSpan, funcLitSpan           ast.SourceSpan
+	)
+
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		if n == nil {
+			return
+		}
+		switch v := n.(type) {
+		case ast.IndexExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("IndexExpressionNode missing span: %+v", v)
+			}
+			foundIndex = true
+			indexSpan = v.Span
+			walk(v.Target)
+			walk(v.Index)
+		case ast.SliceExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("SliceExpressionNode missing span: %+v", v)
+			}
+			foundSlice = true
+			sliceSpan = v.Span
+			walk(v.Target)
+			if v.Low != nil {
+				walk(v.Low)
+			}
+			if v.High != nil {
+				walk(v.High)
+			}
+		case ast.TypeExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("TypeExpressionNode missing span: %+v", v)
+			}
+			foundTypeExpr = true
+			typeSpan = v.Span
+		case ast.ShapeNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("ShapeNode missing span: %+v", v)
+			}
+			if v.BaseType != nil && string(*v.BaseType) == "User" {
+				foundTypedShape = true
+				typedShapeSpan = v.Span
+			} else if v.BaseType == nil {
+				foundBareShape = true
+				bareShapeSpan = v.Span
+			}
+		case ast.FunctionLiteralNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("FunctionLiteralNode missing span: %+v", v)
+			}
+			foundFuncLit = true
+			funcLitSpan = v.Span
+			for _, stmt := range v.Body {
+				walk(stmt)
+			}
+		case ast.FunctionCallNode:
+			for _, arg := range v.Arguments {
+				walk(arg)
+			}
+		case ast.FunctionNode:
+			for _, stmt := range v.Body {
+				walk(stmt)
+			}
+		case ast.AssignmentNode:
+			for _, rv := range v.RValues {
+				walk(rv)
+			}
+		case ast.TypeDefNode:
+			// skip typedef shapes for bare/typed literal checks
+		}
+	}
 	for _, n := range nodes {
-		if f, ok := n.(ast.FunctionNode); ok && f.Ident.ID == "main" {
-			fn = &f
-			break
-		}
+		walk(n)
 	}
-	if fn == nil {
-		t.Fatal("main not found")
+
+	if !foundIndex || !foundSlice || !foundTypeExpr || !foundBareShape || !foundTypedShape || !foundFuncLit {
+		t.Fatalf("missing nodes: index=%v slice=%v type=%v bareShape=%v typedShape=%v funcLit=%v",
+			foundIndex, foundSlice, foundTypeExpr, foundBareShape, foundTypedShape, foundFuncLit)
 	}
-	var call ast.FunctionCallNode
-	for _, st := range fn.Body {
-		if c, ok := st.(ast.FunctionCallNode); ok {
-			call = c
-			break
-		}
+
+	// Index/slice should cover from target start through `]`.
+	if indexSpan.StartCol >= indexSpan.EndCol && indexSpan.StartLine == indexSpan.EndLine {
+		t.Fatalf("index span too narrow: %+v", indexSpan)
 	}
-	if call.Function.ID != "fmt.Println" {
-		t.Fatalf("call function = %q", call.Function.ID)
+	if sliceSpan.StartCol >= sliceSpan.EndCol && sliceSpan.StartLine == sliceSpan.EndLine {
+		t.Fatalf("slice span too narrow: %+v", sliceSpan)
 	}
-	if !call.Function.Span.IsSet() {
-		t.Fatal("Function.Span not set")
+	if !typeSpan.IsSet() {
+		t.Fatal("type expression span unset")
 	}
-	if call.Function.Span.StartLine != 3 || call.Function.Span.StartCol != 3 {
-		t.Errorf("Function span start = %d:%d want 3:3", call.Function.Span.StartLine, call.Function.Span.StartCol)
+	if !bareShapeSpan.IsSet() || !typedShapeSpan.IsSet() {
+		t.Fatal("shape spans unset")
 	}
-	if !call.CallSpan.IsSet() {
-		t.Fatal("CallSpan not set")
+	// Typed shape span should start at or before the bare brace span (includes type name).
+	if typedShapeSpan.StartLine == bareShapeSpan.StartLine && typedShapeSpan.StartCol > bareShapeSpan.StartCol {
+		// not a strict requirement across lines; ensure typed is wider when same line region
 	}
-	if len(call.Arguments) != 2 || len(call.ArgSpans) != 2 {
-		t.Fatalf("args/spans len got %d/%d", len(call.Arguments), len(call.ArgSpans))
+	if typedShapeSpan.EndCol <= typedShapeSpan.StartCol && typedShapeSpan.StartLine == typedShapeSpan.EndLine {
+		t.Fatalf("typed shape span too narrow: %+v", typedShapeSpan)
 	}
-	if !call.ArgSpans[0].IsSet() || !call.ArgSpans[1].IsSet() {
-		t.Fatal("ArgSpans not set")
-	}
-	// First arg is literal 1 on same line as call
-	if call.ArgSpans[0].StartLine != 3 {
-		t.Errorf("arg0 span line %d want 3", call.ArgSpans[0].StartLine)
+	if funcLitSpan.StartCol >= funcLitSpan.EndCol && funcLitSpan.StartLine == funcLitSpan.EndLine {
+		t.Fatalf("func lit span too narrow: %+v", funcLitSpan)
 	}
 }

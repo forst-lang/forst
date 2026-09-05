@@ -116,6 +116,7 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 // parseIndexSuffixChain parses zero or more `[expr]` / `[low:high]` suffixes (slice/array indexing).
 func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, _ int) ast.ExpressionNode {
 	for p.current().Type == ast.TokenLBracket {
+		lbrack := p.current()
 		p.advance()
 		if p.current().Type == ast.TokenColon {
 			p.advance()
@@ -123,8 +124,13 @@ func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, _ int) ast.Expre
 			if p.current().Type != ast.TokenRBracket {
 				high = p.parseExpression()
 			}
-			p.expect(ast.TokenRBracket)
-			base = ast.SliceExpressionNode{Target: base, High: high}
+			rbrack := p.expect(ast.TokenRBracket)
+			suffix := ast.SpanBetweenTokens(lbrack, rbrack)
+			base = ast.SliceExpressionNode{
+				Target: base,
+				High:   high,
+				Span:   ast.SpanFromTo(ast.ExpressionSpanStart(base), suffix),
+			}
 			continue
 		}
 		first := p.parseExpression()
@@ -134,14 +140,22 @@ func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, _ int) ast.Expre
 			if p.current().Type != ast.TokenRBracket {
 				high = p.parseExpression()
 			}
-			p.expect(ast.TokenRBracket)
-			base = ast.SliceExpressionNode{Target: base, Low: first, High: high}
+			rbrack := p.expect(ast.TokenRBracket)
+			suffix := ast.SpanBetweenTokens(lbrack, rbrack)
+			base = ast.SliceExpressionNode{
+				Target: base,
+				Low:    first,
+				High:   high,
+				Span:   ast.SpanFromTo(ast.ExpressionSpanStart(base), suffix),
+			}
 			continue
 		}
-		p.expect(ast.TokenRBracket)
+		rbrack := p.expect(ast.TokenRBracket)
+		suffix := ast.SpanBetweenTokens(lbrack, rbrack)
 		base = ast.IndexExpressionNode{
 			Target: base,
 			Index:  first,
+			Span:   ast.SpanFromTo(ast.ExpressionSpanStart(base), suffix),
 		}
 	}
 	return base
@@ -405,7 +419,7 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 	}
 	if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) && p.looksLikeTypedCompositeOrShapeBody() {
 		typeIdent := ast.TypeIdent(string(ident.ID))
-		return p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
+		return p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent, StartSpan: ident.Span})
 	}
 	return ast.VariableNode{
 		Ident: ident,

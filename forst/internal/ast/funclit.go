@@ -13,6 +13,7 @@ type FunctionLiteralNode struct {
 	Params      []ParamNode
 	ReturnTypes []TypeNode
 	Body        []Node
+	Span        SourceSpan
 }
 
 func (FunctionLiteralNode) isExpression() {}
