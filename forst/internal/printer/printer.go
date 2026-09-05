@@ -705,6 +705,19 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 			e.Assertion.BaseType != nil && *e.Assertion.BaseType == ast.TypeError {
 			b.WriteString("ensure !")
 			b.WriteString(v)
+		} else if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("ensure ")
+			b.WriteString(v)
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    is ")
+			b.WriteString(p.formatAssertionMeet(e.Assertion))
+			for _, alt := range e.Assertion.OrChains {
+				b.WriteString("\n")
+				b.WriteString(p.prefix())
+				b.WriteString("    or ")
+				b.WriteString(p.formatAssertionMeet(alt))
+			}
 		} else {
 			b.WriteString("ensure ")
 			b.WriteString(v)
@@ -742,16 +755,31 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		}
 	}
 	if e.Block != nil && len(e.Block.Body) > 0 {
-		b.WriteString(" else {\n")
-		p.push()
-		body, err := p.printBlock(e.Block.Body)
-		if err != nil {
-			return "", err
+		if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteString("    }")
+		} else {
+			b.WriteString(" else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteByte('}')
 		}
-		b.WriteString(body)
-		p.pop()
-		b.WriteString(p.prefix())
-		b.WriteByte('}')
 	}
 	return b.String(), nil
 }

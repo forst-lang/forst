@@ -49,32 +49,63 @@ ensure speed is LessThan(100) else TooFast()
 The expression after `else` runs only when the check fails. It can return a
 named error constructor or an error variable. `else` marks the failure path.
 
-## Offer several acceptable checks with `or`
+## Accept alternatives with `or`
 
-Use `or` to join several constraint chains on the same value.
+Use `or` to join several acceptable checks on the same value.
 
 ```ft
-ensure password is Strong() or Passkey() else InvalidCredential()
+ensure password
+    is Strong()
+    or Passkey()
+    else InvalidCredential()
 ```
 
-This check passes when `password` satisfies either `Strong()` or `Passkey()`.
-`or` joins alternative conditions on one value. It is not boolean `||`.
+This check passes when `password` satisfies either `Strong()` or `Passkey()`. If both fail, `ensure` executes the `else` path.
+
+### Accept specific status cases
+
+`or` can list acceptable states or checks for a value when other cases should be rejected.
+
+```ft
+ensure status
+    is Pending()
+    or Processing()
+    or Retrying()
+    else InvalidStatus()
+```
+
+The check continues if `status` matches any listed condition and fails through `else` for any other value.
+
+### Combine checks inside type guards
+
+Inside a [type guard](/language/type-guards), `ensure` cannot raise a custom error with `else`. Use `or` to express that any of several conditions satisfies the guard.
+
+```ft
+is (task Task) Actionable() {
+    ensure task.status
+        is Pending()
+        or Processing()
+}
+```
+
+Caller functions can then check `ensure task is Actionable() else InactiveTask()`.
+
+### Syntax rules for `or`
+
+- Write the value once: write `ensure x` followed by `is A()`, `or B()`, not `ensure x is A() or x is B()`.
+- Chained constraints bind tighter than `or`: `ensure name` with `is String.Min(3).Max(32)` and `or UUID.V4()` evaluates the full `Min` and `Max` check as one alternative, or `UUID.V4()` as the second.
 
 ## Check against a named type
 
-A bare name after `is` checks membership in a named type instead of calling an
-assertion.
+A bare name without parentheses checks membership in a named type instead of calling assertion functions.
 
 ```ft
 ensure status is ActiveStatus else InvalidStatus()
 ```
 
-`ActiveStatus` has no parentheses. This tells Forst that `ActiveStatus` is a
-named type, such as a literal union. Use parentheses for assertion calls like
-`Strong()`.
+`ActiveStatus` has no parentheses. This tells Forst that `ActiveStatus` is a named type, such as a literal union (`type ActiveStatus = "pending" | "processing"`).
 
-Enum variants are not assertions. Define a named subset type when a function accepts
-only specific enum members.
+Use parentheses for assertion calls and guard checks (`Strong()`, `Pending()`). Omit parentheses when checking against a named type definition (`ActiveStatus`).
 
 ## Exiting from `main`
 

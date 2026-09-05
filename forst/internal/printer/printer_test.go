@@ -342,6 +342,52 @@ func main() {
 	}
 }
 
+func TestFormatSource_multiAssertionEnsure_wrapsEachLine(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func f(password String, status String) {
+	ensure password is Strong() or Passkey() else InvalidCredential()
+	ensure status is Pending() or Processing() or Retrying() else InvalidCredential()
+	ensure status is Pending() or Processing()
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "ensure-multi.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+
+	expected := `package main
+
+func f(password String, status String) {
+	ensure password
+	    is Strong()
+	    or Passkey()
+	    else InvalidCredential()
+	ensure status
+	    is Pending()
+	    or Processing()
+	    or Retrying()
+	    else InvalidCredential()
+	ensure status
+	    is Pending()
+	    or Processing()
+}
+`
+	if out != expected {
+		t.Fatalf("unexpected formatted multi-assertion ensure output:\n--- got ---\n%s\n--- expected ---\n%s", out, expected)
+	}
+
+	l := lexer.New([]byte(out), "ensure-multi.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "ensure-multi.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
 func TestFormatSource_ensureOr_putsOrOnNextLineIndentedFour(t *testing.T) {
 	t.Parallel()
 	const src = `package main
