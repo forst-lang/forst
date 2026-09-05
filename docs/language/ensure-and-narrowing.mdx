@@ -93,7 +93,7 @@ Caller functions can then check `ensure task is Actionable() else InactiveTask()
 ### Syntax rules for `or`
 
 - Write the value once: write `ensure x` followed by `is A()`, `or B()`, not `ensure x is A() or x is B()`.
-- Chained constraints bind tighter than `or`: `ensure name` with `is String.Min(3).Max(32)` and `or UUID.V4()` evaluates the full `Min` and `Max` check as one alternative, or `UUID.V4()` as the second.
+- Chained constraints stay together before `or`. In `ensure name is String.Min(3).Max(32) or UUIDV4()`, the first option checks that the name is 3–32 characters long. The second runs the `UUIDV4()` check.
 
 ## Check against a named type
 
