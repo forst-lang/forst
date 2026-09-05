@@ -12,6 +12,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.19.0](https://github.com/forst-lang/forst/compare/v0.18.1...v0.19.0) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **diagnostics:** consumers of Diagnostic.Msg, diagnosticf, or legacy diag message formatters must use Report fields / FormatReport and pass spans at every user-facing emit site.
+* **refinements:** `ensure … or Err(...)` as the failure form is replaced by `ensure … else Err(...)`. Migrate existing failure sites to `else`; reserve `or` for assertion alternatives such as `A() or B()`.
+* Ensure failure blocks now require the else keyword. Bare failure blocks without else will produce a parse error.
+
+### Features
+
+* **diagnostics:** ship structured reports with real spans ([#201](https://github.com/forst-lang/forst/issues/201)) ([8f51c42](https://github.com/forst-lang/forst/commit/8f51c4263a3201f0d92e660853ff7a2c81cc79f4))
+* **lsp:** complete exported names after Go `pkg.` ([c364b92](https://github.com/forst-lang/forst/commit/c364b92a01b0e5a2a20d4a8e39f5bf8cfef81ddb))
+* **refinements:** ensure proofs that survive until mutation ([#198](https://github.com/forst-lang/forst/issues/198)) ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+* **testrunner:** run native Go-only `_test.go` packages ([c364b92](https://github.com/forst-lang/forst/commit/c364b92a01b0e5a2a20d4a8e39f5bf8cfef81ddb))
+
+
+### Bug Fixes
+
+* **compiler:** link sibling Go sources in `forst run` sandboxes ([#199](https://github.com/forst-lang/forst/issues/199)) ([c364b92](https://github.com/forst-lang/forst/commit/c364b92a01b0e5a2a20d4a8e39f5bf8cfef81ddb))
+* **transformer:** register bridge return types via RegisterTypeIfMissing ([8bcafcb](https://github.com/forst-lang/forst/commit/8bcafcb87cb78b3db2b2f5bddb4ff184d74ac163))
+* **vscode:** highlight ensure else ErrorName sites ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+
+
+### Performance Improvements
+
+* **hasher:** cheap `HashNode` identity and little-endian writes ([#202](https://github.com/forst-lang/forst/issues/202)) ([b671eb3](https://github.com/forst-lang/forst/commit/b671eb30fc2d9ef52c4f402d0687c43670370274))
+
+
+### Documentation
+
+* document implicit Error propagation for ensure !err ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+
 ## [0.18.1](https://github.com/forst-lang/forst/compare/v0.18.0...v0.18.1) (2026-09-04)
 
 
