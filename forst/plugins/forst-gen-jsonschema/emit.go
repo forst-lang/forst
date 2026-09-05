@@ -292,7 +292,7 @@ func (e *schemaEnc) warn(msg string) {
 func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain []semantic.Constraint) {
 	var extra []any
 	for _, c := range chain {
-		if c.Name == "Router" || c.Name == "Valid" {
+		if c.Name == "Router" {
 			continue
 		}
 		if c.Origin == "typeGuard" {

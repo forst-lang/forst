@@ -572,6 +572,15 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 				return 0, err
 			}
 		}
+		for _, alt := range n.OrChains {
+			hash, err := w.hash(alt)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
+		}
 
 	case ast.ConstraintNode:
 		if err := w.h.writeHashes(hasher, NodeKind["Constraint"]); err != nil {
@@ -690,6 +699,13 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		// Hash each constraint in sorted order
 		for _, constraint := range constraints {
 			hash, err := w.hash(constraint)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
+		}
+		for _, alt := range n.OrChains {
+			hash, err := w.hash(alt)
 			if err != nil {
 				return 0, err
 			}

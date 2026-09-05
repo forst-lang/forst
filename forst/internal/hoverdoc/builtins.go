@@ -127,20 +127,24 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 		}, "\n"))
 	case ast.TokenEnsure:
 		return keywordDoc("ensure", strings.Join([]string{
-			"Runtime check: if the condition fails, execution stops on the failure path (for example `log.Fatal`). When the check passes, types can narrow for the rest of the function.",
+			"Runtime check: if the assertion fails, execution takes the failure path (`else <error>` or a failure block). When the check passes, types can narrow for the rest of the function.",
+			"",
+			"`or` joins assertion alternatives on one place (`ensure x is A() or B() else E()`). Typed failure uses `else`, not `or`.",
 			"",
 			"**Example**",
 			"",
 			forstBlock(
-				"func use(s: String): Void {",
-				"  ensure s is Min(1)",
+				"func use(s: String): Result(Void, Error) {",
+				"  ensure s is Min(1) else TooShort(\"empty\")",
 				"  // here `s` is known non-empty for the compiler",
 				"}",
 			),
 		}, "\n"))
 	case ast.TokenIs:
 		return keywordDoc("is", strings.Join([]string{
-			"Introduces a guard or assertion on the left-hand side. Used in `if x is …` (branch narrowing) and `ensure … is …` (must hold here).",
+			"Introduces a guard or refinement target on the left-hand side. Used in `if x is …` (branch narrowing) and `ensure … is …` (must hold here).",
+			"",
+			"A bare type name is a type target; `Name()` is an assertion. Assertion alternatives join with `or`.",
 			"",
 			"**Examples**",
 			"",
@@ -149,14 +153,14 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 				"  // success branch",
 				"}",
 				"",
-				"ensure n is Max(100)",
+				"ensure n is Max(100) else TooBig()",
 			),
 		}, "\n"))
 	case ast.TokenOr:
 		return keywordDoc("or", strings.Join([]string{
-			"Word `or` between conditions (where the grammar allows). For plain boolean OR inside expressions, `||` is typical.",
+			"Joins assertion constraint chains on one place: `ensure x is A() or B() else E()`. Not typed failure and not boolean `||`.",
 			"",
-			"**Note:** `||` is documented separately; both short-circuit.",
+			"For typed failure after `ensure`, use `else`. For boolean OR in expressions, use `||`.",
 		}, "\n"))
 	case ast.TokenIf:
 		return keywordDoc("if", strings.Join([]string{
@@ -183,11 +187,13 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 		}, "\n"))
 	case ast.TokenElse:
 		return keywordDoc("else", strings.Join([]string{
-			"Optional final branch when no `if` / `else if` matched.",
+			"After `ensure … is …`, `else <error>` is the typed failure path. Also the optional final branch of `if` when no prior arm matched.",
 			"",
-			"**Example**",
+			"**Examples**",
 			"",
 			forstBlock(
+				"ensure password is Strong() or Passkey() else InvalidCredential()",
+				"",
 				"if cond { }",
 				"else { }",
 			),
@@ -348,7 +354,7 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 		}, "\n"))
 	case ast.TokenLogicalNot:
 		return keywordDoc("!", strings.Join([]string{
-			"Inverts a boolean. Often used with `ensure`: `ensure !err { ... }` runs the block when `err` is falsy (for example nil error).",
+			"Inverts a boolean. Often used with `ensure`: `ensure !err else { ... }` runs the block when `err` is truthy (for example non-nil error).",
 		}, "\n"))
 	case ast.TokenNil:
 		return keywordDoc("nil", strings.Join([]string{

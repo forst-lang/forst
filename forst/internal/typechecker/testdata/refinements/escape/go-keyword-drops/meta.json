@@ -1,0 +1,5 @@
+{
+  "id": "escape/go-keyword-drops",
+  "expect": "typecheck-error",
+  "title": "go modify(user) drops Adult immediately"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "guards/unmatched-if-fails-closed",
+  "expect": "runtime-false",
+  "title": "unmatched guard if returns false"
+}

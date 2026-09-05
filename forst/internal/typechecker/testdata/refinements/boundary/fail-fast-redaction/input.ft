@@ -1,0 +1,5 @@
+// MATRIX stub: fail-fast redacted path
+// TODO(phase-3d): fail-fast validation reports first violation only; values redacted by default.
+package main
+
+func main() {}

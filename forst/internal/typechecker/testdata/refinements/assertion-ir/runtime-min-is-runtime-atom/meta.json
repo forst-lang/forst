@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/runtime-min-is-runtime-atom",
+  "expect": "ir",
+  "title": "runtime Min is runtime-only atom"
+}

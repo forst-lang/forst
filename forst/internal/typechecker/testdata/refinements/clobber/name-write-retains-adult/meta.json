@@ -1,0 +1,5 @@
+{
+  "id": "clobber/name-write-retains-adult",
+  "expect": "typecheck-ok",
+  "title": "user.name write retains Adult"
+}

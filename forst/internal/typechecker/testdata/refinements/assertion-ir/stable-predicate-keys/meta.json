@@ -1,0 +1,6 @@
+{
+  "id": "assertion-ir/stable-predicate-keys",
+  "expect": "ir",
+  "title": "stable Predicate keys",
+  "matrix": true
+}

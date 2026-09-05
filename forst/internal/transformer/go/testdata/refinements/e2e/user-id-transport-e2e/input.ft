@@ -1,0 +1,4 @@
+// MATRIX stub: transport-validated UserID
+package main
+
+func main() {}

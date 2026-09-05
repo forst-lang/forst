@@ -1,0 +1,5 @@
+{
+  "id": "clobber/loop-age-drops",
+  "expect": "typecheck-error",
+  "title": "loop writing age drops Adult"
+}

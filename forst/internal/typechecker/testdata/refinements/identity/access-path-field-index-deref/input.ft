@@ -1,0 +1,4 @@
+// MATRIX stub: AccessPath field/index/deref
+package main
+
+func main() {}

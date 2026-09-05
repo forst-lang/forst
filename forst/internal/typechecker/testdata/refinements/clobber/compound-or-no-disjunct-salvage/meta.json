@@ -1,0 +1,5 @@
+{
+  "id": "clobber/compound-or-no-disjunct-salvage",
+  "expect": "typecheck-error",
+  "title": "compound or does not salvage Admin"
+}

@@ -56,7 +56,7 @@ uses `ensure x is Ok()` before using the successful value.
 
 ## Return a specific error with ensure
 
-Use `ensure condition or error` when a failed check should return a known error.
+Use `ensure … else error` when a failed check should return a known error.
 The function stops at that point and gives the error to its caller.
 
 <ErrorsEnsureStock />
@@ -93,12 +93,14 @@ Split the values and check the error when your Forst function should return a
 
 ```ft
 n, err := pkg.F()
-ensure !err or err
+ensure !err
 return n
 ```
 
 This is the same shape as ordinary Go error handling. Generated Go uses the
-usual value and error returns.
+usual value and error returns. Because `err` has type `Error`, the missing
+`else` implicitly propagates it. Writing `ensure !err else err` remains valid
+but is redundant.
 
 ### Result and Tuple stay separate
 
@@ -134,7 +136,8 @@ that there is no error. `Err()` always means that there is no success value.
 - Conversion between `Tuple` and `Result` is unavailable. `Ok()` and `Err()`
   only apply to `Result`.
 - When you know a call has exclusive outcomes, split its values and use
-  `ensure !err or err` before returning the success value.
+  `ensure !err` before returning the success value. A failed error-absence
+  check implicitly propagates the error.
 - The rule applies to every package. It needs no catalog or project setting.
 
 This preserves all possible states of a return with several values. It also keeps
@@ -183,7 +186,7 @@ inference. Split the values and check the error when you need a `Result`.
 
 ### Generated error details
 
-Error creation through `ensure`, type merging after `or`, and TypeScript `_tag`
+Error creation through `ensure`, type merging after `else`, and TypeScript `_tag`
 output are still maturing. Treat generated payloads as evolving. See
 [Generate client types](/interop/invoke/generate-types#caveats).
 

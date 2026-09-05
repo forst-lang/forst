@@ -1,0 +1,5 @@
+{
+  "id": "ensure/type-target-bare-name",
+  "expect": "parse-ok",
+  "title": "type target is a bare type name"
+}

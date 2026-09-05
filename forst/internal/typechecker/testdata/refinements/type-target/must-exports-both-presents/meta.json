@@ -1,0 +1,5 @@
+{
+  "id": "type-target/must-exports-both-presents",
+  "expect": "typecheck-ok",
+  "title": "must exports both Presents"
+}

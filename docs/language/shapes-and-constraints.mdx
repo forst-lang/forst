@@ -89,7 +89,6 @@ Nested constraints on an order input, including tags on the payload:
 **Ensure-only or reserved** (not typically chained on types):
 
 - **`Ok()` / `Err()`**: `Result` discriminants; use in `ensure x is Ok()` ([Ensure and narrowing](/language/ensure-and-narrowing))
-- **`Valid()`**: reserved placeholder; prefer explicit guards
 - **`Value(…)`**: literal refinement in assertion types (advanced)
 
 ## Structural shapes
@@ -116,7 +115,7 @@ By default, shape struct fields lower to **unexported** Go identifiers with **no
 
 ### Built-in semantics still maturing
 
-The typechecker does not fully validate every built-in constraint beyond presence wiring. **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards).
+The typechecker does not fully validate every built-in constraint beyond presence wiring. Prefer explicit constraints or [type guards](/language/type-guards). Names such as `Valid` are available for user-defined type guards.
 
 Generated TypeScript types reflect structure only. Client-side validation is your job unless you call the Forst server. See [Generate client types § Caveats](/interop/invoke/generate-types#caveats).
 

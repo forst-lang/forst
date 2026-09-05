@@ -61,7 +61,7 @@ func TestParseEnsure_okIsTrueOrNamedError(t *testing.T) {
 error Fail { msg: String }
 
 func check(ok Bool): Result(String, Error) {
-	ensure ok is True() or Fail("no")
+	ensure ok is True() else Fail("no")
 	return "ok"
 }
 `
@@ -71,6 +71,57 @@ func check(ok Bool): Result(String, Error) {
 	}
 	if len(nodes) < 2 {
 		t.Fatalf("expected error typedef + function, got %d nodes", len(nodes))
+	}
+}
+
+func TestParseEnsure_ElseFailureBlockInMain(t *testing.T) {
+	t.Parallel()
+
+	// 1. main accepts ensure !err else { ... }
+	srcValid := `package main
+func main() {
+	err := false
+	ensure !err else {
+		println("failed")
+	}
+}
+`
+	_, err := NewTestParser(srcValid, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatalf("expected valid parse for ensure !err else { ... } in main, got: %v", err)
+	}
+
+	// 2. main rejects bare block ensure !err { ... }
+	srcBareBlock := `package main
+func main() {
+	err := false
+	ensure !err {
+		println("failed")
+	}
+}
+`
+	errBare := parseShouldFail(srcBareBlock)
+	if errBare == nil {
+		t.Fatal("expected parse error for bare block in main")
+	}
+	if !strings.Contains(errBare.Error(), "ensure failure block requires 'else'") {
+		t.Fatalf("expected 'ensure failure block requires else' message, got: %v", errBare)
+	}
+
+	// 3. main rejects typed else
+	srcTypedElse := `package main
+error Fail { msg: String }
+func main() {
+	err := false
+	ensure !err else Fail("no")
+}
+`
+	errTyped := parseShouldFail(srcTypedElse)
+	if errTyped == nil {
+		t.Fatal("expected parse error for typed else in main")
+	}
+	if !strings.Contains(errTyped.Error(), "typed failure in ensure statements is not allowed in main function") {
+		t.Fatalf("expected typed failure in main error message, got: %v", errTyped)
 	}
 }
 
@@ -85,7 +136,7 @@ func TransitionAllowed(from String, to String): Bool {
 }
 
 func check(from String, to String): Result(Bool, Error) {
-	ensure TransitionAllowed(from, to) is True() or Fail("no")
+	ensure TransitionAllowed(from, to) is True() else Fail("no")
 	return true
 }
 `
@@ -94,7 +145,7 @@ func check(from String, to String): Result(Bool, Error) {
 		t.Fatal("expected parse error for ensure call subject")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "ensure subject must be an identifier") {
+	if !strings.Contains(msg, "ensure subject must be an identifier") && !strings.Contains(msg, "refinement-non-place-subject") {
 		t.Fatalf("expected identifier-only diagnostic, got: %v", err)
 	}
 }

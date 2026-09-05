@@ -1,0 +1,4 @@
+// MATRIX stub: simultaneous assignment order
+package main
+
+func main() {}

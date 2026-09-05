@@ -84,6 +84,12 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 			body = append(body, incDec)
 			break
 		}
+		if next.Type == ast.TokenArrow {
+			send := p.parseSendStmt()
+			p.logParsedNode(send)
+			body = append(body, send)
+			break
+		}
 		// x = …, x := …, x: T = …, xs[i] = … (assignable expression, then = or := or : Type …)
 		saved := p.currentIndex
 		lhs := p.parseAssignableExpr()

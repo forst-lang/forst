@@ -7,11 +7,15 @@ import (
 	"strings"
 )
 
-// AssertionNode represents an assertion, which may have a base type and constraints
+// AssertionNode represents an assertion, which may have a base type and constraints.
+// Dot-chained Constraints are Meet. OrChains are Join alternatives after `or`
+// (each alternative is itself a Meet chain without nested OrChains).
 type AssertionNode struct {
 	// Base type is optional when the type can be inferred from the value being checked
 	BaseType    *TypeIdent
 	Constraints []ConstraintNode
+	// OrChains holds subsequent Join alternatives after `or` (same place).
+	OrChains []AssertionNode
 }
 
 // ConstraintNode is a constraint on a type or value, with arguments
@@ -72,13 +76,36 @@ func (a AssertionNode) ToString(baseType *TypeIdent) string {
 
 	constraintsString := strings.Join(constraints, ".")
 
+	var head string
 	if baseType == nil {
-		return constraintsString
+		head = constraintsString
+	} else if constraintsString == "" {
+		head = baseType.String()
+	} else {
+		head = fmt.Sprintf("%s.%s", baseType.String(), constraintsString)
 	}
-	if constraintsString == "" {
-		return baseType.String()
+	for _, alt := range a.OrChains {
+		head += " or " + alt.ToString(alt.BaseType)
 	}
-	return fmt.Sprintf("%s.%s", baseType.String(), constraintsString)
+	return head
+}
+
+// MeetChains returns this assertion's Meet chain plus each OrChains alternative
+// as separate Meet-only assertions (OrChains cleared).
+func (a AssertionNode) MeetChains() []AssertionNode {
+	first := AssertionNode{BaseType: a.BaseType, Constraints: a.Constraints}
+	if len(a.OrChains) == 0 {
+		return []AssertionNode{first}
+	}
+	out := make([]AssertionNode, 0, 1+len(a.OrChains))
+	out = append(out, first)
+	out = append(out, a.OrChains...)
+	return out
+}
+
+// IsBareTypeShape reports BaseType with no constraints and no Join (TypeTarget shape).
+func (a AssertionNode) IsBareTypeShape() bool {
+	return a.BaseType != nil && len(a.Constraints) == 0 && len(a.OrChains) == 0
 }
 
 // Kind returns the node kind for an assertion

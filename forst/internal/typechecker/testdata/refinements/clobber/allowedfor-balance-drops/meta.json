@@ -1,0 +1,5 @@
+{
+  "id": "clobber/allowedfor-balance-drops",
+  "expect": "typecheck-error",
+  "title": "account.balance write drops AllowedFor"
+}

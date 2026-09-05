@@ -61,7 +61,7 @@ func (h *TestHook) ContainsMessage(msg string) bool {
 func TestLogMemUsage(t *testing.T) {
 	hook := &TestHook{}
 
-	log := setupTestLogger(nil)
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.InfoLevel})
 	log.AddHook(hook)
 
 	// Create a compiler with memory reporting enabled

@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-return-alias",
+  "expect": "typecheck-error",
+  "title": "Go AddressOf then field write"
+}

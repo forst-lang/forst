@@ -1,0 +1,5 @@
+{
+  "id": "guards/restricted-if-is",
+  "expect": "parse-ok",
+  "title": "restricted if is in guard"
+}

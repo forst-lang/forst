@@ -1,0 +1,4 @@
+// MATRIX stub: SymbolRef remaps on load
+package main
+
+func main() {}

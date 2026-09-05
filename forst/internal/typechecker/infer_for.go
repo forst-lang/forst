@@ -37,12 +37,15 @@ func (tc *TypeChecker) inferForNode(n *ast.ForNode) ([]ast.TypeNode, error) {
 	}
 
 	tc.loopDepth++
+	tc.pushWriteCollector()
 	for _, stmt := range n.Body {
 		if _, err := tc.inferNodeType(stmt); err != nil {
+			tc.popWriteCollectorAndInvalidate()
 			tc.loopDepth--
 			return nil, err
 		}
 	}
+	tc.popWriteCollectorAndInvalidate()
 	tc.loopDepth--
 	return nil, nil
 }

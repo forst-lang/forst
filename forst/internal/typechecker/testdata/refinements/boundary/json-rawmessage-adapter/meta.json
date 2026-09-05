@@ -1,0 +1,6 @@
+{
+  "id": "boundary/json-rawmessage-adapter",
+  "expect": "typecheck-ok",
+  "title": "json.RawMessage normalize adapter",
+  "matrix": true
+}

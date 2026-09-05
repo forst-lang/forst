@@ -1,0 +1,72 @@
+type User = {
+    name: String
+    age: Int
+    role: String
+    address: Address
+}
+
+type Address = {
+    street: String
+    country: String
+}
+
+type Period = {
+    start: Int
+    end: Int
+    description: String
+}
+
+type Order = {
+    address: Address
+    lastViewedAt: Int
+    items: []Item
+    amount: Int
+}
+
+type Item = {
+    price: Int
+}
+
+type Account = {
+    balance: Int
+    status: String
+}
+
+type Withdrawal = {
+    amount: Int
+}
+
+is (user User) Adult {
+    ensure user.age is Min(18)
+}
+
+is (period Period) ValidPeriod {
+    ensure period.start is Min(0)
+    ensure period.end is Min(1)
+}
+
+is (order Order) Shippable {
+    ensure order.address.country is Present()
+}
+
+is (users []User) AllAdults {
+    ensure users is Min(1)
+}
+
+func acceptAdult(user User) {
+    // parameter or body requires Adult(user)
+}
+
+func ship(order Order) {
+    // requires Shippable(order)
+}
+
+func useValid(period Period) {
+    // requires ValidPeriod(period)
+}
+
+type User = {
+    name: String
+    age: Int
+}
+ensure value is User else InvalidUser()

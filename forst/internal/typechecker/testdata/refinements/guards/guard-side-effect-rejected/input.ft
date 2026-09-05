@@ -1,0 +1,4 @@
+is (x X) Valid {
+    println("checking")
+    ensure x is A()
+}

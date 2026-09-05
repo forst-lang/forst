@@ -1,0 +1,5 @@
+{
+  "id": "or/or-of-enum-types-rejected",
+  "expect": "parse-error",
+  "title": "or of enum members rejected (parse rejection)"
+}

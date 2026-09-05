@@ -1,0 +1,9 @@
+package main
+
+type TaskStatus = "todo" | "in_progress" | "success" | "failed"
+type PendingStatus = "todo" | "in_progress"
+
+func main() {
+	var x: PendingStatus = "failed"
+	println(x)
+}

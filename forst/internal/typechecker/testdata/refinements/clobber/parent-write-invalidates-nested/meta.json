@@ -1,0 +1,5 @@
+{
+  "id": "clobber/parent-write-invalidates-nested",
+  "expect": "typecheck-error",
+  "title": "user.address = drops country dep"
+}

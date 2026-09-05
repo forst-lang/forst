@@ -1,0 +1,6 @@
+{
+  "id": "or/boolean-or-in-ensure-rejected",
+  "expect": "parse-error",
+  "title": "|| in ensure rejected",
+  "code": "refinement-pipe-in-assertion"
+}

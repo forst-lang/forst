@@ -1,0 +1,5 @@
+{
+  "id": "clobber/invoice-amount-write-legal",
+  "expect": "typecheck-ok",
+  "title": "Payable amount write is legal"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "assertion-ir/predicate-flatten-sort-dedupe",
+  "expect": "ir",
+  "title": "Predicate flatten/sort/dedupe",
+  "matrix": true
+}

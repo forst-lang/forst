@@ -1,0 +1,5 @@
+{
+  "id": "type-target/if-or-branch-is-any",
+  "expect": "typecheck-error",
+  "title": "if or branch knows Any not A"
+}

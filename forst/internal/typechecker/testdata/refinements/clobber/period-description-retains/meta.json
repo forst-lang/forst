@@ -1,0 +1,5 @@
+{
+  "id": "clobber/period-description-retains",
+  "expect": "typecheck-ok",
+  "title": "period.description retains ValidPeriod"
+}

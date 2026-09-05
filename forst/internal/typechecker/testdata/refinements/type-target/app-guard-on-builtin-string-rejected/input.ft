@@ -1,0 +1,7 @@
+package main
+
+is (s String) Strong {
+	ensure s is Min(12)
+}
+
+func main() {}

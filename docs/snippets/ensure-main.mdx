@@ -6,7 +6,7 @@
     error AlreadyStopped {}
 
     func stop() {
-    	ensure position is GreaterThan(0) or AlreadyStopped()
+    	ensure position is GreaterThan(0) else AlreadyStopped()
     	position = 0
     }
 
@@ -14,7 +14,7 @@
     	err := drive(80)
     	ensure !err
     	err = stop()
-    	ensure !err {
+    	ensure !err else {
     		fmt.Println("failed to stop:", err)
     	}
     }

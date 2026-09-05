@@ -221,7 +221,7 @@ func TestFindInnermostScopeNode_ensureBlockBody(t *testing.T) {
 
 func main() {
   x := 1
-  ensure x is Min(1) {
+  ensure x is Min(1) else {
     println(string(x))
   }
 }

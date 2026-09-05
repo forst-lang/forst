@@ -1,0 +1,5 @@
+{
+  "id": "type-target/caller-does-not-assume-disjunct",
+  "expect": "typecheck-error",
+  "title": "caller does not assume A or B"
+}

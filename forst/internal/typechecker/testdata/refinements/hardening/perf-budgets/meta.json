@@ -1,0 +1,6 @@
+{
+  "id": "hardening/perf-budgets",
+  "expect": "typecheck-ok",
+  "title": "CFG/alias/SCC perf budgets",
+  "matrix": true
+}

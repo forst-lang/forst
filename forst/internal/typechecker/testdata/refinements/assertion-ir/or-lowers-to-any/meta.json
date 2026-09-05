@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/or-lowers-to-any",
+  "expect": "ir",
+  "title": "or lowers to Any"
+}

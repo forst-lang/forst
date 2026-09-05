@@ -1,0 +1,4 @@
+// MATRIX stub: defer LIFO summary writes
+package main
+
+func main() {}

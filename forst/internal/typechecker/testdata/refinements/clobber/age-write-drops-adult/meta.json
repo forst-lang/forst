@@ -1,0 +1,5 @@
+{
+  "id": "clobber/age-write-drops-adult",
+  "expect": "typecheck-error",
+  "title": "user.age write drops Adult"
+}

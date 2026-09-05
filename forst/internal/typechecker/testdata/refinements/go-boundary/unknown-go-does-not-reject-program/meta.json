@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/unknown-go-does-not-reject-program",
+  "expect": "typecheck-ok",
+  "title": "unknown Go does not reject the call"
+}

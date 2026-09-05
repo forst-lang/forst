@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-string-retains-logical-value",
+  "expect": "typecheck-ok",
+  "title": "Go receiving string does not mutate caller string"
+}

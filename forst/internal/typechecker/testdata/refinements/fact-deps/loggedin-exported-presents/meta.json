@@ -1,0 +1,5 @@
+{
+  "id": "fact-deps/loggedin-exported-presents",
+  "expect": "deps",
+  "title": "LoggedIn exports two Present facts"
+}

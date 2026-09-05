@@ -1,0 +1,20 @@
+package main
+
+type User = {
+	name: String
+	age: Int
+}
+
+is (user User) Adult {
+	ensure user.age is Min(18)
+}
+
+is (user User) Grown {
+	ensure user is Adult()
+}
+
+func check(user User) {
+	ensure user is Grown()
+}
+
+func main() {}

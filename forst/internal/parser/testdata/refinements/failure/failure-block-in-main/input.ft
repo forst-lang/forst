@@ -1,0 +1,5 @@
+func main() {
+    ensure config is Valid() else {
+        println("bad config")
+    }
+}

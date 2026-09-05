@@ -31,7 +31,7 @@ func TestParseFile_ensureOrMalformedPayload_reportsUsefulError(t *testing.T) {
 	src := `package main
 
 func run(x Int): Result(Int, Error) {
-	ensure x is GreaterThan(1) or
+	ensure x is GreaterThan(1) else
 	return x
 }
 `
@@ -39,7 +39,7 @@ func run(x Int): Result(Int, Error) {
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
-	if !strings.Contains(err.Error(), "expected") {
+	if !strings.Contains(err.Error(), "expected") && !strings.Contains(err.Error(), "Expected") {
 		t.Fatalf("expected parser expectation error, got: %v", err)
 	}
 }

@@ -1,0 +1,15 @@
+package main
+
+is (m map[String]Int) ValidMap {
+    ensure m is Min(1)
+}
+
+func needValidMap(m map[String]Int) {}
+
+func check(m map[String]Int) {
+    ensure m is ValidMap()
+    goPkg.Modify(m)
+    needValidMap(m)
+}
+
+func main() {}

@@ -1,0 +1,4 @@
+// MATRIX stub: TaskStatus literal union e2e
+package main
+
+func main() {}

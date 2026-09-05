@@ -1,0 +1,5 @@
+{
+  "id": "ensure/repeated-subject-rejected",
+  "expect": "parse-error",
+  "title": "repeated subject in or is rejected"
+}

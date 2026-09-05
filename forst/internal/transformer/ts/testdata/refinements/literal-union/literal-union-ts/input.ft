@@ -1,0 +1,5 @@
+package main
+
+type TaskStatus = "todo" | "done"
+
+func main() {}

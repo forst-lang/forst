@@ -261,12 +261,14 @@ func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
 }
 
 // maybeMultilineTypeDefAlias returns (formatted, true, nil) when the typedef is broken across lines.
+// Two-member unions stay inline when they fit the width; three or more members are always
+// multiline with a leading operator on every member (TECHNICAL-DESIGN).
 func (p *printer) maybeMultilineTypeDefAlias(name string, e ast.TypeDefExpr, singleLine string) (string, bool, error) {
 	op, members := flattenTypeDefSameOpChain(e)
 	if len(members) < 2 {
 		return "", false, nil
 	}
-	if len(singleLine) <= p.effectiveTypeDefLineWidth() {
+	if len(members) == 2 && len(singleLine) <= p.effectiveTypeDefLineWidth() {
 		return "", false, nil
 	}
 	body, err := p.printTypeDefExprLeadingOps(op, members)
@@ -354,12 +356,12 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 		if x == nil || x.Assertion == nil {
 			return "", fmt.Errorf("printer: empty type def assertion")
 		}
-		return p.formatAssertion(*x.Assertion), nil
+		return p.printTypeDefAssertion(*x.Assertion)
 	case ast.TypeDefAssertionExpr:
 		if x.Assertion == nil {
 			return "", fmt.Errorf("printer: empty type def assertion")
 		}
-		return p.formatAssertion(*x.Assertion), nil
+		return p.printTypeDefAssertion(*x.Assertion)
 	case ast.TypeDefBinaryExpr:
 		left, err := p.printTypeDefExpr(x.Left)
 		if err != nil {
@@ -385,6 +387,20 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 	default:
 		return "", fmt.Errorf("printer: unsupported type def expr %T", e)
 	}
+}
+
+// printTypeDefAssertion prints typedef members; bare Value(literal) prints as the literal.
+func (p *printer) printTypeDefAssertion(a ast.AssertionNode) (string, error) {
+	if a.BaseType == nil && len(a.OrChains) == 0 && len(a.Constraints) == 1 &&
+		a.Constraints[0].Name == ast.ValueConstraint && len(a.Constraints[0].Args) == 1 &&
+		a.Constraints[0].Args[0].Value != nil {
+		s, err := p.printExpr((*a.Constraints[0].Args[0].Value).(ast.ExpressionNode))
+		if err != nil {
+			return "", err
+		}
+		return s, nil
+	}
+	return p.formatAssertion(a), nil
 }
 
 func (p *printer) printFunction(fn ast.FunctionNode) (string, error) {
@@ -689,17 +705,34 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 			e.Assertion.BaseType != nil && *e.Assertion.BaseType == ast.TypeError {
 			b.WriteString("ensure !")
 			b.WriteString(v)
+		} else if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("ensure ")
+			b.WriteString(v)
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    is ")
+			b.WriteString(p.formatAssertionMeet(e.Assertion))
+			for _, alt := range e.Assertion.OrChains {
+				b.WriteString("\n")
+				b.WriteString(p.prefix())
+				b.WriteString("    or ")
+				b.WriteString(p.formatAssertionMeet(alt))
+			}
 		} else {
 			b.WriteString("ensure ")
 			b.WriteString(v)
 			b.WriteString(" is ")
-			b.WriteString(p.formatAssertion(e.Assertion))
+			if tt, ok := e.Target.(ast.TypeTarget); ok {
+				b.WriteString(string(tt.Name))
+			} else {
+				b.WriteString(p.formatAssertion(e.Assertion))
+			}
 		}
 	}
 	if e.Error != nil {
 		b.WriteString("\n")
 		b.WriteString(p.prefix())
-		b.WriteString("    or ")
+		b.WriteString("    else ")
 		switch err := (*e.Error).(type) {
 		case ast.EnsureErrorCall:
 			b.WriteString(err.ErrorType)
@@ -722,16 +755,31 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		}
 	}
 	if e.Block != nil && len(e.Block.Body) > 0 {
-		b.WriteString(" {\n")
-		p.push()
-		body, err := p.printBlock(e.Block.Body)
-		if err != nil {
-			return "", err
+		if len(e.Assertion.OrChains) > 0 {
+			b.WriteString("\n")
+			b.WriteString(p.prefix())
+			b.WriteString("    else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteString("    }")
+		} else {
+			b.WriteString(" else {\n")
+			p.push()
+			body, err := p.printBlock(e.Block.Body)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(body)
+			p.pop()
+			b.WriteString(p.prefix())
+			b.WriteByte('}')
 		}
-		b.WriteString(body)
-		p.pop()
-		b.WriteString(p.prefix())
-		b.WriteByte('}')
 	}
 	return b.String(), nil
 }

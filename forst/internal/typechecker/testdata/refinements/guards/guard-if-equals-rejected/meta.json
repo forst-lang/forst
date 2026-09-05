@@ -1,0 +1,5 @@
+{
+  "id": "guards/guard-if-equals-rejected",
+  "expect": "typecheck-error",
+  "title": "guard if equals rejected"
+}

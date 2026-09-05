@@ -1,0 +1,5 @@
+{
+  "id": "ensure/shape-email-write-drops",
+  "expect": "parse-error",
+  "title": "shape email write drops email fact (parse rejection)"
+}

@@ -16,7 +16,7 @@ func InvalidMove(msg String): Error {
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or InvalidMove("bad")
+	ensure row is GreaterThan(-1) else InvalidMove("bad")
 	return ""
 }
 `
@@ -35,7 +35,7 @@ func f(row Int): Result(String, Error) {
 		t.Fatalf("want GreaterThan, got %q", ensure.Assertion.Constraints[0].Name)
 	}
 	if ensure.Error == nil {
-		t.Fatal("expected or clause on ensure")
+		t.Fatal("expected else clause on ensure")
 	}
 }
 

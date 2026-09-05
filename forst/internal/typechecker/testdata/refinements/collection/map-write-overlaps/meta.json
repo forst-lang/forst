@@ -1,0 +1,5 @@
+{
+  "id": "collection/map-write-overlaps",
+  "expect": "typecheck-error",
+  "title": "map[k] write overlaps m[*]"
+}

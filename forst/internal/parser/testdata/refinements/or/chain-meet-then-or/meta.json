@@ -1,0 +1,5 @@
+{
+  "id": "or/chain-meet-then-or",
+  "expect": "parse-ok",
+  "title": "dot chain Meet then or"
+}

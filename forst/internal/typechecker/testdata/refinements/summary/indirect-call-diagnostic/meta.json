@@ -1,0 +1,5 @@
+{
+  "id": "summary/indirect-call-diagnostic",
+  "expect": "typecheck-error",
+  "title": "diagnostic names the call as invalidator"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "alias/pure-struct-copy-does-not-alias",
+  "expect": "typecheck-ok",
+  "title": "pure struct copy does not alias"
+}

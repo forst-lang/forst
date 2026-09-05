@@ -1,0 +1,13 @@
+type Kind = String
+type X = { kind: Kind }
+is (s Kind) A {}
+is (s Kind) B {}
+is (x X) ABody {}
+is (x X) BBody {}
+is (x X) Valid {
+    if x.kind is A() {
+        ensure x is ABody()
+    } else if x.kind is B() {
+        ensure x is BBody()
+    }
+}

@@ -128,6 +128,40 @@ type TypeChecker struct {
 	packageConsts map[ast.Identifier]struct{}
 	// bridgeRuntime holds compile-time bridge interop facts (needsBridgeRuntime, manifest JSON).
 	bridgeRuntime BridgeRuntimeInfo
+
+	// paths interns AccessPath values (phase 2a).
+	paths *PathInterner
+	// predicates interns canonical Predicate values (phase 2c).
+	predicates *PredicateInterner
+	// refinementCtx is the active program-point fact context (phase 2d); distinct from Scope.
+	refinementCtx *RefinementContext
+	// refinementFacts records facts with dependency paths (phase 4a).
+	refinementFacts []RefinementFact
+	// guardDepsCache caches relative dep steps per named type guard.
+	guardDepsCache map[string]AccessPaths
+	// droppedFacts records facts removed by writes (phase 4b diagnostics).
+	droppedFacts []droppedFact
+	// writeCollectorStack collects writes in if/loop bodies for join/backedge invalidation.
+	writeCollectorStack [][]collectedWrite
+	// functionSummaries maps function id → inferred effect summary (phase 4c).
+	functionSummaries map[ast.Identifier]*FunctionSummary
+	// currentInferFn / currentInferParams track the function body being inferred for summaries.
+	currentInferFn     ast.Identifier
+	currentInferParams []ast.Identifier
+	// aliasCtx owns may-alias / points-to state (phase 4d).
+	aliasCtx *AliasContext
+	// closureCaptures maps a local holding a function literal → capture write paths (phase 4g).
+	closureCaptures map[ast.Identifier][]*AccessPath
+	// capturingClosure, when true, records outer writes into pendingClosureWrites instead of invalidating.
+	capturingClosure     bool
+	pendingClosureWrites []*AccessPath
+
+	ensureIR       map[string]ensureIRRecord
+	guardBodyIR    map[ast.Identifier]Assertion
+	ifIsIR         []Assertion
+	lastEnsureIR   ensureIRRecord
+	lastGuardBodyIR Assertion
+	lastIfIsIR     Assertion
 }
 
 // New creates a new TypeChecker.
@@ -156,6 +190,11 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log:                                         log,
 		reportPhases:                                reportPhases,
 		scopeOwners:                                 newScopeOwners(),
+		paths:                                       NewPathInterner(),
+		predicates:                                  NewPredicateInterner(),
+		refinementCtx:                               NewRefinementContext(),
+		aliasCtx:                                    newAliasContext(),
+		closureCaptures:                             make(map[ast.Identifier][]*AccessPath),
 	}
 
 	return tc

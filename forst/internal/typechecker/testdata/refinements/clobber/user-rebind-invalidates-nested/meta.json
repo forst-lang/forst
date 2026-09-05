@@ -1,0 +1,5 @@
+{
+  "id": "clobber/user-rebind-invalidates-nested",
+  "expect": "typecheck-error",
+  "title": "user = drops nested deps"
+}

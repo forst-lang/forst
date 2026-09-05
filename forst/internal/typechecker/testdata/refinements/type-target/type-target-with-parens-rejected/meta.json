@@ -1,0 +1,6 @@
+{
+  "id": "type-target/type-target-with-parens-rejected",
+  "expect": "typecheck-error",
+  "title": "type name with parens is not a type target",
+  "code": "refinement-enum-variant-not-assertion"
+}

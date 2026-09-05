@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/rename-still-retains-after-go-phase",
+  "expect": "typecheck-ok",
+  "title": "Forst rename still retains after 4f"
+}

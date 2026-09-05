@@ -17,7 +17,7 @@ func TestGoInterop_bridgeIdiomBuildsResult(t *testing.T) {
 import "strconv"
 func atoi(s: String): Result(Int, Error) {
   n, err := strconv.Atoi(s)
-  ensure !err or err
+  ensure !err else err
   return n
 }
 func main() {

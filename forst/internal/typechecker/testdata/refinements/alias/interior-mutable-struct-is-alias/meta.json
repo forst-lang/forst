@@ -1,0 +1,5 @@
+{
+  "id": "alias/interior-mutable-struct-is-alias",
+  "expect": "typecheck-error",
+  "title": "struct with map field assignment aliases"
+}

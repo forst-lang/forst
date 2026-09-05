@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-modify-value-user-drops-if-interior",
+  "expect": "typecheck-error",
+  "title": "Go Modify(user) with interior refs"
+}

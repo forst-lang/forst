@@ -25,9 +25,19 @@ func typeNodeCompatKey(t ast.TypeNode) string {
 	b.WriteString(string(t.Ident))
 	b.WriteByte(':')
 	fmt.Fprint(&b, t.TypeKind)
-	if t.Assertion != nil && t.Assertion.BaseType != nil {
-		b.WriteByte('@')
-		b.WriteString(string(*t.Assertion.BaseType))
+	if t.Assertion != nil {
+		if t.Assertion.BaseType != nil {
+			b.WriteByte('@')
+			b.WriteString(string(*t.Assertion.BaseType))
+		}
+		// Include Value(...) payloads so distinct literal members do not collide in the memo.
+		if v, ok := literalValueFromAssertion(t.Assertion); ok {
+			b.WriteByte('=')
+			b.WriteString(v.String())
+		} else if len(t.Assertion.Constraints) > 0 {
+			b.WriteByte('#')
+			b.WriteString(t.Assertion.String())
+		}
 	}
 	for _, p := range t.TypeParams {
 		b.WriteByte('[')

@@ -1,0 +1,5 @@
+{
+  "id": "clobber/period-start-drops",
+  "expect": "typecheck-error",
+  "title": "period.start write drops ValidPeriod"
+}

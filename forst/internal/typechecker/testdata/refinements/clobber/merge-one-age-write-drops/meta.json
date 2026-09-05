@@ -1,0 +1,5 @@
+{
+  "id": "clobber/merge-one-age-write-drops",
+  "expect": "typecheck-error",
+  "title": "if one branch writes age, Adult gone after join"
+}

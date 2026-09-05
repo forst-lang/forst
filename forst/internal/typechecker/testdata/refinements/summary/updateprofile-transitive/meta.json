@@ -1,0 +1,5 @@
+{
+  "id": "summary/updateprofile-transitive",
+  "expect": "typecheck-ok",
+  "title": "updateProfile \u2192 updateName writes name only"
+}

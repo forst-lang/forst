@@ -15,11 +15,11 @@ type Password = String
 is (password Password) Strong(min Int) {
 	ensure password is Min(min)
 	if password is Min(min) {
-		println("ok")
+		ensure password is Min(min)
 	} else if password is Max(100) {
-		println("mid")
+		ensure password is Max(100)
 	} else {
-		println("no")
+		ensure password is Min(0)
 	}
 }
 `)

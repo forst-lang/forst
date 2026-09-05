@@ -1,0 +1,14 @@
+package main
+
+type Password = String
+type WeakPassword = String
+type Error = String
+
+is (p Password) Strong {
+    ensure p is Min(12)
+}
+
+func check(password Password): Error {
+    ensure password is Strong else WeakPassword()
+    return ""
+}

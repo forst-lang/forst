@@ -130,7 +130,27 @@ func TestTypeGuardReturnType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := setupTestLogger(nil)
 			tc := New(log, false)
-			err := tc.CheckTypes([]ast.Node{tt.typeGuard})
+			nodes := []ast.Node{tt.typeGuard}
+			// Application guards cannot use builtin receivers; wrap with a nominal domain type.
+			if !tt.expectError {
+				if sp, ok := tt.typeGuard.Subject.(ast.SimpleParamNode); ok {
+					recv := sp.Type.Ident
+					if recv == ast.TypeInt || recv == ast.TypeString || recv == ast.TypeShape {
+						nom := ast.TypeIdent("Domain_" + string(recv))
+						base := recv
+						td := ast.TypeDefNode{
+							Ident: nom,
+							Expr: ast.TypeDefAssertionExpr{
+								Assertion: &ast.AssertionNode{BaseType: &base},
+							},
+						}
+						sp.Type.Ident = nom
+						tt.typeGuard.Subject = sp
+						nodes = []ast.Node{td, tt.typeGuard}
+					}
+				}
+			}
+			err := tc.CheckTypes(nodes)
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error for invalid type guard, got none")

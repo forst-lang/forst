@@ -1,0 +1,5 @@
+{
+  "id": "clobber/age-write-is-legal",
+  "expect": "typecheck-ok",
+  "title": "overlapping write is not an error"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/type-target-not-assertion-atom",
+  "expect": "ir",
+  "title": "type target is not an assertion Atom"
+}

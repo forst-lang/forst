@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-interface-any-drops",
+  "expect": "typecheck-error",
+  "title": "Go Process(any) drops"
+}

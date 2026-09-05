@@ -1,0 +1,5 @@
+{
+  "id": "clobber/scalar-only-reassignment",
+  "expect": "typecheck-error",
+  "title": "local scalar only reassignment invalidates"
+}

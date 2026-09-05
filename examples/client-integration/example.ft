@@ -33,7 +33,7 @@ func CreateUser(input CreateUserRequest) {
     email: input.email
   }
   
-  ensure user is Valid
+  ensure user is Valid()
   
   return {
     user: user,
@@ -63,7 +63,7 @@ func UpdateUserAge(id String, newAge Int) {
     email: user.email
   }
   
-  ensure updatedUser is Valid
+  ensure updatedUser is Valid()
   
   return updatedUser
 } 

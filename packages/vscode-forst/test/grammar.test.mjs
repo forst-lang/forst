@@ -71,7 +71,7 @@ test("nominal error decl: error BlockerNotRankable", async () => {
   await assertScopeOn(line, "BlockerNotRankable", "entity.name.type.error.forst");
 });
 
-test("nominal error use: or BlockerNotRankable(", async () => {
-  const line = "or BlockerNotRankable({";
+test("nominal error use: else BlockerNotRankable(", async () => {
+  const line = "else BlockerNotRankable({";
   await assertScopeOn(line, "BlockerNotRankable", "entity.name.type.error.forst");
 });

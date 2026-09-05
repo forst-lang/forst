@@ -1,0 +1,6 @@
+{
+  "id": "hardening/metadata-hashes",
+  "expect": "typecheck-ok",
+  "title": "summary metadata hashes",
+  "matrix": true
+}

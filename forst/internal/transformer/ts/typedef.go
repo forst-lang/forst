@@ -3,6 +3,7 @@ package transformerts
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	"strings"
 )
 
@@ -55,6 +56,9 @@ func (t *TypeScriptTransformer) transformShapeToTypeScript(shape *ast.ShapeNode,
 func (t *TypeScriptTransformer) transformAssertionToTypeScript(assertion *ast.AssertionNode, typeName string) (string, error) {
 	if assertion == nil {
 		return "", fmt.Errorf("assertion is nil")
+	}
+	if lit, ok := typechecker.LiteralValueFromAssertion(assertion); ok {
+		return fmt.Sprintf("export type %s = %s", typeName, literalValueToTypeScript(lit)), nil
 	}
 
 	baseType := "any"

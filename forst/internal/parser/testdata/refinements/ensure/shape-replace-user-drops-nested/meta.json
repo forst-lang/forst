@@ -1,0 +1,5 @@
+{
+  "id": "ensure/shape-replace-user-drops-nested",
+  "expect": "parse-error",
+  "title": "replace user drops nested facts (parse rejection)"
+}

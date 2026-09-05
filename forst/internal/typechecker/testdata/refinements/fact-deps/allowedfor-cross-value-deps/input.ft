@@ -1,0 +1,22 @@
+package main
+
+type Account = {
+	balance: Int
+	status: String
+}
+
+type Withdrawal = {
+	amount: Int
+}
+
+is (withdrawal Withdrawal) AllowedFor(account Account) {
+	ensure withdrawal.amount is Min(1)
+	ensure account.balance is Min(0)
+	ensure account.status is Min(1)
+}
+
+func check(withdrawal Withdrawal, account Account) {
+	ensure withdrawal is AllowedFor(account)
+}
+
+func main() {}

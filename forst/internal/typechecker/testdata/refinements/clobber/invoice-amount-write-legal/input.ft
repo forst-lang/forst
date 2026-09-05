@@ -1,0 +1,85 @@
+package main
+
+type User = {
+    name: String
+    age: Int
+    role: String
+    address: Address
+}
+
+type Address = {
+    street: String
+    country: *String
+}
+
+type Period = {
+    start: Int
+    end: Int
+    description: String
+}
+
+type Order = {
+    address: Address
+    lastViewedAt: Int
+    items: []Item
+    amount: Int
+}
+
+type Item = {
+    price: Int
+}
+
+type Account = {
+    balance: Int
+    status: String
+}
+
+type Withdrawal = {
+    amount: Int
+}
+
+type AppContext = {
+    session: *String
+    user: *User
+}
+
+is (user User) Adult {
+    ensure user.age is Min(18)
+}
+
+is (user User) Admin {
+    ensure user.role is Min(1)
+}
+
+is (period Period) ValidPeriod {
+    ensure period.start is Min(0)
+    ensure period.end is Min(1)
+}
+
+is (order Order) Shippable {
+    ensure order.address.country is Present()
+}
+
+is (withdrawal Withdrawal) AllowedFor(account Account) {
+    ensure withdrawal.amount is Min(1)
+    ensure account.balance is Min(0)
+    ensure account.status is Min(1)
+}
+
+func acceptAdult(user User) {}
+func ship(order Order) {}
+func useValid(period Period) {}
+func usePresent(s *String) {}
+func needAdultOrAdmin(user User) {}
+
+type Invoice = { amount: Int }
+is (invoice Invoice) Payable {
+    ensure invoice.amount is Min(1)
+}
+func pay(invoice Invoice) {}
+func check(invoice Invoice, discountedAmount Int) {
+    ensure invoice is Payable()
+    invoice.amount = discountedAmount
+}
+
+func main() {}

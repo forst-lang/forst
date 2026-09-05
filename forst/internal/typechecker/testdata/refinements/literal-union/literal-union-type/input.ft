@@ -1,0 +1,4 @@
+package main
+
+type TaskStatus =
+    "todo" | "in_progress" | "success" | "failed"

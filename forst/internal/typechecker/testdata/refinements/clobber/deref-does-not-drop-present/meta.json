@@ -1,0 +1,5 @@
+{
+  "id": "clobber/deref-does-not-drop-present",
+  "expect": "typecheck-ok",
+  "title": "pointee write does not drop Present"
+}

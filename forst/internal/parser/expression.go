@@ -81,50 +81,23 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 			break
 		}
 		operator := tok
+		// `|` between call-like expressions is almost always a mistaken boolean/assertion OR.
+		if operator == ast.TokenBitwiseOr {
+			if _, isCall := lhs.(ast.FunctionCallNode); isCall {
+				p.FailWithParseError(p.current(),
+					"refinement-pipe-in-assertion: `|` is not boolean OR; use `||` in expressions or `or` inside `is`")
+			}
+		}
 		p.advance()
 
 		if operator == ast.TokenIs {
-			if p.current().Type == ast.TokenLBrace {
-				right := p.parseShapeLiteral(ShapeLiteralOpts{})
-				lhs = ast.BinaryExpressionNode{
-					Left:     lhs,
-					Operator: operator,
-					Right:    right,
-				}
-			} else if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
-				p.advance()
-				p.expect(ast.TokenLParen)
-				if p.current().Type == ast.TokenLBrace {
-					right := p.parseShapeLiteral(ShapeLiteralOpts{})
-					p.expect(ast.TokenRParen)
-					lhs = ast.BinaryExpressionNode{
-						Left:     lhs,
-						Operator: operator,
-						Right:    right,
-					}
-				} else {
-					right := p.parseExpr(0, depth+1)
-					p.expect(ast.TokenRParen)
-					lhs = ast.BinaryExpressionNode{
-						Left:     lhs,
-						Operator: operator,
-						Right:    right,
-					}
-				}
-			} else if p.current().Type == ast.TokenIdentifier {
-				assertion := p.parseAssertionChain(false)
-				lhs = ast.BinaryExpressionNode{
-					Left:     lhs,
-					Operator: operator,
-					Right:    assertion,
-				}
-			} else {
-				right := p.parseExpr(0, depth+1)
-				lhs = ast.BinaryExpressionNode{
-					Left:     lhs,
-					Operator: operator,
-					Right:    right,
-				}
+			// Refinement target: TypeTarget or AssertionTarget (with `or` Join).
+			// Shape literals become Match assertions; bare names stay as BaseType-only.
+			_, assertion := p.parseRefinementTarget()
+			lhs = ast.BinaryExpressionNode{
+				Left:     lhs,
+				Operator: operator,
+				Right:    assertion,
 			}
 			continue
 		}

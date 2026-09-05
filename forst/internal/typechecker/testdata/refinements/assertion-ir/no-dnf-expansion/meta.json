@@ -1,0 +1,5 @@
+{
+  "id": "assertion-ir/no-dnf-expansion",
+  "expect": "ir",
+  "title": "no DNF expansion"
+}

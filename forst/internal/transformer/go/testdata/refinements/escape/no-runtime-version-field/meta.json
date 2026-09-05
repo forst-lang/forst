@@ -1,0 +1,5 @@
+{
+  "id": "escape/no-runtime-version-field",
+  "expect": "emit-ok",
+  "title": "emitted Go has no version field"
+}

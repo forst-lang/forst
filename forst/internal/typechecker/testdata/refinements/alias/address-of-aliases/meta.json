@@ -1,0 +1,5 @@
+{
+  "id": "alias/address-of-aliases",
+  "expect": "typecheck-error",
+  "title": "ampersand aliases"
+}

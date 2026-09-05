@@ -207,7 +207,7 @@ is (user User) Valid {
 }
 
 func ValidateUser(user User) {
-  ensure user is Valid
+  ensure user is Valid()
   return { id: "123", ...user }
 }
 ```

@@ -1,0 +1,5 @@
+{
+  "id": "type-target/guard-must-not-replace-literal-union",
+  "expect": "typecheck-error",
+  "title": "guard must not replace literal union"
+}

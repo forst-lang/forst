@@ -106,7 +106,7 @@ func TestParseEnsure_withBlock(t *testing.T) {
 	src := `package main
 
 func f(x Int): Int {
-	ensure x is GreaterThan(0) {
+	ensure x is GreaterThan(0) else {
 		return 0
 	}
 	return x

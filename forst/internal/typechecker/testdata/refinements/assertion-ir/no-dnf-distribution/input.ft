@@ -1,0 +1,4 @@
+// MATRIX stub: no DNF distribution
+package main
+
+func main() {}

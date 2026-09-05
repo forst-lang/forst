@@ -1,0 +1,5 @@
+{
+  "id": "clobber/type-target-reassign-drops",
+  "expect": "typecheck-error",
+  "title": "type-target narrowing drops on reassignment"
+}

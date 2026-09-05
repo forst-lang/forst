@@ -485,7 +485,7 @@ func TestElseBlockBraces_and_ensureBlockBraces(t *testing.T) {
 func main() {
   if true {
   } else {
-    ensure x is Min(1) {
+    ensure x is Min(1) else {
     }
   }
 }

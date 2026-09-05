@@ -1,0 +1,6 @@
+{
+  "id": "hardening/deterministic-output",
+  "expect": "emit-ok",
+  "title": "deterministic Go output",
+  "matrix": true
+}

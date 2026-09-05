@@ -136,7 +136,7 @@ is (password Password) Strong {
 
 func main() {
 	password: Password = "1234567890123"
-	ensure password is Strong() {
+	ensure password is Strong() else {
 		println("weak")
 	}
 	println("done")
@@ -312,7 +312,7 @@ func Bad(msg String): Error {
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or Bad("x")
+	ensure row is GreaterThan(-1) else Bad("x")
 	return "ok"
 }
 
@@ -570,7 +570,7 @@ is (password Password) Strong {
 
 func main() {
 	password: Password = "1234567890123"
-	ensure password is Strong() {
+	ensure password is Strong() else {
 		println("weak")
 	}
 	println("ok")

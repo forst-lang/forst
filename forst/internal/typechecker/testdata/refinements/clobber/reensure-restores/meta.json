@@ -1,0 +1,5 @@
+{
+  "id": "clobber/reensure-restores",
+  "expect": "typecheck-ok",
+  "title": "re-ensure restores Adult"
+}

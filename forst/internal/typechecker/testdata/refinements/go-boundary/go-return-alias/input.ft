@@ -1,0 +1,25 @@
+package main
+
+type Address = {
+    street: String
+    country: *String
+}
+
+type User = {
+    name: String
+    address: Address
+}
+
+is (user User) ValidUser {
+    ensure user.address.country is Present()
+}
+
+func needValid(user User) {}
+
+func check(user User) {
+    ensure user is ValidUser()
+    goPkg.AddressOf(user)
+    needValid(user)
+}
+
+func main() {}

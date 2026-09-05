@@ -29,6 +29,22 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 	}
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
+		if e.Operator == ast.TokenArrow {
+			// channel <- value
+			if _, err := tc.inferExpressionType(e.Left); err != nil {
+				return nil, err
+			}
+			if _, err := tc.inferExpressionType(e.Right); err != nil {
+				return nil, err
+			}
+			span := ast.SourceSpan{}
+			if vn, ok := e.Left.(ast.VariableNode); ok {
+				span = vn.Ident.Span
+			}
+			tc.invalidateAfterChannelSend(e.Right, span)
+			tc.storeInferredType(e, []ast.TypeNode{{Ident: ast.TypeVoid}})
+			return []ast.TypeNode{{Ident: ast.TypeVoid}}, nil
+		}
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
 		if err != nil {
 			return nil, err
@@ -306,6 +322,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if err != nil {
 				return nil, err
 			}
+			span := e.CallSpan
+			if !span.IsSet() {
+				span = e.Method.Span
+			}
+			tc.invalidateReachableMutableArg(e.Receiver, span, dropByForeign)
 			tc.storeInferredType(e, ret)
 			return ret, nil
 		}
@@ -404,6 +425,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if ret, found, err := tc.trySamePackageGoCall(string(e.Function.ID), e, argTypes, true); err != nil {
 				return nil, err
 			} else if found {
+				tc.invalidateAfterUntrustedGoCall(e)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}
@@ -484,6 +506,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					callSpan = e.Function.Span
 				}
 				tc.recordCrossPackageCall(pkgName, ast.Identifier(funcName), callSpan)
+				tc.invalidateAfterUntrustedGoCall(e)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}
@@ -587,6 +610,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if err != nil {
 				return nil, err
 			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+
+		// Phase 4f: unresolved pkg.Func — invalidate, do not reject.
+		if ret, ok := tc.treatUnresolvedQualifiedCallAsForeign(e); ok {
 			tc.storeInferredType(e, ret)
 			return ret, nil
 		}

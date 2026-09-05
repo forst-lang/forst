@@ -128,6 +128,7 @@ func (tc *TypeChecker) applyIfBranchNarrowing(condition ast.Node) {
 	if condition == nil {
 		return
 	}
+	tc.recordIfIsIR(condition)
 	bin, ok := condition.(ast.BinaryExpressionNode)
 	if !ok || bin.Operator != ast.TokenIs {
 		return
@@ -160,6 +161,10 @@ func (tc *TypeChecker) applyIfBranchNarrowing(condition ast.Node) {
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
 	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
 	tc.recordIfChainNarrowingSubject(vn.Ident.ID, refined, guards)
+	if a := assertionNodeFromIsRHS(bin.Right); a != nil {
+		tc.proveAssertionOnSubject(vn, a)
+		tc.exportMustFromAssertion(vn, a)
+	}
 }
 
 // isBuiltinResultOkErrIsNarrowing is true when `left is <Assertion>` is the built-in Result
@@ -436,6 +441,30 @@ func (tc *TypeChecker) assertionRefinesBuiltinSubjectWithOnlyBuiltinConstraints(
 // simple variables (Min/Max chain, etc.).
 func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	vn := n.Variable
+	// TypeTarget: narrow subject to the named type (literal union / nominal domain).
+	if tt, ok := n.Target.(ast.TypeTarget); ok {
+		refined := []ast.TypeNode{{Ident: tt.Name, TypeKind: ast.TypeKindUserDefined}}
+		tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, nil, string(tt.Name))
+		tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, nil, string(tt.Name))
+		tc.recordEnsureRefinementFact(n)
+		return
+	}
+	if p, ok := n.Target.(*ast.TypeTarget); ok && p != nil {
+		refined := []ast.TypeNode{{Ident: p.Name, TypeKind: ast.TypeKindUserDefined}}
+		tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, nil, string(p.Name))
+		tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, nil, string(p.Name))
+		tc.recordEnsureRefinementFact(n)
+		return
+	}
+	// Runtime-only atoms (Min(n)): keep carrier type; do not invent a static dependent type.
+	if a, _ := LowerRefinementTarget(n.Target, n.Assertion); HasRuntimeOnlyAtom(a) {
+		path := tc.AccessPathForVariable(&vn)
+		if tc.predicates != nil {
+			tc.CurrentRefinementContext().Prove(path, tc.predicates.FromAssertion(a))
+		}
+		tc.recordEnsureRefinementFact(n)
+		return
+	}
 	// Best-effort assertion expression inference (registers tc.Types for the assertion subtree).
 	// Do not abort narrowing on failure: `inferExpressionType(AssertionNode)` often lacks the
 	// subject context that `refinedTypesForIsNarrowing` supplies via InferAssertionType, so it can
@@ -466,6 +495,90 @@ func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	}
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
 	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
+	tc.proveAssertionOnSubject(vn, &n.Assertion)
+	tc.exportMustFromAssertion(vn, &n.Assertion)
+	tc.recordEnsureRefinementFact(n)
+}
+
+func (tc *TypeChecker) recordEnsureRefinementFact(n ast.EnsureNode) {
+	if tc == nil {
+		return
+	}
+	if tc.paths == nil {
+		tc.paths = NewPathInterner()
+	}
+	subject := tc.AccessPathForVariable(&n.Variable)
+	var pred *Predicate
+	if tt, ok := n.Target.(ast.TypeTarget); ok {
+		if tc.predicates != nil {
+			pred = tc.predicates.InternAtom(Operand{Name: string(tt.Name)})
+		}
+	} else if p, ok := n.Target.(*ast.TypeTarget); ok && p != nil {
+		if tc.predicates != nil {
+			pred = tc.predicates.InternAtom(Operand{Name: string(p.Name)})
+		}
+	} else if tc.predicates != nil {
+		ir, _ := LowerRefinementTarget(n.Target, n.Assertion)
+		pred = tc.predicates.FromAssertion(ir)
+	}
+	reads := tc.ExtractDepsForEnsure(n)
+	predName := ""
+	if names := tc.typeGuardNamesFromAssertionNode(&n.Assertion); len(names) > 0 {
+		predName = names[0]
+		if tc.predicates != nil {
+			pred = tc.predicates.InternAtom(Operand{Name: predName})
+		}
+	}
+	tc.recordRefinementFact(RefinementFact{
+		Subject:       subject,
+		Predicate:     pred,
+		Reads:         reads,
+		EstablishedAt: n.Variable.Ident.Span,
+	})
+	_ = predName
+	// Also record must()-exported Present facts with their own deps.
+	for _, c := range n.Assertion.Constraints {
+		if !tc.IsTypeGuardConstraint(c.Name) {
+			continue
+		}
+		tc.recordExportedMustFacts(n.Variable, c.Name)
+	}
+}
+
+func (tc *TypeChecker) recordExportedMustFacts(subject ast.VariableNode, guardName string) {
+	def, ok := tc.Defs[ast.TypeIdent(guardName)]
+	if !ok {
+		return
+	}
+	var gn ast.TypeGuardNode
+	switch d := def.(type) {
+	case *ast.TypeGuardNode:
+		gn = *d
+	case ast.TypeGuardNode:
+		gn = d
+	default:
+		return
+	}
+	subjIdent := string(gn.Subject.GetIdent())
+	callRoot := string(subject.Ident.ID)
+	for _, node := range gn.Body {
+		ens, ok := ensureStmt(node)
+		if !ok || len(ens.Assertion.OrChains) > 0 {
+			continue
+		}
+		pathID := rebaseGuardEnsurePath(subjIdent, callRoot, string(ens.Variable.Ident.ID))
+		if pathID == "" {
+			continue
+		}
+		vn := ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(pathID), Span: subject.Ident.Span}}
+		fake := ast.EnsureNode{Variable: vn, Target: ens.Target, Assertion: ens.Assertion}
+		tc.recordRefinementFact(RefinementFact{
+			Subject:       tc.AccessPathForVariable(&vn),
+			Predicate:     tc.predicates.FromAssertion(LowerAssertionNode(ens.Assertion)),
+			Reads:         tc.ExtractDepsForEnsure(fake),
+			EstablishedAt: subject.Ident.Span,
+		})
+	}
 }
 
 func (tc *TypeChecker) recordCompoundNarrowingIdentifier(id ast.Identifier, guards []string, disp string) {

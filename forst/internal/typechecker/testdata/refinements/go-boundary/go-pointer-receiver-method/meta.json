@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-pointer-receiver-method",
+  "expect": "typecheck-error",
+  "title": "pointer-receiver method drops"
+}

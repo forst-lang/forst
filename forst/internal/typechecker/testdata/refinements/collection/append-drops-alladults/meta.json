@@ -1,0 +1,5 @@
+{
+  "id": "collection/append-drops-alladults",
+  "expect": "typecheck-error",
+  "title": "append drops AllAdults"
+}

@@ -1,0 +1,5 @@
+is (x X) Valid {
+    for item in x.items {
+        ensure item is Present()
+    }
+}

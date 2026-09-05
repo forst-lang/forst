@@ -1,0 +1,5 @@
+{
+  "id": "go-boundary/go-map-arg-drops",
+  "expect": "typecheck-error",
+  "title": "Go receiving map drops map facts"
+}

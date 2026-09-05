@@ -19,6 +19,8 @@ func (tc *TypeChecker) inferIfStatement(n *ast.IfNode) ([]ast.TypeNode, error) {
 	}
 	tc.beginIfChainForStatement()
 	defer tc.endIfChainApplyJoin()
+	tc.pushWriteCollector()
+	defer tc.popWriteCollectorAndInvalidate()
 
 	if n.Init != nil {
 		if _, err := tc.inferNodeType(n.Init); err != nil {

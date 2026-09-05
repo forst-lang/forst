@@ -1,0 +1,5 @@
+{
+  "id": "summary/recursive-fixpoint",
+  "expect": "typecheck-error",
+  "title": "recursive function that writes age drops"
+}

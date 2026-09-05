@@ -145,7 +145,7 @@ import "strconv"
 
 func f(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -387,7 +387,7 @@ import "strconv"
 
 func f(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -519,7 +519,7 @@ func okInt(): Result(Int, Error) {
 
 func main() {
 	x := okInt()
-	ensure x is Ok() {
+	ensure x is Ok() else {
 		println(x)
 	}
 }
@@ -553,7 +553,7 @@ import "strconv"
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -636,7 +636,7 @@ type WrapErr = {
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
@@ -749,7 +749,7 @@ func TestEnsureResult_fieldPath_blockBody_seesFailureBranchNarrowing_whenOk(t *t
 func main() {
 	x := okInt()
 	w := { r: x }
-	ensure w.r is Ok() {
+	ensure w.r is Ok() else {
 		println(w.r)
 	}
 }
@@ -785,13 +785,13 @@ import "strconv"
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("x")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 
 func main() {
 	x := bad()
-	ensure x is Err() {
+	ensure x is Err() else {
 		println(x)
 	}
 }
@@ -830,7 +830,7 @@ type WrapErr = {
 
 func bad(): Result(Int, Error) {
 	n, err := strconv.Atoi("notint")
-	ensure !err or err
+	ensure !err else err
 	return n
 }
 

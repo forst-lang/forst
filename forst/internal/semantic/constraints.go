@@ -14,10 +14,6 @@ func projectConstraints(tc *typechecker.TypeChecker, baseKind string, a *ast.Ass
 		if c.Name == typechecker.ConstraintMatch {
 			continue
 		}
-		if c.Name == "Valid" {
-			out = append(out, Constraint{Name: "Valid", Origin: "builtin"})
-			continue
-		}
 		origin := "typeGuard"
 		if isKnownBuiltinName(c.Name) {
 			origin = "builtin"

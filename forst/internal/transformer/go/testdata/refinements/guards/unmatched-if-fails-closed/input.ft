@@ -1,0 +1,13 @@
+package main
+
+type X = { n: Int }
+
+is (x X) Positive {
+    ensure x.n is GreaterThan(0)
+}
+
+is (x X) Valid {
+    if x.n is GreaterThan(0) {
+        ensure x is Positive()
+    }
+}

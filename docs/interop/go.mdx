@@ -44,7 +44,7 @@ When an import has no alias, the compiler uses the Go package name from `go/pack
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, `interface{}` (including variadic calls), and Forst **`func`** literals at Go **`func`** parameters.
 
 Calls with several return values become a `Tuple` when captured in one
-variable. Split the values and use `ensure !err or err` when your function
+variable. Split the values and use `ensure !err` when your function
 should expose an exclusive `Result`.
 
 <Info>

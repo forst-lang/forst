@@ -82,6 +82,7 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 		Kind:       kind,
 		Scope:      currentScope,
 		Position:   tc.path,
+		ID:         currentScope.allocSymbolID(),
 	}
 
 	tc.log.WithFields(logrus.Fields{

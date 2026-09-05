@@ -47,9 +47,37 @@ func (tc *TypeChecker) NarrowingPredicateDisplayForVariableOccurrence(vn ast.Var
 // assertion constraint (Min, Equals, Match, user-defined guards, …) except internal sentinels.
 // When there are no constraints but BaseType names the predicate (e.g. `is MyStr`), the base
 // name is included unless it is only a built-in type token (avoids `String.String` for `is String`).
+//
+// When OrChains is non-empty the branch/successor knows Any(…), not any individual disjunct —
+// do not export A or B alone after `is A() or B()` (must/Any rules).
 func (tc *TypeChecker) typeGuardNamesFromAssertionNode(a *ast.AssertionNode) []string {
 	if tc == nil || a == nil {
 		return nil
+	}
+	if len(a.OrChains) > 0 {
+		// Compound Any — export a single joined name, not individual disjuncts.
+		var parts []string
+		seen := map[string]struct{}{}
+		addChain := func(chain ast.AssertionNode) {
+			for _, c := range chain.Constraints {
+				if c.Name == "" {
+					continue
+				}
+				if _, ok := seen[c.Name]; ok {
+					continue
+				}
+				seen[c.Name] = struct{}{}
+				parts = append(parts, c.Name)
+			}
+		}
+		addChain(*a)
+		for i := range a.OrChains {
+			addChain(a.OrChains[i])
+		}
+		if len(parts) == 0 {
+			return nil
+		}
+		return []string{strings.Join(parts, "|")}
 	}
 	var out []string
 	seen := make(map[string]struct{})

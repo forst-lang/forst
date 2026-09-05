@@ -2,7 +2,13 @@
 
 **Status:** **Accepted.** This is the normative decision for how established refinements survive or die after writes.
 
-**Scope:** Invalidation of flow-sensitive facts after mutation, reassignment, aliasing, function calls, collections, pointers, and Go interop.
+**Scope:** Invalidation of flow-sensitive facts after mutation, reassignment, aliasing, function calls, collections, pointers, and Go interop. Compiler vocabulary and algorithms are amended by [the locked technical design](../../../../.plans/analyzable-refinements/TECHNICAL-DESIGN.md): `SymbolID`, `SymbolRef`, `AccessPath`, `Predicate`, `Fact.Reads`, `RefinementContext`, directional `MayClobber`, `AliasContext`, and `FunctionSummary` replace historical sketches.
+
+> **Amendment:** `FunctionSummary` contains `Writes`, `Stores`, `ReturnAliases`,
+> `Escapes`, and `SpawnsWith`. Known sequential global stores are tracked across
+> exported invocations by a package-level alias fixed point and are not shared
+> merely by storage. Unknown foreign retention or concurrency is permanently
+> shared. No ownership annotation is added.
 
 **Does not reopen:** [12](./12-accepted-decision.md), [14](./14-type-targets.md). `ensure`, `else`, assertion `or`, type targets, failure blocks, `|` in types, analyzable guards, `must()`, and literal unions stay as 12 and 14 specified them.
 
@@ -1052,4 +1058,3 @@ A proof has dependencies. While they are stable, the compiler may use it. When s
 No borrow checker. No implicit immutability. No hidden runtime versioning.
 
 Implement via [`.plans/analyzable-refinements`](../../../../.plans/analyzable-refinements/README.md) phase 4, tests first.
-

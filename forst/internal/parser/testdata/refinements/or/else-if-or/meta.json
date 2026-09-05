@@ -1,0 +1,5 @@
+{
+  "id": "or/else-if-or",
+  "expect": "parse-ok",
+  "title": "or in else if is"
+}

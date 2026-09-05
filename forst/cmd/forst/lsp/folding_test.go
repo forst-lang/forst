@@ -215,7 +215,7 @@ func TestFoldingRangesForURI_ensureBlockProducesRange(t *testing.T) {
 
 func main() {
 	x := 1
-	ensure x is Min(1) {
+	ensure x is Min(1) else {
 		println("bad")
 	}
 }

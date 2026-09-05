@@ -1,0 +1,5 @@
+{
+  "id": "guards/guard-loop-rejected",
+  "expect": "parse-error",
+  "title": "loop in guard rejected (parse rejection)"
+}

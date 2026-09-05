@@ -1,0 +1,6 @@
+{
+  "id": "e2e/user-id-transport",
+  "expect": "emit-ok",
+  "title": "transport-validated UserID",
+  "matrix": true
+}

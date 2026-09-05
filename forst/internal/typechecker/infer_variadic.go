@@ -58,6 +58,17 @@ func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSign
 				return err
 			}
 		}
+		if err := tc.checkCallFactRequirements(fn, e); err != nil {
+			return err
+		}
+		tc.applyCallSummaryInvalidation(fn, e)
+		for _, arg := range e.Arguments {
+			sp := e.CallSpan
+			if !sp.IsSet() {
+				sp = e.Function.Span
+			}
+			tc.applyClosureEscapeInvalidation(arg, sp)
+		}
 		return nil
 	}
 

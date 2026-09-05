@@ -1,0 +1,5 @@
+{
+  "id": "collection/slice-header-write",
+  "expect": "typecheck-error",
+  "title": "slice header reassignment overlaps length/[*]"
+}
