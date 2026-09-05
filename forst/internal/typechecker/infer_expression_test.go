@@ -102,10 +102,11 @@ func TestInferExpressionType_ArrayLiteralNode_mixedElementTypes(t *testing.T) {
 	tc := New(logrus.New(), false)
 	arr := ast.ArrayLiteralNode{
 		Value: []ast.ExpressionNode{
-			ast.IntLiteralNode{Value: 1},
-			ast.StringLiteralNode{Value: "x"},
+			ast.IntLiteralNode{Value: 1, Span: ast.FakeSpan()},
+			ast.StringLiteralNode{Value: "x", Span: ast.FakeSpan()},
 		},
 		Type: ast.TypeNode{Ident: ast.TypeImplicit},
+		Span: ast.FakeSpan(),
 	}
 	_, err := tc.inferExpressionType(arr)
 	if err == nil {
@@ -165,10 +166,11 @@ func TestInferExpressionType_MapLiteralNode_keyTypeMismatch(t *testing.T) {
 				{Ident: ast.TypeInt},
 			},
 		},
+		Span: ast.FakeSpan(),
 		Entries: []ast.MapEntryNode{
 			{
-				Key:   ast.IntLiteralNode{Value: 1},
-				Value: ast.IntLiteralNode{Value: 2},
+				Key:   ast.IntLiteralNode{Value: 1, Span: ast.FakeSpan()},
+				Value: ast.IntLiteralNode{Value: 2, Span: ast.FakeSpan()},
 			},
 		},
 	}

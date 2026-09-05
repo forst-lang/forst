@@ -91,6 +91,28 @@ func TestShapeAliasIndex_invalidatesOnSetDef(t *testing.T) {
 	}
 }
 
+func TestShapeAliasIndex_survivesHashTypeRegistration(t *testing.T) {
+	t.Parallel()
+	tc := testTypeChecker(t)
+	shape := ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+		"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+	}}
+	tc.registerType(ast.TypeDefNode{Ident: "Point", Expr: ast.TypeDefShapeExpr{Shape: shape}})
+	idx := tc.shapeAliasIndexOrBuild()
+	if idx == nil {
+		t.Fatal("expected shape alias index after build")
+	}
+	RegisterHashBasedType(tc, "T_deadbeef", map[string]ast.ShapeFieldNode{
+		"y": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+	})
+	if tc.shapeAliasIndex != idx {
+		t.Fatal("RegisterHashBasedType must not invalidate shapeAliasIndex")
+	}
+	if got := tc.FindAnyStructurallyIdenticalNamedType(shape); got != "Point" {
+		t.Fatalf("alias lookup after T_ registration: got %q want Point", got)
+	}
+}
+
 func ptrTypeIdent(id ast.TypeIdent) *ast.TypeIdent {
 	return &id
 }

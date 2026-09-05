@@ -41,10 +41,29 @@ func TestSpanOfExpression_variableUsesIdentSpan(t *testing.T) {
 func TestSpanForCallArg_preferArgSpan(t *testing.T) {
 	t.Parallel()
 	argSpan := ast.SourceSpan{StartLine: 1, StartCol: 10, EndLine: 1, EndCol: 11}
-	args := []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}
+	args := []ast.ExpressionNode{ast.IntLiteralNode{Value: 1, Span: ast.FakeSpan()}}
 	got := spanForCallArg([]ast.SourceSpan{argSpan}, 0, args, ast.SourceSpan{})
 	if !got.IsSet() || got.StartCol != 10 {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestSpanOfExpression_intLiteralUsesSpan(t *testing.T) {
+	t.Parallel()
+	lit := ast.IntLiteralNode{Value: 42, Span: ast.SourceSpan{StartLine: 4, StartCol: 2, EndLine: 4, EndCol: 4}}
+	if s := spanOfExpression(lit); !s.IsSet() || s.StartLine != 4 {
+		t.Fatalf("got %+v", s)
+	}
+}
+
+func TestSpanOfExpression_indexFallsBackToIndexLiteral(t *testing.T) {
+	t.Parallel()
+	idx := ast.IndexExpressionNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "a"}},
+		Index:  ast.IntLiteralNode{Value: 9, Span: ast.SourceSpan{StartLine: 7, StartCol: 5, EndLine: 7, EndCol: 6}},
+	}
+	if s := spanOfExpression(idx); !s.IsSet() || s.StartLine != 7 {
+		t.Fatalf("got %+v", s)
 	}
 }
 

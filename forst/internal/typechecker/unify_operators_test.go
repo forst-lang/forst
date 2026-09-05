@@ -63,7 +63,7 @@ func TestUnifyTypes_unaryLogicalNotRejectsNonBool(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.scopeStack.globalScope().RegisterSymbol("n", []ast.TypeNode{{Ident: ast.TypeInt}}, SymbolVariable)
 	tc.VariableTypes["n"] = []ast.TypeNode{{Ident: ast.TypeInt}}
-	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "n"}}, nil, ast.TokenLogicalNot)
+	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "n", Span: ast.FakeSpan()}}, nil, ast.TokenLogicalNot)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -73,7 +73,7 @@ func TestUnifyTypes_unaryIncrementRejectsString(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.scopeStack.globalScope().RegisterSymbol("s", []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
 	tc.VariableTypes["s"] = []ast.TypeNode{{Ident: ast.TypeString}}
-	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "s"}}, nil, ast.TokenPlusPlus)
+	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "s", Span: ast.FakeSpan()}}, nil, ast.TokenPlusPlus)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -83,7 +83,7 @@ func TestUnifyTypes_unsupportedUnaryWithNilRight(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.scopeStack.globalScope().RegisterSymbol("i", []ast.TypeNode{{Ident: ast.TypeInt}}, SymbolVariable)
 	tc.VariableTypes["i"] = []ast.TypeNode{{Ident: ast.TypeInt}}
-	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "i"}}, nil, ast.TokenStar)
+	_, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "i", Span: ast.FakeSpan()}}, nil, ast.TokenStar)
 	if err == nil {
 		t.Fatal("expected error for unsupported unary")
 	}
@@ -152,7 +152,11 @@ func TestUnifyTypes_arithmeticAddInt(t *testing.T) {
 
 func TestUnifyTypes_arithmeticAddBoolRejected(t *testing.T) {
 	tc := New(logrus.New(), false)
-	_, err := tc.unifyTypes(ast.BoolLiteralNode{Value: true}, ast.IntLiteralNode{Value: 1}, ast.TokenPlus)
+	_, err := tc.unifyTypes(
+		ast.BoolLiteralNode{Value: true, Span: ast.FakeSpan()},
+		ast.IntLiteralNode{Value: 1, Span: ast.FakeSpan()},
+		ast.TokenPlus,
+	)
 	if err == nil {
 		t.Fatal("expected error adding bool and int")
 	}

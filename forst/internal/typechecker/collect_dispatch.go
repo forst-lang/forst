@@ -12,18 +12,24 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		"function": "collectExplicitTypes",
 	}).Trace("Collecting explicit types")
 
-	handlers := []func(ast.Node) (bool, error){
-		tc.collectExplicitTypesLeaf,
-		tc.collectExplicitTypesImport,
-		tc.collectExplicitTypesDecl,
-		tc.collectExplicitTypesScope,
-		tc.collectExplicitTypesControl,
-	}
-	for _, h := range handlers {
-		ok, err := h(node)
-		if ok {
-			return err
-		}
+	switch node.(type) {
+	case ast.CommentNode, ast.UseNode:
+		_, err := tc.collectExplicitTypesLeaf(node)
+		return err
+	case ast.ImportNode, ast.ImportGroupNode:
+		_, err := tc.collectExplicitTypesImport(node)
+		return err
+	case ast.AssignmentNode, ast.ConstGroupNode, ast.TypeDefNode, ast.FunctionNode, *ast.FunctionNode,
+		ast.TypeGuardNode, *ast.TypeGuardNode:
+		_, err := tc.collectExplicitTypesDecl(node)
+		return err
+	case ast.EnsureNode, ast.WithNode, ast.ElseIfNode, *ast.ElseIfNode, *ast.ElseBlockNode, ast.ElseBlockNode:
+		_, err := tc.collectExplicitTypesScope(node)
+		return err
+	case ast.IfNode, *ast.IfNode, ast.ForNode, *ast.ForNode, ast.SwitchNode, *ast.SwitchNode,
+		*ast.GotoNode, *ast.LabeledStmtNode:
+		_, err := tc.collectExplicitTypesControl(node)
+		return err
 	}
 	return nil
 }

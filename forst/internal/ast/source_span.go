@@ -57,3 +57,8 @@ func SpanBetweenTokens(start, end Token) SourceSpan {
 		EndCol:    end.Column + w,
 	}
 }
+
+// FakeSpan is a non-zero SourceSpan for hand-built AST in unit tests.
+func FakeSpan() SourceSpan {
+	return SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}
+}

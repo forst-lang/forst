@@ -18,7 +18,11 @@ func (tc *TypeChecker) invalidateShapeAliasIndex() {
 
 func (tc *TypeChecker) setDef(ident ast.TypeIdent, def ast.Node) {
 	tc.Defs[ident] = def
-	tc.invalidateShapeAliasIndex()
+	// Hash-based T_… entries are skipped when building the index; invalidating
+	// on them only forces repeated full rebuilds during inference.
+	if !strings.HasPrefix(string(ident), "T_") {
+		tc.invalidateShapeAliasIndex()
+	}
 }
 
 func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {

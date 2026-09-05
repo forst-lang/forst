@@ -205,11 +205,13 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 			typeTok.Value+" is a type name, not an expression.",
 			"use a value or literal here, not a type name")
 	case p.current().Type == ast.TokenNil:
+		nilTok := p.current()
 		p.advance()
-		base = ast.NilLiteralNode{}
+		base = ast.NilLiteralNode{Span: ast.SpanFromToken(nilTok)}
 	case p.current().Type == ast.TokenIota:
+		iotaTok := p.current()
 		p.advance()
-		base = ast.IotaLiteralNode{}
+		base = ast.IotaLiteralNode{Span: ast.SpanFromToken(iotaTok)}
 	default:
 		base = p.parseValue()
 	}

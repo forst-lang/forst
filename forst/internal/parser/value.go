@@ -49,6 +49,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			Ident: ident,
 		}
 	case ast.TokenMap:
+		mapTok := p.current()
 		p.advance() // Consume map keyword
 
 		// Parse key type
@@ -77,7 +78,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 				p.advance() // Consume comma
 			}
 		}
-		p.expect(ast.TokenRBrace) // Expect }
+		rbrace := p.expect(ast.TokenRBrace) // Expect }
 
 		return ast.MapLiteralNode{
 			Entries: entries,
@@ -85,6 +86,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 				Ident:      ast.TypeMap,
 				TypeParams: []ast.TypeNode{keyType, valueType},
 			},
+			Span: ast.SpanBetweenTokens(mapTok, rbrace),
 		}
 	case ast.TokenLBrace:
 		// Handle shape literal

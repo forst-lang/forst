@@ -102,3 +102,10 @@ func TestSpanBetweenTokens_emptyEndValueUsesMinWidth(t *testing.T) {
 		t.Fatalf("EndCol = %d want 6", s.EndCol)
 	}
 }
+
+func TestFakeSpan_isSet(t *testing.T) {
+	t.Parallel()
+	if !FakeSpan().IsSet() {
+		t.Fatal("FakeSpan must be set")
+	}
+}
