@@ -42,6 +42,6 @@ func (tc *TypeChecker) checkShapeStructTags() {
 		default:
 			continue
 		}
-		tc.Defs[ident] = typeDef
+		tc.setDef(ident, typeDef)
 	}
 }

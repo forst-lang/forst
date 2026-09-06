@@ -20,10 +20,8 @@ func (tc *TypeChecker) providerSlotsForCallee(callee ast.Identifier) []ProviderS
 	if importLocal, fnName, ok := splitQualifiedCallee(calleeStr); ok {
 		if tc.moduleResult != nil {
 			if path, pathOK := tc.ImportPathForLocal(importLocal); pathOK && path != "" {
-				if forstPkg := tc.importPathToForstPkgMap()[path]; forstPkg != "" {
-					if sibling := tc.moduleResult.ForstPackageTypeChecker(forstPkg); sibling != nil {
-						return sibling.FunctionProviders[ast.Identifier(fnName)]
-					}
+				if sibling := tc.moduleResult.TypeCheckerForImportPath(path); sibling != nil {
+					return sibling.FunctionProviders[ast.Identifier(fnName)]
 				}
 			}
 		}
@@ -82,7 +80,7 @@ func (tc *TypeChecker) revalidateWiringKeysInWith(with ast.WithNode) error {
 				return err
 			}
 			if _, ok := eng.KnownRoots[fieldName]; !ok {
-				return diagnosticf(span, "providers-unknown-key", "unknown wiring key %q", fieldName)
+				return reportBodyf(span, "providers-unknown-key", "unknown wiring key %q", fieldName)
 			}
 		}
 	}

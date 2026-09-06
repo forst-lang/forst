@@ -103,6 +103,18 @@ See the cross-package provider example [`examples/in/rfc/providers/cross_pkg/`](
 
 Do not confuse sibling Forst imports with **Go package** imports: `import "fmt"` loads Go via `go/packages`; `import "yourmod/auth"` loads a Forst package when `auth/` contains `.ft` files declaring `package auth`.
 
+## Forst packages from Go module dependencies
+
+An `import "github.com/acme/lib"` can also resolve Forst sources when that module’s package directory contains `.ft` files (optionally mixed with handwritten `.go`). No marker or `ftconfig` is required on the dependency.
+
+The compiler:
+
+1. Follows the Go import graph (`replace`, vendor, module cache) to find package directories.
+2. Typechecks import-reachable `.ft` packages so your code sees their public Forst API (signatures, types, provider slots).
+3. Emits generated Go into `.forst/overlay/` and `replace`s the dependency module for `forst run` / `forst test` / `forst build`. `forst generate` writes the same overlays and lists them in `.forst/go.work` (never edits the consumer `go.mod`). Workspace-mode sandboxes also get those replaces in `.forst/go.work`. GOMODCACHE is never written.
+
+Packages in a dependency that you never import are not typechecked. Unused exported functions in a library with unsatisfied `use` clauses do not fail your consumer. Plain `go build` without Forst still needs published `*.gen.go` (or other `.go`) in that library.
+
 ## Mixed packages
 
 Place `.ft` files alongside `.go` in the same module:
@@ -193,7 +205,7 @@ Passing or storing package functions without calling them directly is limited. F
 
 ### Same package Go files with forst run
 
-The `forst run` command executes code in a temporary sandbox. It does not copy co-located `.go` files into that sandbox. Use `forst generate` along with `go run` or `go test` when mixing `.ft` and `.go` files in the same package.
+The `forst run` command copies same-package `.go` files into its execution sandbox automatically, allowing ad-hoc `forst run` on mixed packages without additional flags. When `generate.go` is configured in `ftconfig.json` (or when `-o` is set), `forst run` emits directly beside your source package so generated Go stays co-located with your hand-written `.go` code.
 
 ### Builtin make and new calls
 

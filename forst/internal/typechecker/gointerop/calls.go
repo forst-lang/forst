@@ -21,7 +21,16 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 		if !sp.IsSet() {
 			sp = c.Call.CallSpan
 		}
-		return nil, diag(sp, "go-call", "%s not found in Go package", qual)
+		pkgName := c.QualDisplay
+		if pkgName == "" || pkgName == c.FuncName {
+			pkgName = c.Pkg.Name()
+		}
+		return nil, &MemberMissingError{
+			Span:    sp,
+			Pkg:     pkgName,
+			Member:  c.FuncName,
+			Exports: exportedNames(c.Pkg.Scope()),
+		}
 	}
 	fn, ok := obj.(*types.Func)
 	if !ok {
@@ -29,18 +38,27 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 		if !sp.IsSet() {
 			sp = c.Call.CallSpan
 		}
-		return nil, diag(sp, "go-call", "%s is not a function", qual)
+		return nil, diag(sp, "go-call",
+			fmt.Sprintf("`%s` is not a function", qual),
+			fmt.Sprintf("`%s` names a non-function symbol in the Go package.", qual),
+			"call a function or import the correct exported name")
 	}
 	if c.RequireExported && !fn.Exported() {
 		sp := c.Call.Function.Span
 		if !sp.IsSet() {
 			sp = c.Call.CallSpan
 		}
-		return nil, diag(sp, "go-call", "%s is not exported", qual)
+		return nil, diag(sp, "go-call",
+			fmt.Sprintf("`%s` is not exported", qual),
+			fmt.Sprintf("Symbol `%s` exists but is unexported in its Go package.", qual),
+			"use an exported name or call from the same Go package")
 	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
-		return nil, diag(c.Call.CallSpan, "go-call", "%s: invalid signature", qual)
+		return nil, diag(c.Call.CallSpan, "go-call",
+			fmt.Sprintf("`%s` has an invalid signature", qual),
+			"Could not read the Go function signature.",
+			"check the Go definition")
 	}
 	if sig.TypeParams() != nil && sig.TypeParams().Len() > 0 {
 		argGoTypes := GoTypesFromForstArgs(host, c.ArgTypes)
@@ -50,7 +68,10 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 			if !sp.IsSet() {
 				sp = c.Call.CallSpan
 			}
-			return nil, diag(sp, "go-call", "%s: generic Go API: %v", qual, err)
+			return nil, diag(sp, "go-call",
+				fmt.Sprintf("`%s` could not be instantiated", qual),
+				fmt.Sprintf("Generic instantiation failed: %v", err),
+				"pass arguments whose types satisfy the Go generic constraints")
 		}
 		sig = instSig
 	}
@@ -72,7 +93,10 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 	if c.Sig.Variadic() {
 		fixed := nParams - 1
 		if nArgs < fixed {
-			return nil, diag(c.Call.CallSpan, "go-call", "%s: expects at least %d arguments, got %d", c.Qual, fixed, nArgs)
+			return nil, diag(c.Call.CallSpan, "go-call",
+				fmt.Sprintf("`%s` expects at least %d arguments", c.Qual, fixed),
+				fmt.Sprintf("Got %d argument(s).", nArgs),
+				"add the missing arguments before the variadic parameter")
 		}
 		for i := range fixed {
 			if err := CheckParamAssignability(host, diag, ParamAssignability{
@@ -88,21 +112,30 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 		}
 		sliceT, ok := params.At(nParams - 1).Type().Underlying().(*types.Slice)
 		if !ok {
-			return nil, diag(c.Call.CallSpan, "go-call", "%s: invalid variadic parameter", c.Qual)
+			return nil, diag(c.Call.CallSpan, "go-call",
+				fmt.Sprintf("`%s` has an invalid variadic parameter", c.Qual),
+				"The last parameter is not a valid Go slice type.",
+				"check the Go function signature")
 		}
 		elem := sliceT.Elem()
 		if nArgs > fixed {
 			if spread, isSpread := c.Call.Arguments[nArgs-1].(ast.SpreadExpressionNode); isSpread {
 				if nArgs != fixed+1 {
 					sp := spanForCallArg(c.Call.ArgSpans, fixed+1, c.Call.Arguments, c.Call.CallSpan)
-					return nil, diag(sp, "go-call", "%s: variadic spread must be the only trailing argument", c.Qual)
+					return nil, diag(sp, "go-call",
+						"variadic spread must be last",
+						fmt.Sprintf("`%s` accepts `...%s` as its only trailing argument.", c.Qual, elem.String()),
+						"pass one spread argument after the fixed parameters")
 				}
 				spreadTypes, err := host.InferExpressionType(spread.Expr)
 				if err != nil {
 					return nil, err
 				}
 				if len(spreadTypes) != 1 {
-					return nil, diag(spanForCallArg(c.Call.ArgSpans, fixed, c.Call.Arguments, c.Call.CallSpan), "go-call", "%s: spread argument must have a single type", c.Qual)
+					return nil, diag(spanForCallArg(c.Call.ArgSpans, fixed, c.Call.Arguments, c.Call.CallSpan), "go-call",
+						"spread argument has multiple types",
+						fmt.Sprintf("`%s` variadic spread expects one concrete type.", c.Qual),
+						"ensure the spread expression has a single inferred type")
 				}
 				if err := CheckSpreadAssignability(host, diag, SpreadAssignability{
 					Qual:       c.Qual,
@@ -137,7 +170,10 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 			if !sp.IsSet() {
 				sp = c.Call.Function.Span
 			}
-			return nil, diag(sp, "go-call", "%s: expects %d arguments, got %d", c.Qual, nParams, nArgs)
+			return nil, diag(sp, "go-call",
+				fmt.Sprintf("`%s` expects %d arguments", c.Qual, nParams),
+				fmt.Sprintf("Got %d argument(s).", nArgs),
+				"add or remove arguments to match the Go signature")
 		}
 		for i := range nParams {
 			if err := CheckParamAssignability(host, diag, ParamAssignability{
@@ -165,7 +201,11 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 			if !sp.IsSet() {
 				sp = c.Call.CallSpan
 			}
-			return nil, diag(sp, "go-call", "%s: unsupported Go return type %s", c.Qual, res.At(i).Type().String())
+			goRet := res.At(i).Type().String()
+			return nil, diag(sp, "go-call",
+				"unsupported Go return type",
+				fmt.Sprintf("`%s` returns `%s`, which Forst cannot map.", c.Qual, goRet),
+				"wrap the result in a supported type or avoid calling this API from Forst")
 		}
 		out[i] = gt
 	}
@@ -179,7 +219,10 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 func CheckParamAssignability(host Host, diag Diagnose, p ParamAssignability) error {
 	sp := spanForCallArg(p.Call.ArgSpans, p.ArgIdx, p.Call.Arguments, p.Call.CallSpan)
 	if len(p.ArgType) != 1 {
-		return diag(sp, "go-call", "%s argument %d must have a single type, got %d", p.Qual, p.Index+1, len(p.ArgType))
+		return diag(sp, "go-call",
+			fmt.Sprintf("argument %d has multiple types", p.Index+1),
+			fmt.Sprintf("`%s` parameter %d expects one type, got %d.", p.Qual, p.Index+1, len(p.ArgType)),
+			"resolve the argument to a single concrete type")
 	}
 	if p.ArgIdx >= 0 && p.ArgIdx < len(p.Call.Arguments) {
 		if argGo := host.GoTypeForExpression(p.Call.Arguments[p.ArgIdx]); argGo != nil {
@@ -189,8 +232,11 @@ func CheckParamAssignability(host Host, diag Diagnose, p ParamAssignability) err
 		}
 	}
 	if !ForstAssignableToGoType(host, p.ArgType[0], p.GoParam) {
-		return diag(sp, "go-call", "%s argument %d: Forst type %s not assignable to Go parameter %s",
-			p.Qual, p.Index+1, p.ArgType[0].Ident, strings.TrimSpace(p.GoParam.String()))
+		goParam := strings.TrimSpace(p.GoParam.String())
+		return diag(sp, "go-call",
+			fmt.Sprintf("argument %d type mismatch", p.Index+1),
+			fmt.Sprintf("Forst type `%s` is not assignable to Go parameter `%s`.", p.ArgType[0].Ident, goParam),
+			"convert the argument or change the Forst type")
 	}
 	return nil
 }
@@ -199,37 +245,56 @@ func CheckParamAssignability(host Host, diag Diagnose, p ParamAssignability) err
 func CheckSpreadAssignability(host Host, diag Diagnose, s SpreadAssignability) error {
 	if s.SpreadType.Ident != ast.TypeArray || len(s.SpreadType.TypeParams) != 1 {
 		sp := spanForCallArg(s.Call.ArgSpans, s.ArgIdx, s.Call.Arguments, s.Call.CallSpan)
-		return diag(sp, "go-call", "%s: spread argument must be a slice, got %s", s.Qual, s.SpreadType.Ident)
+		return diag(sp, "go-call",
+			"spread requires a slice",
+			fmt.Sprintf("`%s` variadic parameter expects `...%s`, but spread has type `%s`.", s.Qual, s.Elem.String(), s.SpreadType.Ident),
+			"pass a slice or use individual arguments")
 	}
 	wantSlice := types.NewSlice(s.Elem)
 	if !ForstAssignableToGoType(host, s.SpreadType, wantSlice) {
 		sp := spanForCallArg(s.Call.ArgSpans, s.ArgIdx, s.Call.Arguments, s.Call.CallSpan)
-		return diag(sp, "go-call", "%s: cannot spread %s into ...%s", s.Qual, s.SpreadType.Ident, s.Elem.String())
+		return diag(sp, "go-call",
+			"cannot spread into variadic parameter",
+			fmt.Sprintf("Slice `%s` is not assignable to `...%s`.", s.SpreadType.Ident, s.Elem.String()),
+			"use a slice of the correct element type")
 	}
 	return nil
 }
 
+func methodDiagSpan(m MethodCall) ast.SourceSpan {
+	if m.Method.Span.IsSet() {
+		return m.Method.Span
+	}
+	if m.Call.CallSpan.IsSet() {
+		return m.Call.CallSpan
+	}
+	return m.Call.Function.Span
+}
+
 // CheckMethodCall type-checks a Go method call when the receiver has a tracked go/types type.
 func CheckMethodCall(host Host, diag Diagnose, m MethodCall) ([]ast.TypeNode, error) {
-	obj, _, _ := types.LookupFieldOrMethod(m.Recv, true, nil, m.MethodName)
+	obj, _, _ := types.LookupFieldOrMethod(m.Recv, m.Addressable, nil, m.MethodName)
 	if obj == nil {
-		sp := m.Call.CallSpan
-		if !sp.IsSet() {
-			sp = m.Call.Function.Span
-		}
-		return nil, diag(sp, "go-method", "%s has no field or method %s", m.Recv.String(), m.MethodName)
+		sp := methodDiagSpan(m)
+		return nil, diag(sp, "go-method",
+			fmt.Sprintf("`%s` has no field or method `%s`", m.Recv.String(), m.MethodName),
+			fmt.Sprintf("Type `%s` does not define `%s`.", m.Recv.String(), m.MethodName),
+			"check the spelling or call a method that exists on the receiver type")
 	}
 	fn, ok := obj.(*types.Func)
 	if !ok {
-		sp := m.Call.CallSpan
-		if !sp.IsSet() {
-			sp = m.Call.Function.Span
-		}
-		return nil, diag(sp, "go-method", "%s.%s is not a method", m.Recv.String(), m.MethodName)
+		sp := methodDiagSpan(m)
+		return nil, diag(sp, "go-method",
+			fmt.Sprintf("`%s` is not a method", m.MethodName),
+			fmt.Sprintf("`%s` names a field or value on `%s`, not a method.", m.MethodName, m.Recv.String()),
+			"call a method on the receiver or access the field without parentheses")
 	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
-		return nil, diag(m.Call.CallSpan, "go-method", "invalid method signature")
+		return nil, diag(m.Call.CallSpan, "go-method",
+			"invalid method signature",
+			"Could not read the Go method signature.",
+			"check the Go definition")
 	}
 	qual := fmt.Sprintf("(%s).%s", m.Recv.String(), m.MethodName)
 	return CheckSignature(host, diag, SignatureCheck{

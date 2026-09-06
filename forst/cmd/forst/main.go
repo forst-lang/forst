@@ -236,7 +236,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFileFn(mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
+			outputPath, err = compiler.CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args), p.LastOverlayReplaces())
 			if err != nil {
 				log.Error(err)
 				return 1

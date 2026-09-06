@@ -16,7 +16,9 @@ type TypeIdentOpts struct {
 func (p *Parser) expectCustomTypeIdentifier(opts TypeIdentOpts) ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleTypeIdentifier(token, opts) {
-		p.FailWithParseError(token, "Expected type identifier to start with an uppercase letter")
+		p.FailWithReport(token, "typedef-uppercase", "type identifier must start with an uppercase letter",
+			"Expected type identifier to start with an uppercase letter.",
+			"rename the type to start with a capital letter, e.g. `type MyType = ...`")
 	}
 	return token
 }
@@ -41,7 +43,9 @@ func (p *Parser) expectCustomTypeIdentifierOrPackageName(opts TypeIdentOpts) ast
 
 	// Validate the identifier as a type
 	if !isPossibleTypeIdentifier(token, opts) {
-		p.FailWithParseError(token, "Expected type identifier to start with an uppercase letter")
+		p.FailWithReport(token, "typedef-uppercase", "type identifier must start with an uppercase letter",
+			"Expected type identifier to start with an uppercase letter.",
+			"rename the type to start with a capital letter, e.g. `type MyType = ...`")
 	}
 
 	return token
@@ -68,7 +72,9 @@ func (p *Parser) parseErrorTypeDef() *ast.TypeDefNode {
 	p.expect(ast.TokenError)
 	nameTok := p.expectCustomTypeIdentifier(TypeIdentOpts{AllowLowercaseTypes: false})
 	if nameTok.Value == "Error" {
-		p.FailWithParseError(nameTok, "cannot declare `error Error { ... }`; use a concrete nominal name (the language base Error is not a user declaration)")
+		p.FailWithReport(nameTok, "error-base-name", "cannot declare `error Error { ... }`",
+			"use a concrete nominal name (the language base Error is not a user declaration).",
+			"pick a distinct error name, e.g. `error NotFound { ... }`")
 	}
 	shape := p.parseShapeTypeForError()
 	return &ast.TypeDefNode{
@@ -131,7 +137,9 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 		left = ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
-				BaseType: &typ.Ident,
+				BaseType:   &typ.Ident,
+				TypeParams: typ.TypeParams,
+				ArrayLen:   typ.ArrayLen,
 			},
 		}
 	}
@@ -170,11 +178,15 @@ func (p *Parser) tryParseTypeDefLiteralMember() (ast.TypeDefExpr, bool) {
 		case ast.StringLiteralNode, ast.IntLiteralNode, ast.BoolLiteralNode:
 			return typeDefExprFromLiteral(lit), true
 		default:
-			p.FailWithParseError(tok, "refinement-unsupported-union: only string, int, and bool literals are allowed in named literal unions")
+			p.FailWithReport(tok, "refinement-unsupported-union", "unsupported literal in named union",
+				"only string, int, and bool literals are allowed in named literal unions.",
+				"use `type T = \"a\" | \"b\"` or `type T = 1 | 2`")
 			return nil, false
 		}
 	case ast.TokenFloatLiteral:
-		p.FailWithParseError(tok, "refinement-unsupported-union: float literals are not allowed in named literal unions")
+		p.FailWithReport(tok, "refinement-unsupported-union", "float literals not allowed in named union",
+			"float literals are not allowed in named literal unions.",
+			"use int or string literal members instead")
 		return nil, false
 	default:
 		return nil, false

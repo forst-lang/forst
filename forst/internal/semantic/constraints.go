@@ -33,10 +33,16 @@ func projectConstraints(tc *typechecker.TypeChecker, baseKind string, a *ast.Ass
 	return out
 }
 
+// IsKnownBuiltinConstraintName reports whether name is a closed builtin constraint atom.
+func IsKnownBuiltinConstraintName(name string) bool {
+	return isKnownBuiltinName(name)
+}
+
 func isKnownBuiltinName(name string) bool {
 	switch name {
-	case "Min", "Max", "LessThan", "GreaterThan", "HasPrefix", "Contains",
-		"True", "False", "Nil", "Present", "NotEmpty", "Router", ast.ValueConstraint:
+	case "Min", "Max", "MinBytes", "MaxBytes", "LessThan", "GreaterThan",
+		"HasPrefix", "HasSuffix", "Contains",
+		"True", "False", "Nil", "Present", "NotEmpty", "Finite", "Router", ast.ValueConstraint:
 		return true
 	default:
 		return false
@@ -46,16 +52,23 @@ func isKnownBuiltinName(name string) bool {
 func constraintApplies(baseKind, name string) string {
 	switch baseKind {
 	case "string":
-		if name == "Min" || name == "Max" {
+		switch name {
+		case "Min", "Max":
 			return "length"
+		case "MinBytes", "MaxBytes":
+			return "bytes"
 		}
 	case "array":
 		if name == "Min" || name == "Max" || name == "NotEmpty" {
 			return "items"
 		}
 	case "map":
-		if name == "Min" || name == "Max" {
+		if name == "Min" || name == "Max" || name == "NotEmpty" {
 			return "value"
+		}
+	case "bytes":
+		if name == "Min" || name == "Max" || name == "NotEmpty" {
+			return "items"
 		}
 	}
 	return ""

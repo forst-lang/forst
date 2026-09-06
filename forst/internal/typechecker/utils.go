@@ -32,9 +32,26 @@ func formatTypeList(types []ast.TypeNode) string {
 
 	formatted := make([]string, len(types))
 	for i, typ := range types {
-		formatted[i] = typ.String()
+		formatted[i] = formatTypeNodeForDiag(typ)
 	}
 	return strings.Join(formatted, ", ")
+}
+
+// formatTypeIdentForDiag returns the Forst surface name for diagnostics (Int, not TYPE_INT).
+// Prefer this (or formatTypeNodeForDiag) over string(ident) / fmt %s on TypeIdent in user text.
+func formatTypeIdentForDiag(id ast.TypeIdent) string {
+	if id == "" {
+		return "?"
+	}
+	return id.String()
+}
+
+// formatTypeNodeForDiag returns a human-readable type for diagnostic text.
+func formatTypeNodeForDiag(t ast.TypeNode) string {
+	if t.Ident == "" && t.Assertion == nil {
+		return "?"
+	}
+	return t.String()
 }
 
 func failWithTypeMismatch(fn ast.FunctionNode, inferred []ast.TypeNode, parsed []ast.TypeNode, prefix string) error {
@@ -184,13 +201,14 @@ func (tc *TypeChecker) returnTypeMatchesInferredShape(actual ast.TypeNode, expec
 func RegisterHashBasedType(tc *TypeChecker, typeIdent ast.TypeIdent, fields map[string]ast.ShapeFieldNode) {
 	// Only register if not already present
 	if _, exists := tc.Defs[typeIdent]; !exists {
-		tc.Defs[typeIdent] = ast.TypeDefNode{
+		tc.markHashBasedIdent(typeIdent)
+		tc.setDef(typeIdent, ast.TypeDefNode{
 			Ident: typeIdent,
 			Expr: ast.TypeDefShapeExpr{
 				Shape: ast.ShapeNode{
 					Fields: fields,
 				},
 			},
-		}
+		})
 	}
 }

@@ -107,7 +107,7 @@ func (c FakeClock) now(): Int { return c.fixedMs }
 	if !ok || diag.Code != "providers-wiring-type" {
 		t.Fatalf("expected providers-wiring-type, got %T: %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("expected Logger in message: %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("expected Logger in message: %q", diag.Error())
 	}
 }

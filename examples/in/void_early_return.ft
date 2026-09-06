@@ -1,0 +1,15 @@
+package main
+
+// Bare `return` in a void function before later statements.
+// Golden output: ../out/void_early_return.go
+func early(ok Bool) {
+	if !ok {
+		return
+	}
+	println("ok")
+}
+
+func main() {
+	early(false)
+	early(true)
+}

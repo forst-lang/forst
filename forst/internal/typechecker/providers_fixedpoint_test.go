@@ -76,8 +76,8 @@ func TestValidateCallSite_unsatisfiedEmitsDiagnostic(t *testing.T) {
 	if !ok || diag.Code != "providers-unsatisfied" {
 		t.Fatalf("got %T %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("msg = %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("msg = %q", diag.Error())
 	}
 }
 

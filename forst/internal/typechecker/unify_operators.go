@@ -20,7 +20,10 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 				return ast.TypeNode{}, err
 			}
 			if len(rightTypes) != 1 {
-				return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(rightTypes))
+				return ast.TypeNode{}, reportf(opSpan(left, right), "expression-type",
+					"expected a single type for this expression",
+					fmt.Sprintf("This expression has %d types; operators need exactly one.", len(rightTypes)),
+					"simplify the expression or bind it to a single-typed name")
 			}
 			return ast.TypeNode{Ident: ast.TypeBool}, nil
 		}
@@ -30,7 +33,10 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 				return ast.TypeNode{}, err
 			}
 			if len(leftTypes) != 1 {
-				return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(leftTypes))
+				return ast.TypeNode{}, reportf(opSpan(left, right), "expression-type",
+					"expected a single type for this expression",
+					fmt.Sprintf("This expression has %d types; operators need exactly one.", len(leftTypes)),
+					"simplify the expression or bind it to a single-typed name")
 			}
 			return ast.TypeNode{Ident: ast.TypeBool}, nil
 		}
@@ -41,7 +47,10 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		return ast.TypeNode{}, err
 	}
 	if len(leftTypes) != 1 {
-		return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(leftTypes))
+		return ast.TypeNode{}, reportf(opSpan(left, right), "expression-type",
+			"expected a single type for this expression",
+			fmt.Sprintf("The left operand has %d types; operators need exactly one.", len(leftTypes)),
+			"simplify the expression or bind it to a single-typed name")
 	}
 	leftType := leftTypes[0]
 
@@ -49,17 +58,26 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		switch operator {
 		case ast.TokenLogicalNot:
 			if leftType.Ident != ast.TypeBool {
-				return ast.TypeNode{}, fmt.Errorf("logical not expects bool, got %s", leftType.Ident)
+				return ast.TypeNode{}, reportf(opSpan(left, nil), "logical-not-type",
+					"logical not expects Bool",
+					fmt.Sprintf("Operator `!` requires a Bool operand, got `%s`.", formatTypeIdentForDiag(leftType.Ident)),
+					"use a boolean expression or compare with `==` / `!=`")
 			}
 			return ast.TypeNode{Ident: ast.TypeBool}, nil
 		case ast.TokenMinus:
 			if leftType.Ident != ast.TypeInt && leftType.Ident != ast.TypeFloat {
-				return ast.TypeNode{}, fmt.Errorf("unary minus expects numeric operand, got %s", leftType.Ident)
+				return ast.TypeNode{}, reportf(opSpan(left, nil), "unary-minus-type",
+					"unary minus expects a numeric operand",
+					fmt.Sprintf("Operator `-` requires Int or Float, got `%s`.", formatTypeIdentForDiag(leftType.Ident)),
+					"convert the value or use a numeric literal")
 			}
 			return leftType, nil
 		case ast.TokenPlusPlus, ast.TokenMinusMinus:
 			if leftType.Ident != ast.TypeInt && leftType.Ident != ast.TypeFloat {
-				return ast.TypeNode{}, fmt.Errorf("increment/decrement expects numeric type, got %s", leftType.Ident)
+				return ast.TypeNode{}, reportf(opSpan(left, nil), "increment-type",
+					"increment/decrement expects a numeric type",
+					fmt.Sprintf("Operator `%s` requires Int or Float, got `%s`.", operator, formatTypeIdentForDiag(leftType.Ident)),
+					"use a numeric variable or field")
 			}
 			return leftType, nil
 		default:
@@ -78,31 +96,43 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		return ast.TypeNode{}, err
 	}
 	if len(rightTypes) != 1 {
-		return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(rightTypes))
+		return ast.TypeNode{}, reportf(opSpan(left, right), "expression-type",
+			"expected a single type for this expression",
+			fmt.Sprintf("The right operand has %d types; operators need exactly one.", len(rightTypes)),
+			"simplify the expression or bind it to a single-typed name")
 	}
 	rightType := rightTypes[0]
 
 	// Check type compatibility and determine result type
 	if operator.IsArithmeticBinaryOperator() {
-		return tc.unifyArithmeticOperator(leftType, rightType)
+		return tc.unifyArithmeticOperator(leftType, rightType, opSpan(left, right))
 	} else if operator.IsComparisonBinaryOperator() {
-		return tc.unifyComparisonOperator(leftType, rightType)
+		return tc.unifyComparisonOperator(leftType, rightType, opSpan(left, right))
 	} else if operator.IsLogicalBinaryOperator() {
-		return tc.unifyLogicalOperator(leftType, rightType)
+		return tc.unifyLogicalOperator(leftType, rightType, opSpan(left, right))
 	} else if operator.IsBitwiseBinaryOperator() {
-		return tc.unifyBitwiseOperator(leftType, rightType)
+		return tc.unifyBitwiseOperator(leftType, rightType, opSpan(left, right))
 	}
 
 	panic(typecheckError("unsupported operator"))
 }
 
+func opSpan(left, right ast.Node) ast.SourceSpan {
+	if right == nil {
+		return spanOfNode(left)
+	}
+	return firstSetSpan(spanOfNode(left), spanOfNode(right))
+}
+
 // unifyBitwiseOperator handles type unification for bitwise operators (Go integer ops).
-func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode, span ast.SourceSpan) (ast.TypeNode, error) {
 	leftType = tc.normalizeAliasForArithmetic(leftType)
 	rightType = tc.normalizeAliasForArithmetic(rightType)
 	if !isIntFamilyIdent(leftType.Ident) || !isIntFamilyIdent(rightType.Ident) {
-		return ast.TypeNode{}, fmt.Errorf("bitwise operator requires Int operands, got %s and %s",
-			leftType.Ident, rightType.Ident)
+		return ast.TypeNode{}, reportf(span, "bitwise-operand-type",
+			"bitwise operator requires Int operands",
+			fmt.Sprintf("Bitwise operators require Int operands, got `%s` and `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
+			"cast or convert both sides to Int")
 	}
 	byteID := ast.TypeIdent("byte")
 	switch {
@@ -121,7 +151,7 @@ func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode) (a
 }
 
 // unifyArithmeticOperator handles type unification for arithmetic operators
-func (tc *TypeChecker) unifyArithmeticOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyArithmeticOperator(leftType, rightType ast.TypeNode, span ast.SourceSpan) (ast.TypeNode, error) {
 	leftType = tc.normalizeAliasForArithmetic(leftType)
 	rightType = tc.normalizeAliasForArithmetic(rightType)
 	if leftType.Ident == rightType.Ident {
@@ -136,8 +166,10 @@ func (tc *TypeChecker) unifyArithmeticOperator(leftType, rightType ast.TypeNode)
 	if tc.arithmeticWithStringAndAlias(leftType, rightType) {
 		return ast.TypeNode{Ident: ast.TypeString}, nil
 	}
-	return ast.TypeNode{}, fmt.Errorf("type mismatch in arithmetic expression: %s and %s",
-		leftType.Ident, rightType.Ident)
+	return ast.TypeNode{}, reportf(span, "arithmetic-type-mismatch",
+		"type mismatch in arithmetic expression",
+		fmt.Sprintf("Cannot combine `%s` and `%s` with this operator.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
+		"convert operands to the same numeric type (or use string concatenation for String)")
 }
 
 func (tc *TypeChecker) arithmeticWithStringAndAlias(a, b ast.TypeNode) bool {
@@ -181,19 +213,23 @@ func (tc *TypeChecker) underlyingBuiltinFromTypeNode(t ast.TypeNode) ast.TypeIde
 }
 
 // unifyComparisonOperator handles type unification for comparison operators
-func (tc *TypeChecker) unifyComparisonOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyComparisonOperator(leftType, rightType ast.TypeNode, span ast.SourceSpan) (ast.TypeNode, error) {
 	if leftType.Ident != rightType.Ident {
-		return ast.TypeNode{}, fmt.Errorf("type mismatch in comparison expression: %s and %s",
-			leftType.Ident, rightType.Ident)
+		return ast.TypeNode{}, reportf(span, "comparison-type-mismatch",
+			"type mismatch in comparison expression",
+			fmt.Sprintf("Cannot compare `%s` with `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
+			"compare values of the same type or convert one side")
 	}
 	return ast.TypeNode{Ident: ast.TypeBool}, nil
 }
 
 // unifyLogicalOperator handles type unification for logical operators
-func (tc *TypeChecker) unifyLogicalOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyLogicalOperator(leftType, rightType ast.TypeNode, span ast.SourceSpan) (ast.TypeNode, error) {
 	if leftType.Ident != rightType.Ident {
-		return ast.TypeNode{}, fmt.Errorf("type mismatch in logical expression: %s and %s",
-			leftType.Ident, rightType.Ident)
+		return ast.TypeNode{}, reportf(span, "logical-type-mismatch",
+			"type mismatch in logical expression",
+			fmt.Sprintf("Logical operators require Bool operands, got `%s` and `%s`.", formatTypeIdentForDiag(leftType.Ident), formatTypeIdentForDiag(rightType.Ident)),
+			"use boolean expressions or comparisons that produce Bool")
 	}
 	return ast.TypeNode{Ident: ast.TypeBool}, nil
 }

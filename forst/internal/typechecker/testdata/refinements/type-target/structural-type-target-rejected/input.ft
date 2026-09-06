@@ -1,0 +1,11 @@
+package main
+
+type User = {
+	name: String
+}
+
+func check(raw String) {
+	ensure raw is User
+}
+
+func main() {}

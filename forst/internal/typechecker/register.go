@@ -42,7 +42,7 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	}
 
 	// Store the type definition node
-	tc.Defs[node.Ident] = node
+	tc.setDef(node.Ident, node)
 	tc.log.WithFields(logrus.Fields{
 		"node":     node.String(),
 		"function": "registerType",
@@ -129,10 +129,10 @@ func (tc *TypeChecker) registerErrorNominalType(node ast.TypeDefNode) {
 	}
 	payload := errEx.Payload
 	tc.normalizeShapeFieldKinds(&payload)
-	tc.Defs[node.Ident] = ast.TypeDefNode{
+	tc.setDef(node.Ident, ast.TypeDefNode{
 		Ident: node.Ident,
 		Expr:  ast.TypeDefErrorExpr{Payload: payload},
-	}
+	})
 	tc.log.WithFields(logrus.Fields{
 		"ident":    node.Ident,
 		"function": "registerErrorNominalType",
@@ -143,10 +143,10 @@ func (tc *TypeChecker) registerErrorNominalType(node ast.TypeDefNode) {
 func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
 	tc.normalizeShapeFieldKinds(&shape)
 
-	tc.Defs[ident] = ast.TypeDefNode{
+	tc.setDef(ident, ast.TypeDefNode{
 		Ident: ident,
 		Expr:  ast.TypeDefShapeExpr{Shape: shape},
-	}
+	})
 
 	tc.log.WithFields(logrus.Fields{
 		"ident":    ident,
@@ -186,7 +186,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 func (tc *TypeChecker) registerTypeGuard(guard *ast.TypeGuardNode) {
 	// Store type guard in Defs
 	if _, exists := tc.Defs[ast.TypeIdent(guard.Ident)]; !exists {
-		tc.Defs[ast.TypeIdent(guard.Ident)] = guard
+		tc.setDef(ast.TypeIdent(guard.Ident), guard)
 		tc.log.WithFields(logrus.Fields{
 			"guard":    guard.Ident,
 			"function": "registerTypeGuard",

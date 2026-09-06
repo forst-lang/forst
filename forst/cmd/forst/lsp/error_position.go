@@ -9,13 +9,20 @@ import (
 	"unicode/utf8"
 
 	"forst/internal/ast"
+	"forst/internal/diag"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
+	errorPositionLog = logrus.StandardLogger()
+
 	// Legacy string panics from parseErrorMessage() — "Parse error in file:line:col ..."
 	reParseErrorFileLineCol = regexp.MustCompile(`Parse error in [^:]+:(\d+):(\d+)`)
+	// FailWithReport / diag.FormatReport — "error[code]: title"
+	reReportErrorCode = regexp.MustCompile(`^error\[([^\]]+)\]:`)
 	// ParseError.Error() — "Parse error at file:line:col: ..." (Location() is file:line:col)
 	reParseErrorAtLineCol = regexp.MustCompile(`Parse error at ([^:]+):(\d+):(\d+):`)
 	reFunctionName          = regexp.MustCompile(`(?:function|of function)\s+([A-Za-z_][\w]*)`)
@@ -25,12 +32,18 @@ var (
 	reUndefinedSymbol       = regexp.MustCompile(`undefined symbol:\s*(\S+)`)
 	reUndefinedFunction     = regexp.MustCompile(`undefined function:\s*(\S+)`)
 	reUnknownIdentifier     = regexp.MustCompile(`unknown identifier:\s*(\S+)`)
+	reShapeUnknownField     = regexp.MustCompile(`no field named "([^"]+)"`)
+	reShapeFieldBacktick    = regexp.MustCompile("field `([^`]+)`")
+	reGoExportedName        = regexp.MustCompile("No exported name `([^`]+)`")
 )
 
 // lspCodeForParseMessage maps common parser messages to stable LSP diagnostic codes.
 func lspCodeForParseMessage(msg string) string {
 	if msg == "" {
 		return ErrorCodeInvalidSyntax
+	}
+	if code, ok := lspCodeFromReportMessage(msg); ok {
+		return code
 	}
 	if strings.Contains(msg, "Expected token type") {
 		return ErrorCodeUnexpectedToken
@@ -42,6 +55,23 @@ func lspCodeForParseMessage(msg string) string {
 		return ErrorCodeUnexpectedToken
 	}
 	return ErrorCodeInvalidSyntax
+}
+
+func lspCodeFromReportMessage(msg string) (code string, ok bool) {
+	if m := reReportErrorCode.FindStringSubmatch(strings.TrimSpace(msg)); len(m) > 1 {
+		return m[1], true
+	}
+	return "", false
+}
+
+func logMissingTypecheckDiagnosticSpan(code, msg string) {
+	snippet := msg
+	if i := strings.IndexByte(snippet, '\n'); i >= 0 {
+		snippet = snippet[:i]
+	}
+	errorPositionLog.WithFields(logrus.Fields{
+		"code": code,
+	}).Errorf("typechecker Diagnostic emitted without span; using heuristics (squiggles on the package line indicate a span-plumbing bug upstream): %s", snippet)
 }
 
 // DiagnosticFromParseError builds an LSP diagnostic at the failing token (lexer uses 1-based line/column).
@@ -125,17 +155,23 @@ func diagnosticForTypecheckOrTransform(fileURI, content string, err error, sourc
 func diagnosticForTypecheckError(fileURI, content string, err error, source, defaultCode string) LSPDiagnostic {
 	var diag *typechecker.Diagnostic
 	if errors.As(err, &diag) && diag != nil {
-		msg := diag.Msg
+		msg := diag.Error()
 		code := diag.Code
 		if code == "" {
 			code = defaultCode
 		}
+		var d LSPDiagnostic
 		if diag.Span.IsSet() {
-			return lspDiagnosticFromTypecheckerDiagnostic(fileURI, msg, source, code, diag)
+			d = lspDiagnosticFromTypecheckerDiagnostic(fileURI, msg, source, code, diag)
+		} else {
+			// Missing spans fall back to message heuristics. Squiggles on the package line (LSP line 0)
+			// usually mean span plumbing failed upstream in the typechecker, not an LSP mapping bug.
+			logMissingTypecheckDiagnosticSpan(code, msg)
+			line1, col1 := bestEffortLineColumnFromErrorMessage(content, msg)
+			d = simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
+			d.RelatedInformation = lspRelatedInformationFromDiagnostic(fileURI, content, diag.Related)
 		}
-		line1, col1 := bestEffortLineColumnFromErrorMessage(content, msg)
-		d := simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
-		d.RelatedInformation = lspRelatedInformationFromDiagnostic(fileURI, content, diag.Related)
+		d.Data = lspDiagnosticDataFromFixes(diag.Fixes, diag.Span)
 		return d
 	}
 	return diagnosticForTypecheckOrTransform(fileURI, content, err, source, defaultCode)
@@ -145,6 +181,33 @@ func lspDiagnosticFromTypecheckerDiagnostic(fileURI, msg, source, code string, d
 	d := lspDiagnosticFromASTSpan(fileURI, msg, source, code, diag.Span)
 	d.RelatedInformation = lspRelatedInformationFromDiagnostic(fileURI, "", diag.Related)
 	return d
+}
+
+// lspFixPayload is the JSON shape under Diagnostic.data.fixes.
+type lspFixPayload struct {
+	Title   string   `json:"title"`
+	NewText string   `json:"newText"`
+	Range   *LSPRange `json:"range,omitempty"`
+}
+
+func lspDiagnosticDataFromFixes(fixes []diag.Fix, primary ast.SourceSpan) any {
+	if len(fixes) == 0 {
+		return nil
+	}
+	out := make([]lspFixPayload, 0, len(fixes))
+	for _, f := range fixes {
+		p := lspFixPayload{Title: f.Title, NewText: f.NewText}
+		sp := f.Span
+		if !sp.IsSet() {
+			sp = primary
+		}
+		if sp.IsSet() {
+			r := lspRangeFromASTSpan(sp)
+			p.Range = &r
+		}
+		out = append(out, p)
+	}
+	return map[string]any{"fixes": out}
 }
 
 func lspRelatedInformationFromDiagnostic(fileURI, content string, related []typechecker.RelatedDiagnostic) []LSPDiagnosticRelatedInformation {
@@ -213,10 +276,10 @@ func lspDiagnosticsFromTypecheckerWarnings(fileURI string, tc *typechecker.TypeC
 			code = "forst-warning"
 		}
 		if w.Span.IsSet() {
-			out = append(out, lspDiagnosticFromASTSpanWithSeverity(w.Msg, "forst-typechecker", code, w.Span, LSPDiagnosticSeverityWarning))
+			out = append(out, lspDiagnosticFromASTSpanWithSeverity(w.Error(), "forst-typechecker", code, w.Span, LSPDiagnosticSeverityWarning))
 			continue
 		}
-		d := simpleDiagnosticOnLine(fileURI, 1, 1, w.Msg, "forst-typechecker", code)
+		d := simpleDiagnosticOnLine(fileURI, 1, 1, w.Error(), "forst-typechecker", code)
 		d.Severity = LSPDiagnosticSeverityWarning
 		out = append(out, d)
 	}
@@ -259,6 +322,16 @@ func bestEffortLineColumnFromErrorMessage(content, errMsg string) (line1, col1 i
 		return lineAndColumnOfFirstOccurrence(content, m[1])
 	}
 	if m := reUnknownIdentifier.FindStringSubmatch(errMsg); len(m) > 1 {
+		return lineAndColumnOfFirstOccurrence(content, m[1])
+	}
+	// Structured report: shape-unknown-field, go-member-missing, etc.
+	if m := reShapeUnknownField.FindStringSubmatch(errMsg); len(m) > 1 {
+		return lineAndColumnOfFirstOccurrence(content, m[1])
+	}
+	if m := reShapeFieldBacktick.FindStringSubmatch(errMsg); len(m) > 1 {
+		return lineAndColumnOfFirstOccurrence(content, m[1])
+	}
+	if m := reGoExportedName.FindStringSubmatch(errMsg); len(m) > 1 {
 		return lineAndColumnOfFirstOccurrence(content, m[1])
 	}
 	// function Name / of function Name

@@ -14,16 +14,18 @@ func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 
 	switch p.current().Type {
 	case ast.TokenStar:
-		p.FailWithParseError(p.current(),
-			`import * as … from is removed; use import "./path" js or import alias "./path" js`)
+		p.FailWithReport(p.current(), "import-star-removed", "`import * as … from` is removed",
+			"Wildcard imports are not supported.",
+			`use import "./path" js or import alias "./path" js`)
 	case ast.TokenDot:
 		// Go dot-import: import . "path" — symbols from path are in the file scope unqualified.
 		p.advance()
 		alias = &ast.Ident{ID: "."}
 	case ast.TokenIdentifier:
 		id := p.current().Value
+		tok := p.current()
 		p.advance()
-		alias = &ast.Ident{ID: ast.Identifier(id)}
+		alias = &ast.Ident{ID: ast.Identifier(id), Span: ast.SpanFromToken(tok)}
 		if id == "_" {
 			sideEffectOnly = true
 		}
@@ -31,6 +33,13 @@ func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 
 	pathToken := p.expect(ast.TokenStringLiteral)
 	path := unquoteImportPath(pathToken.Value)
+	importSpan := ast.SpanFromToken(pathToken)
+	if alias != nil && alias.Span.IsSet() {
+		importSpan = ast.SpanBetweenTokens(
+			ast.Token{Line: alias.Span.StartLine, Column: alias.Span.StartCol},
+			pathToken,
+		)
+	}
 
 	if p.current().Type == ast.TokenIdentifier {
 		switch p.current().Value {
@@ -42,13 +51,15 @@ func (p *Parser) parseImport(inGroup bool) ast.ImportNode {
 			}
 		case "node":
 			if allowsPostfixJSMarker(path, inGroup) {
-				p.FailWithParseError(p.current(),
-					`postfix "node" import marker was removed; use import "./path" js or import alias "./path" js`)
+				p.FailWithReport(p.current(), "import-node-removed", `postfix "node" import marker was removed`,
+					`The "node" postfix import marker is no longer supported.`,
+					`use import "./path" js or import alias "./path" js`)
 			}
 		}
 	}
 
 	return ast.ImportNode{
+		Span:              importSpan,
 		Path:              path,
 		Alias:             alias,
 		SideEffectOnly:    sideEffectOnly,

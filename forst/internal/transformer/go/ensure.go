@@ -47,7 +47,8 @@ func (t *Transformer) logAssertionBaseType(ensure *ast.EnsureNode) {
 	}
 }
 
-// handleTypeTargetMembership handles type-target literal union membership.
+// handleTypeTargetMembership handles type-target membership: literal-union helpers
+// and constrained scalar aliases (expand typedef Meet chain into assertion emit).
 func (t *Transformer) handleTypeTargetMembership(ensure *ast.EnsureNode, varType ast.TypeNode) ([]goast.Stmt, bool, error) {
 	_, typeTarget := typechecker.LowerRefinementTarget(ensure.Target, ensure.Assertion)
 	if typeTarget == nil {
@@ -68,7 +69,24 @@ func (t *Transformer) handleTypeTargetMembership(ensure *ast.EnsureNode, varType
 		}
 		return []goast.Stmt{&goast.ExprStmt{X: callExpr}}, true, nil
 	}
-	t.log.Debugf("[transformEnsureCondition] TypeTarget %s — no literal-union membership helper", typeTarget.Name)
+
+	if assertion, ok := t.TypeChecker.ConstrainedScalarAliasAssertion(typeTarget.Name); ok && assertion != nil {
+		t.log.Debugf("[transformEnsureCondition] TypeTarget %s — expanding constrained scalar alias", typeTarget.Name)
+		ir := typechecker.LowerAssertionNode(*assertion)
+		if ir == nil {
+			return nil, true, fmt.Errorf("constrained scalar alias %s lowered to empty assertion", typeTarget.Name)
+		}
+		expr, err := t.transformEnsureAssertionIR(*ensure, ir, varType)
+		if err != nil {
+			return nil, true, err
+		}
+		if expr == nil {
+			return nil, true, fmt.Errorf("constrained scalar alias %s produced no ensure condition", typeTarget.Name)
+		}
+		return []goast.Stmt{&goast.ExprStmt{X: expr}}, true, nil
+	}
+
+	t.log.Debugf("[transformEnsureCondition] TypeTarget %s — no literal-union or constrained-alias membership helper", typeTarget.Name)
 	return nil, false, nil
 }
 

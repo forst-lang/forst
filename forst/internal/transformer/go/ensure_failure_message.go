@@ -98,6 +98,21 @@ func (t *Transformer) ensureConstraintGotDiagnostic(stmt ast.EnsureNode, subject
 		}
 		switch c.Name {
 		case string(MinConstraint), string(MaxConstraint):
+			t.Output.EnsureImport("unicode/utf8")
+			return ensureGotDiagnostic{
+				suffixFormat: "got runes=%d (%q), want %s",
+				gotArgs: []goast.Expr{
+					&goast.CallExpr{
+						Fun: &goast.SelectorExpr{
+							X:   goast.NewIdent("utf8"),
+							Sel: goast.NewIdent("RuneCountInString"),
+						},
+						Args: []goast.Expr{stringExpr},
+					},
+					stringExpr,
+				},
+			}
+		case string(MinBytesConstraint), string(MaxBytesConstraint):
 			return ensureGotDiagnostic{
 				suffixFormat: "got len=%d (%q), want %s",
 				gotArgs: []goast.Expr{
@@ -108,7 +123,7 @@ func (t *Transformer) ensureConstraintGotDiagnostic(stmt ast.EnsureNode, subject
 					stringExpr,
 				},
 			}
-		case string(HasPrefixConstraint), string(ContainsConstraint), string(NotEmptyConstraint):
+		case string(HasPrefixConstraint), string(HasSuffixConstraint), string(ContainsConstraint), string(NotEmptyConstraint):
 			return ensureGotDiagnostic{
 				suffixFormat: "got %q, want %s",
 				gotArgs:      []goast.Expr{stringExpr},
@@ -166,10 +181,24 @@ func (t *Transformer) ensureConstraintWantHint(assertion *ast.AssertionNode) str
 		if len(c.Args) >= 1 {
 			return fmt.Sprintf("prefix %s", constraintArgDisplay(c.Args[0]))
 		}
+	case string(HasSuffixConstraint):
+		if len(c.Args) >= 1 {
+			return fmt.Sprintf("suffix %s", constraintArgDisplay(c.Args[0]))
+		}
 	case string(ContainsConstraint):
 		if len(c.Args) >= 1 {
 			return fmt.Sprintf("contains %s", constraintArgDisplay(c.Args[0]))
 		}
+	case string(MinBytesConstraint):
+		if len(c.Args) >= 1 {
+			return ">= " + constraintArgDisplay(c.Args[0]) + " bytes"
+		}
+	case string(MaxBytesConstraint):
+		if len(c.Args) >= 1 {
+			return "<= " + constraintArgDisplay(c.Args[0]) + " bytes"
+		}
+	case string(FiniteConstraint):
+		return "finite"
 	}
 	return t.getAssertionStringForError(assertion)
 }

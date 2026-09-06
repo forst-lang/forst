@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"forst/internal/codegen/layout"
+	"forst/internal/gowork"
 )
 
 const devSandboxDirName = "dev"
@@ -88,9 +89,11 @@ func hashFile(path string) (string, error) {
 }
 
 type sandboxWriteOpts struct {
-	stableDir     bool
-	modTidyCache  *SandboxModCache
-	sandboxTiming *CompileSandboxTiming
+	stableDir         bool
+	modTidyCache      *SandboxModCache
+	sandboxTiming     *CompileSandboxTiming
+	srcDir            string
+	overlayReplaces   []gowork.PackageReplace
 }
 
 func resolveSandboxDir(boundaryRoot string, stable bool) (string, error) {

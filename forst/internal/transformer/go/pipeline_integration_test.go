@@ -74,6 +74,57 @@ func pipelineOptsForExampleFile(t *testing.T, name string) pipelineOpts {
 	}
 }
 
+func TestPipeline_shapeValueMutate_preservesReturnVariable(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type Acc = {
+	n: Int
+}
+func bump(a Acc): Acc {
+	a.n = a.n + 1
+	return a
+}
+func main() {
+	a := Acc{n: 0}
+	a = bump(a)
+	println(a.n)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "return a") {
+		t.Fatalf("expected return of mutated variable, got:\n%s", out)
+	}
+	if strings.Contains(out, "return Acc{") {
+		t.Fatalf("must not rebuild zero Acc literal on return, got:\n%s", out)
+	}
+}
+
+func TestPipeline_sameShapeDistinctNamedTypes_usesReturnWrap(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type Acc = {
+	n: Int
+}
+type Box = {
+	n: Int
+}
+func asBox(a Acc): Box {
+	return a
+}
+func main() {
+	b := asBox(Acc{n: 1})
+	println(b.n)
+}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, "return a") {
+		t.Fatalf("distinct same-shaped named types must not bare-return Acc as Box, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Box{") {
+		t.Fatalf("expected wrapping conversion into Box, got:\n%s", out)
+	}
+}
+
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -421,7 +472,7 @@ func main() {
 	println("ok")
 }
 `,
-			needles: []string{`1.5`, `x <= 1`, `os.Exit`, `func main`},
+			needles: []string{`1.5`, `os.Exit`, `func main`},
 		},
 		{
 			name: "ensure_array_min_length_main",
@@ -433,7 +484,7 @@ func main() {
 	println("ok")
 }
 `,
-			needles: []string{`len(xs) < 1`, `os.Exit`, `func main`},
+			needles: []string{`len(xs)`, `os.Exit`, `func main`},
 		},
 	}
 
@@ -443,6 +494,11 @@ func main() {
 			for _, sub := range tt.needles {
 				if !strings.Contains(out, sub) {
 					t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+				}
+			}
+			if tt.name == "ensure_float_greater_than_main" {
+				if !strings.Contains(out, `!(x > 1`) && !strings.Contains(out, `x <= 1`) {
+					t.Fatalf("expected GreaterThan check\n----\n%s\n----", out)
 				}
 			}
 		})
@@ -509,7 +565,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func checkLen`, `len(`, `String.Min(1)`, `errors.New`, `package main`} {
+	for _, sub := range []string{`func checkLen`, `utf8.RuneCountInString`, `String.Min(1)`, `errors.New`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -532,7 +588,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func checkLen`, `len(`, `!`, `package main`} {
+	for _, sub := range []string{`func checkLen`, `utf8.RuneCountInString`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -577,7 +633,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func G_`, `len(string(password))`, `Password`, `os.Exit`, `package main`} {
+	for _, sub := range []string{`func G_`, `utf8.RuneCountInString`, `Password`, `os.Exit`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -625,8 +681,8 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	if !strings.Contains(out, `len(s) == 0`) {
-		t.Fatalf("expected empty check via len(s) == 0, got:\n%s", out)
+	if !strings.Contains(out, `len(s) != 0`) && !strings.Contains(out, `!(len(s) != 0)`) && !strings.Contains(out, `len(s) == 0`) {
+		t.Fatalf("expected NotEmpty length check, got:\n%s", out)
 	}
 }
 
@@ -825,8 +881,8 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	if !strings.Contains(out, "len(s)") {
-		t.Fatalf("expected ensure Min on string to use len(s), got:\n%s", out)
+	if !strings.Contains(out, "utf8.RuneCountInString") {
+		t.Fatalf("expected ensure Min on string to use utf8.RuneCountInString, got:\n%s", out)
 	}
 }
 

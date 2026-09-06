@@ -150,3 +150,45 @@ func TestRunRuntimeDev_compileErrorPropagates(t *testing.T) {
 		t.Fatal("expected compile error")
 	}
 }
+
+func TestCompileRuntimeOutput_usesOverlayReplacesWhenPresent(t *testing.T) {
+	root := t.TempDir()
+	consumer := filepath.Join(root, "consumer")
+	lib := filepath.Join(root, "acme-lib")
+	writeEntry(t, lib, "go.mod", "module github.com/acme/lib\n\ngo 1.26.0\n")
+	writeEntry(t, lib, "add.ft", "package lib\n\nfunc Add(a Int, b Int) {\n\treturn a + b\n}\n")
+	writeEntry(t, consumer, "go.mod", "module testmod\n\ngo 1.26.0\n\nrequire github.com/acme/lib v0.0.0\n\nreplace github.com/acme/lib => ../acme-lib\n")
+	writeEntry(t, consumer, "main.ft", "package main\n\nimport \"github.com/acme/lib\"\n\nfunc main() {\n\t_ = lib.Add(1, 2)\n}\n")
+	entry := filepath.Join(consumer, "main.ft")
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	createCalled := false
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(string, string, string, map[string]string, map[string]string, string) (string, error) {
+			createCalled = true
+			return "", errors.New("CreateOutput must not be used when overlays exist")
+		},
+	}
+	out, _, err := compileRuntimeOutput(log, consumer, entry, &ftconfig.Config{}, deps, false)
+	if err != nil {
+		t.Fatalf("compileRuntimeOutput: %v", err)
+	}
+	if createCalled {
+		t.Fatal("expected overlay-aware sandbox path, not CreateOutput")
+	}
+	goMod, err := os.ReadFile(filepath.Join(filepath.Dir(out), "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(goMod), "replace github.com/acme/lib =>") {
+		t.Fatalf("sandbox go.mod missing overlay replace:\n%s", goMod)
+	}
+	overlayRoot := filepath.Join(consumer, ".forst", "overlay")
+	entries, err := os.ReadDir(overlayRoot)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("expected overlay dir under %s: %v", overlayRoot, err)
+	}
+}

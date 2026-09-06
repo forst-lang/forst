@@ -2,8 +2,6 @@ package hasher
 
 import (
 	"forst/internal/ast"
-	"hash/fnv"
-	"reflect"
 	"unsafe"
 )
 
@@ -13,19 +11,19 @@ type NodeIdentity struct {
 	Data uintptr
 }
 
+type ifaceWords struct {
+	typ, data unsafe.Pointer
+}
+
 // NodeIdentityKey returns a stable identity for the concrete value in an ast.Node interface.
+// Typ is the itab pointer (unique per concrete type for ast.Node). Data is the boxed value pointer.
 func NodeIdentityKey(node ast.Node) (NodeIdentity, bool) {
 	if node == nil {
 		return NodeIdentity{}, false
 	}
-	type iface struct {
-		typ, data unsafe.Pointer
-	}
-	word := (*iface)(unsafe.Pointer(&node))
+	word := (*ifaceWords)(unsafe.Pointer(&node))
 	if word.data == nil {
 		return NodeIdentity{}, false
 	}
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(reflect.TypeOf(node).String()))
-	return NodeIdentity{Typ: uintptr(h.Sum64()), Data: uintptr(word.data)}, true
+	return NodeIdentity{Typ: uintptr(word.typ), Data: uintptr(word.data)}, true
 }

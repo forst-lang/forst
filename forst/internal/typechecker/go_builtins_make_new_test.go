@@ -52,7 +52,7 @@ func TestDispatchMakeNew_rejectsNonTypeFirstArg(t *testing.T) {
 	_, err := New(logrus.New(), false).checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 		ast.StringLiteralNode{Value: "x"},
 		ast.IntLiteralNode{Value: 1},
-	}, nil, ast.SourceSpan{})
+	}, nil, ast.FakeSpan())
 	if err == nil {
 		t.Fatal("expected error")
 	}

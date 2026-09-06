@@ -86,7 +86,7 @@ func (tc *TypeChecker) CheckBuiltinMethod(typ ast.TypeNode, methodName string, a
 			"type":     typ.Ident,
 			"args":     args,
 		}).Tracef("Type is not a built-in type: %s", typ.Ident)
-		return nil, fmt.Errorf("type %s is not a built-in type", typ.Ident)
+		return nil, fmt.Errorf("type %s is not a built-in type", formatTypeIdentForDiag(typ.Ident))
 	}
 
 	method, exists := builtinType.Methods[methodName]
@@ -97,7 +97,7 @@ func (tc *TypeChecker) CheckBuiltinMethod(typ ast.TypeNode, methodName string, a
 			"type":     typ.Ident,
 			"args":     args,
 		}).Tracef("Method %s is not valid on type %s", methodName, typ.Ident)
-		return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, typ.Ident)
+		return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, formatTypeIdentForDiag(typ.Ident))
 	}
 
 	// Check argument count

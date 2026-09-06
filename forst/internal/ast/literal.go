@@ -18,6 +18,7 @@ type IntLiteralNode struct {
 	// Empty for synthetically constructed nodes; printers fall back to decimal Value.
 	Raw  string
 	Type TypeNode
+	Span SourceSpan
 }
 
 // Source returns the preferred source spelling for this literal.
@@ -35,30 +36,35 @@ func (i IntLiteralNode) Source() string {
 type FloatLiteralNode struct {
 	Value float64
 	Type  TypeNode
+	Span  SourceSpan
 }
 
 // StringLiteralNode represents a string literal
 type StringLiteralNode struct {
 	Value string
 	Type  TypeNode
+	Span  SourceSpan
 }
 
 // RuneLiteralNode represents a Go-style rune literal ('f', '\n')
 type RuneLiteralNode struct {
 	Value int64
 	Type  TypeNode
+	Span  SourceSpan
 }
 
 // BoolLiteralNode represents a boolean literal
 type BoolLiteralNode struct {
 	Value bool
 	Type  TypeNode
+	Span  SourceSpan
 }
 
 // ArrayLiteralNode represents an array literal
 type ArrayLiteralNode struct {
 	Value []ExpressionNode
 	Type  TypeNode
+	Span  SourceSpan
 }
 
 // MapEntryNode represents a key-value pair in a map literal
@@ -71,11 +77,14 @@ type MapEntryNode struct {
 type MapLiteralNode struct {
 	Entries []MapEntryNode
 	Type    TypeNode
+	Span    SourceSpan
 }
 
 // NilLiteralNode represents the nil literal
 // This is used instead of VariableNode with Ident 'nil'
-type NilLiteralNode struct{}
+type NilLiteralNode struct {
+	Span SourceSpan
+}
 
 // Kind returns the node kind for an integer literal
 func (i IntLiteralNode) Kind() NodeKind {

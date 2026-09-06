@@ -2,7 +2,7 @@
 
 **Status:** **Accepted, amended.** Normative for the RHS of `ensure … is` / `if … is`: a **refinement target** is a **type** or an **assertion**. Types and assertions stay distinct. “Place” in source grammar is represented by compiler `AccessPath`; runtime targets also include analyzable nominal scalar constraints. See [the locked technical design](../../../../.plans/analyzable-refinements/TECHNICAL-DESIGN.md).
 
-**Scope:** Type-target syntax (no parentheses), runtime membership for closed enum/literal subset types, narrowing to that type. Assertion `or`, `else`, guards: [12](./12-accepted-decision.md). Mutation of type-target facts: [13](./13-refinement-stability.md).
+**Scope:** Type-target syntax (no parentheses), runtime membership for closed enum/literal subset types, analyzable constrained scalar aliases (`String.Min…`), and bare nominal scalar domains, narrowing to that type. Assertion `or`, `else`, guards: [12](./12-accepted-decision.md). Mutation of type-target facts: [13](./13-refinement-stability.md).
 
 **Does not reopen:** [12](./12-accepted-decision.md), [13](./13-refinement-stability.md). Does not make every Forst type runtime-checkable. Does not turn enum variants into assertions.
 
@@ -165,9 +165,13 @@ It also avoids pretending that a type is executable predicate syntax.
 
 ## Initial scope
 
-Type-target narrowing is initially required for closed enum subset / union types.
+Type-target narrowing is required for:
 
-Example:
+1. Closed enum subset / literal union types
+2. Analyzable constrained scalar aliases (`type Sku = String.Min(1).Max(64)`)
+3. Bare nominal scalar domains (`type Password = String`)
+
+Example (literal union):
 
 ```ft
 enum Status {
@@ -185,6 +189,16 @@ type ActiveStatus =
 ```
 
 The compiler can generate a finite runtime membership check for `ActiveStatus`.
+
+Example (constrained scalar alias):
+
+```ft
+type Sku = String.Min(1).Max(64)
+
+ensure sku is Sku else BadSku()
+```
+
+The compiler expands the typedef’s Meet chain for the runtime check and narrows the subject to `Sku`.
 
 This RFC does not define general runtime membership for every Forst type.
 

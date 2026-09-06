@@ -34,7 +34,7 @@ func (tc *TypeChecker) inferTypeGuardNode(typeGuardNode ast.Node) ([]ast.TypeNod
 		}
 	}
 
-	if err := tc.validateTypeGuardBody(guardNode.Body); err != nil {
+	if err := tc.validateTypeGuardBody(guardNode.Body, typeGuardDeclSpan(guardNode)); err != nil {
 		tc.popScope()
 		return nil, err
 	}
@@ -73,26 +73,27 @@ func (tc *TypeChecker) inferTypeGuardNode(typeGuardNode ast.Node) ([]ast.TypeNod
 }
 
 // validateTypeGuardBody enforces the recursive guard statement whitelist (structure only).
-func (tc *TypeChecker) validateTypeGuardBody(body []ast.Node) error {
+func (tc *TypeChecker) validateTypeGuardBody(body []ast.Node, fallback ast.SourceSpan) error {
 	for _, node := range body {
+		sp := firstSetSpan(spanOfNode(node), fallback)
 		switch stmt := node.(type) {
 		case ast.CommentNode:
 			continue
 		case ast.ReturnNode:
-			return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+			return reportBodyf(sp, "refinement-guard-forbidden-stmt",
 				"type guards must not have return statements")
 		case ast.AssignmentNode, *ast.AssignmentNode:
-			return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+			return reportBodyf(sp, "refinement-guard-forbidden-stmt",
 				"type guards must not contain assignments")
 		case ast.ForNode, *ast.ForNode:
-			return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+			return reportBodyf(sp, "refinement-guard-forbidden-stmt",
 				"type guards must not contain loops")
 		case ast.IfNode:
-			if err := tc.validateTypeGuardIf(&stmt); err != nil {
+			if err := tc.validateTypeGuardIf(&stmt, fallback); err != nil {
 				return err
 			}
 		case *ast.IfNode:
-			if err := tc.validateTypeGuardIf(stmt); err != nil {
+			if err := tc.validateTypeGuardIf(stmt, fallback); err != nil {
 				return err
 			}
 		case ast.EnsureNode:
@@ -104,33 +105,35 @@ func (tc *TypeChecker) validateTypeGuardBody(body []ast.Node) error {
 				return err
 			}
 		default:
-			return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+			return reportBodyf(sp, "refinement-guard-forbidden-stmt",
 				"type guards may only contain if, else if, else, and ensure statements")
 		}
 	}
 	return nil
 }
 
-func (tc *TypeChecker) validateTypeGuardIf(stmt *ast.IfNode) error {
+func (tc *TypeChecker) validateTypeGuardIf(stmt *ast.IfNode, fallback ast.SourceSpan) error {
+	condSpan := firstSetSpan(spanOfNode(stmt.Condition), fallback)
 	if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
-		return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+		return reportBodyf(condSpan, "refinement-guard-forbidden-stmt",
 			"type guard conditions must use 'is' operator")
 	}
-	if err := tc.validateTypeGuardBody(stmt.Body); err != nil {
+	if err := tc.validateTypeGuardBody(stmt.Body, fallback); err != nil {
 		return err
 	}
 	for i := range stmt.ElseIfs {
 		ei := &stmt.ElseIfs[i]
+		eiSpan := firstSetSpan(spanOfNode(ei.Condition), fallback)
 		if binExpr, ok := ei.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
-			return diagnosticf(ast.SourceSpan{}, "refinement-guard-forbidden-stmt",
+			return reportBodyf(eiSpan, "refinement-guard-forbidden-stmt",
 				"type guard conditions must use 'is' operator")
 		}
-		if err := tc.validateTypeGuardBody(ei.Body); err != nil {
+		if err := tc.validateTypeGuardBody(ei.Body, fallback); err != nil {
 			return err
 		}
 	}
 	if stmt.Else != nil {
-		if err := tc.validateTypeGuardBody(stmt.Else.Body); err != nil {
+		if err := tc.validateTypeGuardBody(stmt.Else.Body, fallback); err != nil {
 			return err
 		}
 	}
@@ -138,13 +141,26 @@ func (tc *TypeChecker) validateTypeGuardIf(stmt *ast.IfNode) error {
 }
 
 func (tc *TypeChecker) validateTypeGuardEnsure(stmt ast.EnsureNode) error {
+	sp := stmt.Variable.Ident.Span
 	if stmt.Error != nil {
-		return diagnosticf(ast.SourceSpan{}, "refinement-else-in-guard",
+		return reportBodyf(sp, "refinement-else-in-guard",
 			"typed `else` is not allowed inside type guards")
 	}
 	if stmt.Block != nil {
-		return diagnosticf(ast.SourceSpan{}, "refinement-failure-block-in-guard",
+		return reportBodyf(sp, "refinement-failure-block-in-guard",
 			"failure blocks are not allowed inside type guards")
 	}
 	return nil
+}
+
+func typeGuardDeclSpan(guard ast.TypeGuardNode) ast.SourceSpan {
+	switch subject := guard.Subject.(type) {
+	case ast.SimpleParamNode:
+		return subject.Ident.Span
+	case *ast.SimpleParamNode:
+		if subject != nil {
+			return subject.Ident.Span
+		}
+	}
+	return ast.SourceSpan{}
 }

@@ -18,7 +18,7 @@ func (tc *TypeChecker) checkCallProvidersSatisfied(caller, callee ast.Identifier
 	if len(missing) == 0 {
 		return nil
 	}
-	return diagnosticfRelated(span, "providers-unsatisfied", tc.providersObligationRelated(caller, callee),
+	return reportBodyfRelated(span, "providers-unsatisfied", tc.providersObligationRelated(caller, callee),
 		"%s requires %s; not supplied\n  required by: %s%s", callee, strings.Join(missing, ", "),
 		tc.buildCallSiteObligationChain(caller, callee, missing), providersFixItHint(missing))
 }

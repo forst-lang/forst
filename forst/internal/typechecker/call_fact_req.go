@@ -62,14 +62,14 @@ func (tc *TypeChecker) checkCallFactRequirements(fn ast.Identifier, e ast.Functi
 		if tc.exprHasGuardFact(arg, "Adult") || tc.exprHasGuardFact(arg, "Admin") {
 			// Compound or fact: only the compound name counts, not salvaged disjuncts.
 			if tc.exprHasGuardFact(arg, "Adult") && !tc.exprHasCompoundOrFact(arg) {
-				return diagnosticf(sp, "refinement-missing-fact",
+				return reportBodyf(sp, "refinement-missing-fact",
 					"refinement-missing-fact: %s requires Adult|Admin on argument, not a salvaged disjunct", fn)
 			}
 		}
 		if tc.exprHasCompoundOrFact(arg) {
 			return nil
 		}
-		return diagnosticf(sp, "refinement-missing-fact",
+		return reportBodyf(sp, "refinement-missing-fact",
 			"refinement-missing-fact: call %s requires fact Adult|Admin on argument", fn)
 	}
 	if tc.exprHasGuardFact(arg, req) {
@@ -80,23 +80,23 @@ func (tc *TypeChecker) checkCallFactRequirements(fn ast.Identifier, e ast.Functi
 		code := diagnosticCodeForDrop(d.Reason)
 		switch d.Reason {
 		case dropByForeign:
-			return diagnosticf(sp, code,
+			return reportBodyf(sp, code,
 				"%s: fact %s was invalidated by an untrusted Go/reflect/unsafe boundary; Forst cannot prove the value unchanged — recover with ensure", code, req)
 		case dropByConcurrent:
-			return diagnosticf(sp, code,
+			return reportBodyf(sp, code,
 				"%s: fact %s was invalidated by concurrent escape (go/channel/closure); recover with ensure", code, req)
 		case dropByAlias:
-			return diagnosticf(sp, code,
+			return reportBodyf(sp, code,
 				"%s: fact %s was invalidated by a write through an alias; recover with ensure", code, req)
 		case dropByCall:
-			return diagnosticf(sp, code,
+			return reportBodyf(sp, code,
 				"%s: fact %s was invalidated by a call; recover with ensure", code, req)
 		default:
-			return diagnosticf(sp, code,
+			return reportBodyf(sp, code,
 				"%s: fact %s was established earlier but invalidated by a write; recover with ensure", code, req)
 		}
 	}
-	return diagnosticf(sp, "refinement-missing-fact",
+	return reportBodyf(sp, "refinement-missing-fact",
 		"refinement-missing-fact: call %s requires fact %s on argument", fn, req)
 }
 

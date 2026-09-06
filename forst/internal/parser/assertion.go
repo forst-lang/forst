@@ -46,18 +46,20 @@ func (p *Parser) parseConstraint() ast.ConstraintNode {
 			p.advance()
 		}
 	}
-	p.expect(ast.TokenRParen)
+	rparen := p.expect(ast.TokenRParen)
 
 	return ast.ConstraintNode{
 		Name: constraint.Value,
 		Args: args,
+		Span: ast.SpanBetweenTokens(constraint, rparen),
 	}
 }
 
 func (p *Parser) rejectPipeInAssertion() {
 	if p.current().Type == ast.TokenBitwiseOr {
-		p.FailWithParseError(p.current(),
-			"refinement-pipe-in-assertion: `|` is not valid inside `is`; use `or` to join assertion alternatives")
+		p.FailWithReport(p.current(), "refinement-pipe-in-assertion", "`|` is not valid inside `is`",
+			"`|` is not valid inside `is`; use `or` to join assertion alternatives.",
+			"write `is A() or B()`, not `is A() | B()`")
 	}
 }
 
@@ -96,7 +98,9 @@ func (p *Parser) handleShapeSugar() (handled bool, target ast.RefinementTarget, 
 		if p.current().Type == ast.TokenLBrace {
 			shape = p.parseShapeLiteral(ShapeLiteralOpts{})
 		} else {
-			p.FailWithParseError(p.current(), "expected shape literal in Shape(...)")
+			p.FailWithReport(p.current(), "parse-expected", "expected shape literal in Shape(...)",
+				"Shape(...) requires a shape literal `{ ... }` argument.",
+				"write `is { field: Type }` or `is Shape({ field: Type })`")
 		}
 		p.expect(ast.TokenRParen)
 		assertion := ast.AssertionNode{
@@ -155,13 +159,17 @@ func (p *Parser) parseRefinementTarget() (ast.RefinementTarget, ast.AssertionNod
 	isBuiltinKeyword := isBuiltinTypeToken(token)
 
 	if !isIdentOrConstraint && !isBuiltinKeyword {
-		p.FailWithParseError(token, "expected type name or assertion after `is`")
+		p.FailWithReport(token, "refinement-expected-target", "expected type name or assertion after `is`",
+			"After `is`, Forst expects a type name, constraint call, or shape literal.",
+			"examples: `is String`, `is Min(0)`, `is { name: String }`")
 	}
 
 	// Bare constraint call: Name(...)
 	if (isIdentOrConstraint || isBuiltinKeyword) && p.peek().Type == ast.TokenLParen {
 		if isBuiltinKeyword {
-			p.FailWithParseError(token, "builtin type cannot be used as a constraint call")
+			p.FailWithReport(token, "refinement-builtin-constraint", "builtin type cannot be used as a constraint call",
+				"Built-in types like String or Int cannot be called as constraints.",
+				"use a constraint name (CapitalCase), e.g. `is Min(0)` or `is String.Min(1)`")
 		}
 		assertion := p.parseAssertionMeetChain(false)
 		assertion = p.parseAssertionOrJoin(assertion)
@@ -192,8 +200,9 @@ func (p *Parser) parseRefinementTarget() (ast.RefinementTarget, ast.AssertionNod
 	p.rejectPipeInAssertion()
 	tt := ast.TypeTarget{Name: *baseType}
 	if p.current().Type == ast.TokenOr {
-		p.FailWithParseError(p.current(),
-			"refinement-or-mixed-target: `or` cannot join type names; declare a union type with `|` (e.g. `type Live = A | B`)")
+		p.FailWithReport(p.current(), "refinement-or-mixed-target", "`or` cannot join type names",
+			"`or` cannot join type names; declare a union type with `|` (e.g. `type Live = A | B`).",
+			"use `is A() or B()` for constraints, or `type T = A | B` for type unions")
 	}
 	return tt, ast.AssertionNode{BaseType: baseType}
 }
@@ -213,7 +222,9 @@ func (p *Parser) parseAssertionMeetChain(requireBaseType bool) ast.AssertionNode
 	if isIdentOrConstraint || isBuiltinKeyword {
 		if p.peek().Type == ast.TokenLParen {
 			if requireBaseType {
-				p.FailWithParseError(token, "Expected base type for assertion")
+				p.FailWithReport(token, "parse-expected", "expected base type for assertion",
+					"A parenthesized assertion chain needs a base type before constraints.",
+					"write `(Type.Constraint(...))` or use a bare constraint call")
 			}
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
@@ -266,8 +277,9 @@ func (p *Parser) parseAssertionOrJoin(first ast.AssertionNode) ast.AssertionNode
 		p.rejectPipeInAssertion()
 
 		if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenIs {
-			p.FailWithParseError(p.current(),
-				"refinement-repeated-is-subject: do not repeat the subject after `or`; write `is A() or B()`")
+			p.FailWithReport(p.current(), "refinement-repeated-is-subject", "do not repeat the subject after `or`",
+				"do not repeat the subject after `or`; write `is A() or B()`.",
+				"the subject is already bound — only list constraint alternatives after `or`")
 		}
 
 		altTok := p.current()
@@ -281,23 +293,27 @@ func (p *Parser) parseAssertionOrJoin(first ast.AssertionNode) ast.AssertionNode
 		isBaseConstraint := looksLikeBaseConstraint(altTok, peekTok)
 
 		if isConstraint && !isPossibleConstraintIdentifier(altTok) {
-			p.FailWithParseError(altTok,
-				"refinement-or-non-constraint: `or` alternative must be a constraint chain with parentheses (constraint names are CapitalCase)")
+			p.FailWithReport(altTok, "refinement-or-non-constraint", "`or` alternative must be a constraint chain",
+				"`or` alternative must be a constraint chain with parentheses (constraint names are CapitalCase).",
+				"write `is Foo() or Bar()` with CapitalCase constraint names")
 		}
 
 		if !isConstraint && !isBaseConstraint {
 			if altTok.Type == ast.TokenIdentifier && peekTok.Type != ast.TokenLParen {
-				p.FailWithParseError(altTok,
-					fmt.Sprintf("refinement-or-non-constraint: `or` alternative must be a constraint chain with parentheses (got %q); use `else` for typed failure", altTok.Value))
+				p.FailWithReport(altTok, "refinement-or-non-constraint", "`or` alternative must be a constraint chain",
+					fmt.Sprintf("`or` alternative must be a constraint chain with parentheses (got %q); use `else` for typed failure.", altTok.Value),
+					"constraint alternatives need parentheses, e.g. `is A() or B()`")
 			}
-			p.FailWithParseError(orTok,
-				"refinement-or-non-constraint: `or` joins assertion constraint chains only, not boolean expressions")
+			p.FailWithReport(orTok, "refinement-or-non-constraint", "`or` joins assertion chains only",
+				"`or` joins assertion constraint chains only, not boolean expressions.",
+				"use `||` in expressions; use `or` only inside `is` refinements")
 		}
 
 		alt := p.parseAssertionMeetChain(false)
 		if len(alt.Constraints) == 0 {
-			p.FailWithParseError(altTok,
-				"refinement-or-mixed-target: `or` cannot join a type name with an assertion; use constraint chains only")
+			p.FailWithReport(altTok, "refinement-or-mixed-target", "`or` cannot join a type name with an assertion",
+				"`or` cannot join a type name with an assertion; use constraint chains only.",
+				"write `is Type.Min(0) or Type.Max(10)`, not `is Type or Min(0)`")
 		}
 		first.OrChains = append(first.OrChains, alt)
 	}

@@ -21,7 +21,7 @@ func (tc *TypeChecker) validateFunctionTypeParamConstraints(sig FunctionSignatur
 			return tc.genericDiag(sig.Ident.Span, fmt.Sprintf("type parameter %s: constraint must be a simple identifier", tp.Name))
 		}
 		if _, ok := allowedTypeParamConstraints[c.Ident]; !ok {
-			return tc.genericDiag(sig.Ident.Span, fmt.Sprintf("type parameter %s: unknown constraint %q (allowed: any, comparable)", tp.Name, c.Ident))
+			return tc.genericDiag(sig.Ident.Span, fmt.Sprintf("type parameter %s: unknown constraint %q (allowed: any, comparable)", tp.Name, formatTypeIdentForDiag(c.Ident)))
 		}
 	}
 	return nil

@@ -12,6 +12,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestCheckTypes_forstSubslice_string(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f(): String {
+	s := "abcdef"
+	return s[1:3]
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
+}
+
 func TestCheckTypes_forstSubslice_lowHigh(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -108,8 +119,8 @@ func main() {
 	if !errors.As(err, &diag) || diag.Code != "go-call" {
 		t.Fatalf("want go-call diagnostic, got %v", err)
 	}
-	if !strings.Contains(diag.Msg, "cannot spread") {
-		t.Fatalf("want cannot spread in message, got %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "cannot spread") {
+		t.Fatalf("want cannot spread in message, got %q", diag.Error())
 	}
 }
 
@@ -131,8 +142,8 @@ func main() {
 	if !errors.As(err, &diag) || diag.Code != "go-call" {
 		t.Fatalf("want go-call diagnostic, got %v", err)
 	}
-	if !strings.Contains(diag.Msg, "only trailing argument") {
-		t.Fatalf("want trailing spread message, got %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "only trailing argument") {
+		t.Fatalf("want trailing spread message, got %q", diag.Error())
 	}
 }
 
@@ -206,11 +217,11 @@ func f(xs []String): String {
 `
 	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
-		t.Fatal("expected field-access error on non-Go expression")
+		t.Fatal("expected shape-unknown-field error on String")
 	}
 	var diag *Diagnostic
-	if !errors.As(err, &diag) || diag.Code != "field-access" {
-		t.Fatalf("want field-access diagnostic, got %v", err)
+	if !errors.As(err, &diag) || diag.Code != "shape-unknown-field" {
+		t.Fatalf("want shape-unknown-field diagnostic, got %v", err)
 	}
 }
 

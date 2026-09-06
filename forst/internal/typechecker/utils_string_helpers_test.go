@@ -57,4 +57,3 @@ func TestIsShapeSuperset_andRegisterHashBasedType(t *testing.T) {
 		t.Fatal("expected identical shapes to be superset-compatible")
 	}
 }
-

@@ -30,4 +30,4 @@ flowchart TB
 
 ## Status
 
-**Draft** — command not implemented; spec defines target behavior for implementation.
+**Experimental** — implemented in `cmd/forst test` and `internal/testrunner`. Discovers `Test*` entrypoints in `*_test.ft`, emits temporary Go test code, links sibling `.go` sources and Go-only packages, and delegates execution to `go test`.

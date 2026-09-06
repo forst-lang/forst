@@ -121,7 +121,7 @@ type Clock = {
 
 func f() {
 	use clock: Clock
-	_ := clock.now()
+	_ = clock.now()
 }
 `
 	log := logrus.New()
@@ -160,7 +160,7 @@ func TestCheckContractShapeMethod_wrongArity_errors(t *testing.T) {
 	_, err := tc.checkContractShapeMethod(ast.TypeNode{Ident: "Logger"}, "info", []ast.ExpressionNode{
 		ast.StringLiteralNode{Value: "a"},
 		ast.StringLiteralNode{Value: "b"},
-	})
+	}, ast.FakeSpan())
 	if err == nil {
 		t.Fatal("expected arity error for contract method call")
 	}
@@ -219,7 +219,7 @@ func (NopLogger) info(msg String) {
 	if err == nil {
 		t.Fatal("expected typecheck error for void contract with inferred non-void return")
 	}
-	if !strings.Contains(err.Error(), "contract requires void") {
+	if !strings.Contains(err.Error(), "requires void") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

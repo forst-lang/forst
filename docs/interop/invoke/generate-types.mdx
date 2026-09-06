@@ -74,7 +74,7 @@ The generated `package.json` declares an optional peer on `@forst/cli` so real-s
 
 For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
 
-Working reference: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve) (`vite.config.ts`).
+Copy the `ssr.noExternal` setting from [`vite.config.ts`](https://github.com/forst-lang/forst/blob/main/examples/in/rfc/bridge-interop/remix-serve/vite.config.ts) in the remix-serve example. Host mode in that fixture is a separate choice. See [Choose who starts the Node app](/interop/invoke/call-forst#choose-who-starts-the-node-app).
 
 ## Runtime targets
 

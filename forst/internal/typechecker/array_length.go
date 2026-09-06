@@ -35,17 +35,23 @@ func checkFixedArrayIndexBounds(arrayType ast.TypeNode, index ast.ExpressionNode
 		return nil
 	}
 	if idx < 0 || idx >= *arrayType.ArrayLen {
-		return fmt.Errorf("index %d out of range for [%d] array", idx, *arrayType.ArrayLen)
+		return reportf(spanOfExpression(index), "index-out-of-range",
+			fmt.Sprintf("index %d out of range", idx),
+			fmt.Sprintf("Index %d is out of range for a [%d] array.", idx, *arrayType.ArrayLen),
+			fmt.Sprintf("use an index from 0 to %d", *arrayType.ArrayLen-1))
 	}
 	return nil
 }
 
-func checkFixedArrayLiteralLength(arrayType ast.TypeNode, elemCount int) error {
+func checkFixedArrayLiteralLength(arrayType ast.TypeNode, elemCount int, span ast.SourceSpan) error {
 	if arrayType.ArrayLen == nil {
 		return nil
 	}
 	if int64(elemCount) != *arrayType.ArrayLen {
-		return fmt.Errorf("array literal has %d elements, want %d for [%d] array", elemCount, *arrayType.ArrayLen, *arrayType.ArrayLen)
+		return reportf(span, "array-length-mismatch",
+			"array literal length mismatch",
+			fmt.Sprintf("Array literal has %d elements, want %d for [%d] array.", elemCount, *arrayType.ArrayLen, *arrayType.ArrayLen),
+			fmt.Sprintf("provide exactly %d elements", *arrayType.ArrayLen))
 	}
 	return nil
 }

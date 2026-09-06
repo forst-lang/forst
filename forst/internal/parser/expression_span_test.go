@@ -4,56 +4,165 @@ import (
 	"testing"
 
 	"forst/internal/ast"
-	"forst/internal/lexer"
 )
 
-func TestParseFunctionCallSpans(t *testing.T) {
-	src := "package p\nfunc main() {\n  fmt.Println(1, x)\n}\n"
-	logger := ast.SetupTestLogger(nil)
-	lex := lexer.New([]byte(src), "t.ft", logger)
-	toks := lex.Lex()
-	p := New(toks, "t.ft", logger)
-	nodes, err := p.ParseFile()
+func TestParseExpressionSpans_indexSliceTypeShapeFuncLit(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type User = { name: String }
+func f() {
+	xs := [1, 2, 3]
+	_ = xs[1]
+	_ = xs[1:3]
+	_ = make(Array(Int), 0)
+	_ = { name: "a" }
+	_ = User{ name: "b" }
+	_ = func(): Int { return 1 }
+	_ = xs[1][0]
+	_ = xs[1:3][:1]
+	_ = Ok(1)
+	_ = Err("e")
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
 	}
-	var fn *ast.FunctionNode
+
+	var (
+		indexSpan, sliceSpan, typeSpan, bareShapeSpan, typedShapeSpan, funcLitSpan ast.SourceSpan
+		nestedIndexSpan, nestedSliceSpan, okSpan, errSpan                          ast.SourceSpan
+		foundIndex, foundSlice, foundTypeExpr, foundBareShape, foundTypedShape     bool
+		foundFuncLit, foundNestedIndex, foundNestedSlice, foundOk, foundErr        bool
+	)
+
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		if n == nil {
+			return
+		}
+		switch v := n.(type) {
+		case ast.IndexExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("IndexExpressionNode missing span: %+v", v)
+			}
+			if _, ok := v.Target.(ast.IndexExpressionNode); ok {
+				foundNestedIndex = true
+				nestedIndexSpan = v.Span
+			} else if !foundIndex {
+				foundIndex = true
+				indexSpan = v.Span
+			}
+			walk(v.Target)
+			walk(v.Index)
+		case ast.SliceExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("SliceExpressionNode missing span: %+v", v)
+			}
+			if _, ok := v.Target.(ast.SliceExpressionNode); ok {
+				foundNestedSlice = true
+				nestedSliceSpan = v.Span
+			} else if !foundSlice {
+				foundSlice = true
+				sliceSpan = v.Span
+			}
+			walk(v.Target)
+			if v.Low != nil {
+				walk(v.Low)
+			}
+			if v.High != nil {
+				walk(v.High)
+			}
+		case ast.TypeExpressionNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("TypeExpressionNode missing span: %+v", v)
+			}
+			foundTypeExpr = true
+			typeSpan = v.Span
+		case ast.ShapeNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("ShapeNode missing span: %+v", v)
+			}
+			if v.BaseType != nil && string(*v.BaseType) == "User" {
+				foundTypedShape = true
+				typedShapeSpan = v.Span
+			} else if v.BaseType == nil {
+				foundBareShape = true
+				bareShapeSpan = v.Span
+			}
+		case ast.FunctionLiteralNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("FunctionLiteralNode missing span: %+v", v)
+			}
+			foundFuncLit = true
+			funcLitSpan = v.Span
+			for _, stmt := range v.Body {
+				walk(stmt)
+			}
+		case ast.OkExprNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("OkExprNode missing span: %+v", v)
+			}
+			foundOk = true
+			okSpan = v.Span
+			walk(v.Value)
+		case ast.ErrExprNode:
+			if !v.Span.IsSet() {
+				t.Fatalf("ErrExprNode missing span: %+v", v)
+			}
+			foundErr = true
+			errSpan = v.Span
+			walk(v.Value)
+		case ast.FunctionCallNode:
+			for _, arg := range v.Arguments {
+				walk(arg)
+			}
+		case ast.FunctionNode:
+			for _, stmt := range v.Body {
+				walk(stmt)
+			}
+		case ast.AssignmentNode:
+			for _, rv := range v.RValues {
+				walk(rv)
+			}
+		case ast.TypeDefNode:
+			// skip typedef shapes for bare/typed literal checks
+		}
+	}
 	for _, n := range nodes {
-		if f, ok := n.(ast.FunctionNode); ok && f.Ident.ID == "main" {
-			fn = &f
-			break
-		}
+		walk(n)
 	}
-	if fn == nil {
-		t.Fatal("main not found")
+
+	if !foundIndex || !foundSlice || !foundTypeExpr || !foundBareShape || !foundTypedShape || !foundFuncLit {
+		t.Fatalf("missing nodes: index=%v slice=%v type=%v bareShape=%v typedShape=%v funcLit=%v",
+			foundIndex, foundSlice, foundTypeExpr, foundBareShape, foundTypedShape, foundFuncLit)
 	}
-	var call ast.FunctionCallNode
-	for _, st := range fn.Body {
-		if c, ok := st.(ast.FunctionCallNode); ok {
-			call = c
-			break
-		}
+	if !foundNestedIndex || !foundNestedSlice || !foundOk || !foundErr {
+		t.Fatalf("missing extra nodes: nestedIndex=%v nestedSlice=%v ok=%v err=%v",
+			foundNestedIndex, foundNestedSlice, foundOk, foundErr)
 	}
-	if call.Function.ID != "fmt.Println" {
-		t.Fatalf("call function = %q", call.Function.ID)
+
+	cases := []struct {
+		name string
+		got  ast.SourceSpan
+		want ast.SourceSpan
+	}{
+		{name: "index", got: indexSpan, want: ast.SourceSpan{StartLine: 5, StartCol: 6, EndLine: 5, EndCol: 11}},
+		{name: "slice", got: sliceSpan, want: ast.SourceSpan{StartLine: 6, StartCol: 6, EndLine: 6, EndCol: 13}},
+		{name: "typeExpr", got: typeSpan, want: ast.SourceSpan{StartLine: 7, StartCol: 11, EndLine: 7, EndCol: 21}},
+		{name: "bareShape", got: bareShapeSpan, want: ast.SourceSpan{StartLine: 8, StartCol: 6, EndLine: 8, EndCol: 19}},
+		{name: "typedShapeStartsAtUser", got: typedShapeSpan, want: ast.SourceSpan{StartLine: 9, StartCol: 6, EndLine: 9, EndCol: 23}},
+		{name: "funcLit", got: funcLitSpan, want: ast.SourceSpan{StartLine: 10, StartCol: 6, EndLine: 10, EndCol: 30}},
+		{name: "nestedIndex", got: nestedIndexSpan, want: ast.SourceSpan{StartLine: 11, StartCol: 6, EndLine: 11, EndCol: 14}},
+		{name: "nestedSlice", got: nestedSliceSpan, want: ast.SourceSpan{StartLine: 12, StartCol: 6, EndLine: 12, EndCol: 17}},
+		{name: "okExprStartsAtOk", got: okSpan, want: ast.SourceSpan{StartLine: 13, StartCol: 6, EndLine: 13, EndCol: 11}},
+		{name: "errExprStartsAtErr", got: errSpan, want: ast.SourceSpan{StartLine: 14, StartCol: 6, EndLine: 14, EndCol: 14}},
 	}
-	if !call.Function.Span.IsSet() {
-		t.Fatal("Function.Span not set")
-	}
-	if call.Function.Span.StartLine != 3 || call.Function.Span.StartCol != 3 {
-		t.Errorf("Function span start = %d:%d want 3:3", call.Function.Span.StartLine, call.Function.Span.StartCol)
-	}
-	if !call.CallSpan.IsSet() {
-		t.Fatal("CallSpan not set")
-	}
-	if len(call.Arguments) != 2 || len(call.ArgSpans) != 2 {
-		t.Fatalf("args/spans len got %d/%d", len(call.Arguments), len(call.ArgSpans))
-	}
-	if !call.ArgSpans[0].IsSet() || !call.ArgSpans[1].IsSet() {
-		t.Fatal("ArgSpans not set")
-	}
-	// First arg is literal 1 on same line as call
-	if call.ArgSpans[0].StartLine != 3 {
-		t.Errorf("arg0 span line %d want 3", call.ArgSpans[0].StartLine)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.got != tc.want {
+				t.Fatalf("got %+v want %+v", tc.got, tc.want)
+			}
+		})
 	}
 }

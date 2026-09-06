@@ -64,20 +64,24 @@ func storeLoadCache(dir string, importPaths []string, out map[string]*packages.P
 
 // LoadByPkgPath loads packages by import path (e.g. "fmt", "strconv") and returns import path -> *packages.Package.
 // Results are cached per (module root Dir, import path set) for the process lifetime; single-path loads reuse batch results.
+// Overlay loads are not cached.
 func LoadByPkgPath(dir string, importPaths []string, opts ...LoadOpt) (map[string]*packages.Package, error) {
 	if len(importPaths) == 0 {
 		return nil, nil
 	}
 	cfg := resolveLoadConfig(opts)
 	dir = FindModuleRoot(dir)
-	key := loadByPkgPathCacheKey(dir, importPaths)
-	if v, ok := loadByPkgPathCache.Load(key); ok {
-		e := v.(loadByPkgPathCacheEntry)
-		return e.out, e.err
+	if len(cfg.overlay) == 0 {
+		key := loadByPkgPathCacheKey(dir, importPaths)
+		if v, ok := loadByPkgPathCache.Load(key); ok {
+			e := v.(loadByPkgPathCacheEntry)
+			return e.out, e.err
+		}
+		out, err := loadByPkgPathUncached(dir, importPaths, cfg.loader, nil)
+		storeLoadCache(dir, importPaths, out, err)
+		return out, err
 	}
-	out, err := loadByPkgPathUncached(dir, importPaths, cfg.loader)
-	storeLoadCache(dir, importPaths, out, err)
-	return out, err
+	return loadByPkgPathUncached(dir, importPaths, cfg.loader, cfg.overlay)
 }
 
 // packageHasGoSources reports whether p has Go source files (real package vs directory placeholder).
@@ -124,14 +128,15 @@ func loadPackagesEnv(dir string) []string {
 	return env
 }
 
-func loadByPkgPathUncached(dir string, importPaths []string, loader PackagesLoader) (map[string]*packages.Package, error) {
+func loadByPkgPathUncached(dir string, importPaths []string, loader PackagesLoader, overlay map[string][]byte) (map[string]*packages.Package, error) {
 	if loader == nil {
 		loader = packagesLoadFn
 	}
 	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedDeps | packages.NeedImports,
-		Dir:  dir,
-		Env:  loadPackagesEnv(dir),
+		Mode:    packages.NeedTypes | packages.NeedDeps | packages.NeedImports,
+		Dir:     dir,
+		Env:     loadPackagesEnv(dir),
+		Overlay: overlay,
 	}
 	pkgs, err := loader(cfg, importPaths...)
 	if err != nil {

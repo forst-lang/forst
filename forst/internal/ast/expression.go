@@ -54,6 +54,7 @@ type MethodCallNode struct {
 type IndexExpressionNode struct {
 	Target ExpressionNode
 	Index  ExpressionNode
+	Span   SourceSpan
 }
 
 func (i IndexExpressionNode) isExpression() { _ = i }
@@ -63,6 +64,7 @@ type SliceExpressionNode struct {
 	Target ExpressionNode
 	Low    ExpressionNode // nil when omitted before ':'
 	High   ExpressionNode // nil when omitted after ':'
+	Span   SourceSpan
 }
 
 func (s SliceExpressionNode) isExpression() { _ = s }
@@ -101,6 +103,7 @@ func (s SpreadExpressionNode) String() string {
 // TypeExpressionNode is a type literal in expression position (make/new first argument).
 type TypeExpressionNode struct {
 	Type TypeNode
+	Span SourceSpan
 }
 
 func (TypeExpressionNode) isExpression() {}

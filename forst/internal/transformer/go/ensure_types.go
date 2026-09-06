@@ -16,12 +16,18 @@ const (
 	MinConstraint BuiltinConstraint = "Min"
 	// MaxConstraint is the built-in Max constraint in Forst
 	MaxConstraint BuiltinConstraint = "Max"
+	// MinBytesConstraint is UTF-8 byte lower bound on String
+	MinBytesConstraint BuiltinConstraint = "MinBytes"
+	// MaxBytesConstraint is UTF-8 byte upper bound on String
+	MaxBytesConstraint BuiltinConstraint = "MaxBytes"
 	// LessThanConstraint is the built-in LessThan constraint in Forst
 	LessThanConstraint BuiltinConstraint = "LessThan"
 	// GreaterThanConstraint is the built-in GreaterThan constraint in Forst
 	GreaterThanConstraint BuiltinConstraint = "GreaterThan"
 	// HasPrefixConstraint is the built-in HasPrefix constraint in Forst
 	HasPrefixConstraint BuiltinConstraint = "HasPrefix"
+	// HasSuffixConstraint is the built-in HasSuffix constraint in Forst
+	HasSuffixConstraint BuiltinConstraint = "HasSuffix"
 	// ContainsConstraint is the built-in Contains constraint in Forst
 	ContainsConstraint BuiltinConstraint = "Contains"
 	// TrueConstraint is the built-in True constraint in Forst
@@ -34,9 +40,32 @@ const (
 	PresentConstraint BuiltinConstraint = "Present"
 	// NotEmptyConstraint is the built-in NotEmpty constraint in Forst
 	NotEmptyConstraint BuiltinConstraint = "NotEmpty"
+	// FiniteConstraint is the built-in Finite constraint for Float
+	FiniteConstraint BuiltinConstraint = "Finite"
 	// ValueConstraint is the built-in Value constraint in Forst
 	ValueConstraint BuiltinConstraint = ast.ValueConstraint
 )
+
+// BuiltinConstraintNames is the closed set of value/refinement builtin names
+// (excluding structural Match and plugin markers such as Router).
+var BuiltinConstraintNames = []string{
+	string(MinConstraint),
+	string(MaxConstraint),
+	string(MinBytesConstraint),
+	string(MaxBytesConstraint),
+	string(LessThanConstraint),
+	string(GreaterThanConstraint),
+	string(HasPrefixConstraint),
+	string(HasSuffixConstraint),
+	string(ContainsConstraint),
+	string(TrueConstraint),
+	string(FalseConstraint),
+	string(NilConstraint),
+	string(PresentConstraint),
+	string(NotEmptyConstraint),
+	string(FiniteConstraint),
+	string(ValueConstraint),
+}
 
 const (
 	// BoolConstantTrue is the true constant in Go

@@ -3,8 +3,6 @@ package typechecker
 
 import (
 	"forst/internal/ast"
-	"sort"
-	"strings"
 )
 
 // RegisterTypeIfMissing registers a type definition if not already present in Defs.
@@ -15,9 +13,9 @@ func (tc *TypeChecker) RegisterTypeIfMissing(ident ast.TypeIdent, def any) {
 	}
 	switch d := def.(type) {
 	case ast.TypeDefNode:
-		tc.Defs[ident] = d
+		tc.setDef(ident, d)
 	case ast.TypeDefShapeExpr:
-		tc.Defs[ident] = d
+		tc.setDef(ident, d)
 	default:
 		panic("RegisterTypeIfMissing: unsupported type definition")
 	}
@@ -41,78 +39,28 @@ func (tc *TypeChecker) FindStructurallyIdenticalNamedType(typeNode ast.TypeNode)
 	if !typeNode.IsHashBased() {
 		return ""
 	}
-	// Look up the shape for this hash-based type
-	hashDef, hashExists := tc.Defs[typeNode.Ident]
-	if !hashExists {
-		return ""
+	if alias, ok := tc.lookupShapeAliasForHashType(typeNode); ok {
+		return alias
 	}
-	hashTypeDef, ok := hashDef.(ast.TypeDefNode)
-	if !ok {
-		return ""
-	}
-	hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr)
-	if !ok {
-		return ""
-	}
-	hashShape := hashShapeExpr.Shape
-	var matches []ast.TypeIdent
-	for typeIdent, def := range tc.Defs {
-		userDef, ok := def.(ast.TypeDefNode)
-		if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
-			continue
-		}
-		userPayload, ok := ast.PayloadShape(userDef.Expr)
-		if !ok {
-			continue
-		}
-		userShape := *userPayload
-		if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
-			matches = append(matches, typeIdent)
-		}
-	}
-	if len(matches) == 0 {
-		return ""
-	}
-	sort.Slice(matches, func(i, j int) bool { return matches[i] < matches[j] })
-	return matches[0]
+	return ""
 }
 
 // FindAnyStructurallyIdenticalNamedType returns the first user-defined named type that is structurally identical to the given shape, or "" if none.
 // This function works for any shape, not just hash-based types.
 func (tc *TypeChecker) FindAnyStructurallyIdenticalNamedType(shape ast.ShapeNode) ast.TypeIdent {
-	var matches []ast.TypeIdent
-	for typeIdent, def := range tc.Defs {
-		// Skip hash-based types
-		if strings.HasPrefix(string(typeIdent), "T_") {
-			continue
-		}
-
-		// Check if this is a type definition with a shape
-		typeDef, ok := def.(ast.TypeDefNode)
-		if !ok {
-			continue
-		}
-
-		payload, ok := ast.PayloadShape(typeDef.Expr)
-		if !ok {
-			continue
-		}
-
-		// Check if the shapes are structurally identical
-		if tc.shapesAreStructurallyIdentical(shape, *payload) {
-			matches = append(matches, typeIdent)
-		}
-	}
-	if len(matches) == 0 {
+	h, err := tc.Hasher.HashNode(shape)
+	if err != nil {
 		return ""
 	}
-	sort.Slice(matches, func(i, j int) bool { return matches[i] < matches[j] })
-	return matches[0]
+	if alias, ok := tc.shapeAliasIndexOrBuild().byShapeHash[h]; ok {
+		return alias
+	}
+	return ""
 }
 
 // UserNamedTypeMatchesShape reports whether ident names a user type whose shape is structurally identical to shape.
 func (tc *TypeChecker) UserNamedTypeMatchesShape(ident ast.TypeIdent, shape ast.ShapeNode) bool {
-	if ident == "" || strings.HasPrefix(string(ident), "T_") {
+	if ident == "" || tc.isHashBasedIdent(ident) {
 		return false
 	}
 	def, ok := tc.Defs[ident]

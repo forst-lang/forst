@@ -38,7 +38,7 @@ func TestCheckSignature_multiReturnMapsToTuple(t *testing.T) {
 	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(), results, false)
 
 	host := stubHost{}
-	diag := func(_ ast.SourceSpan, _, _ string, _ ...any) error {
+	diag := func(_ ast.SourceSpan, _, _, _, _ string) error {
 		return nil
 	}
 	got, err := gointerop.CheckSignature(host, diag, gointerop.SignatureCheck{
@@ -75,3 +75,73 @@ func (stubHost) InferExpressionType(_ ast.ExpressionNode) ([]ast.TypeNode, error
 func (stubHost) GoTypeForExpression(_ ast.ExpressionNode) types.Type {
 	return nil
 }
+
+func TestCheckParamAssignability_mapAndIotaArgSpans(t *testing.T) {
+	t.Parallel()
+	mapSpan := ast.SourceSpan{StartLine: 4, StartCol: 2, EndLine: 4, EndCol: 18}
+	iotaSpan := ast.SourceSpan{StartLine: 5, StartCol: 3, EndLine: 5, EndCol: 7}
+	entryKeySpan := ast.SourceSpan{StartLine: 8, StartCol: 1, EndLine: 8, EndCol: 4}
+
+	cases := []struct {
+		name string
+		arg  ast.ExpressionNode
+		want ast.SourceSpan
+	}{
+		{
+			name: "mapLiteralUsesSpan",
+			arg: ast.MapLiteralNode{
+				Span: mapSpan,
+				Entries: []ast.MapEntryNode{
+					{Key: ast.StringLiteralNode{Value: "k", Span: entryKeySpan}, Value: ast.IntLiteralNode{Value: 1}},
+				},
+			},
+			want: mapSpan,
+		},
+		{
+			name: "mapLiteralFallsBackToEntry",
+			arg: ast.MapLiteralNode{
+				Entries: []ast.MapEntryNode{
+					{Key: ast.StringLiteralNode{Value: "k", Span: entryKeySpan}, Value: ast.IntLiteralNode{Value: 1}},
+				},
+			},
+			want: entryKeySpan,
+		},
+		{
+			name: "iotaLiteralUsesSpan",
+			arg:  ast.IotaLiteralNode{Span: iotaSpan},
+			want: iotaSpan,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got ast.SourceSpan
+			diag := func(sp ast.SourceSpan, _, _, _, _ string) error {
+				got = sp
+				return errDiag
+			}
+			err := gointerop.CheckParamAssignability(stubHost{}, diag, gointerop.ParamAssignability{
+				Qual:    "pkg.F",
+				Index:   0,
+				GoParam: types.Typ[types.String],
+				ArgType: []ast.TypeNode{{Ident: ast.TypeInt}},
+				Call: ast.FunctionCallNode{
+					Arguments: []ast.ExpressionNode{tc.arg},
+				},
+				ArgIdx: 0,
+			})
+			if err == nil {
+				t.Fatal("expected diagnostic")
+			}
+			if got != tc.want {
+				t.Fatalf("diag span %+v want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+var errDiag = errSentinel("diag")
+
+type errSentinel string
+
+func (e errSentinel) Error() string { return string(e) }

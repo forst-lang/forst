@@ -5,6 +5,11 @@ import (
 )
 
 func (p *Parser) parseBlock() []ast.Node {
+	body, _ := p.parseBlockWithClose()
+	return body
+}
+
+func (p *Parser) parseBlockWithClose() ([]ast.Node, ast.Token) {
 	body := []ast.Node{}
 
 	p.expect(ast.TokenLBrace) // Expect `{`
@@ -20,7 +25,6 @@ func (p *Parser) parseBlock() []ast.Node {
 		body = append(body, p.parseBlockStatement()...)
 	}
 
-	p.expect(ast.TokenRBrace) // Expect `}`
-
-	return body
+	rbrace := p.expect(ast.TokenRBrace) // Expect `}`
+	return body, rbrace
 }

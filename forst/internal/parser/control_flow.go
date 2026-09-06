@@ -166,7 +166,9 @@ func (p *Parser) parseSendStmt() ast.Node {
 func (p *Parser) parseDeferStatement() ast.Node {
 	p.advance() // defer
 	if p.current().Type == ast.TokenLParen {
-		p.FailWithParseError(p.current(), "defer operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression)")
+		p.FailWithReport(p.current(), "defer-parenthesized", "defer operand cannot be parenthesized",
+			"defer operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression).",
+			"write `defer f()` not `defer (f())`")
 	}
 	call := p.parseExpression()
 	return &ast.DeferNode{Call: call}
@@ -176,7 +178,9 @@ func (p *Parser) parseDeferStatement() ast.Node {
 func (p *Parser) parseGoStatement() ast.Node {
 	p.advance() // go
 	if p.current().Type == ast.TokenLParen {
-		p.FailWithParseError(p.current(), "go operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression)")
+		p.FailWithReport(p.current(), "go-parenthesized", "go operand cannot be parenthesized",
+			"go operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression).",
+			"write `go f()` not `go (f())`")
 	}
 	call := p.parseExpression()
 	return &ast.GoStmtNode{Call: call}

@@ -16,13 +16,17 @@ func (p *Parser) parseWithStatement() ast.WithNode {
 	default:
 		if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLBrace {
 			// Reject `with ctx { ... }` where ctx is a bare identifier (not a call or shape literal).
-			p.FailWithParseError(p.current(), "with wiring must be a shape literal `{ ... }` or a call expression, not a bare identifier")
+			p.FailWithReport(p.current(), "with-wiring", "with wiring must be a shape literal or call",
+				"with wiring must be a shape literal `{ ... }` or a call expression, not a bare identifier.",
+				"write `with { Logger: x }` or `with makeCtx() { ... }`")
 		}
 		wiring = p.parseExpression()
 	}
 
 	if p.current().Type != ast.TokenLBrace {
-		p.FailWithParseError(p.current(), "with requires a body block `{ ... }` after the wiring expression")
+		p.FailWithReport(p.current(), "with-body", "with requires a body block",
+			"with requires a body block `{ ... }` after the wiring expression.",
+			"add `{ ... }` after the wiring expression")
 	}
 
 	body := p.parseBlock()

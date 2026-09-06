@@ -75,7 +75,7 @@ func main() {
 	if err == nil {
 		t.Fatal("expected error for defer len")
 	}
-	if !strings.Contains(err.Error(), "built-in \"len\"") || !strings.Contains(err.Error(), "defer") {
+	if !strings.Contains(err.Error(), "built-in `len`") || !strings.Contains(err.Error(), "defer") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -99,7 +99,7 @@ func main() {
 	if err == nil {
 		t.Fatal("expected error for go make")
 	}
-	if !strings.Contains(err.Error(), "built-in \"make\"") {
+	if !strings.Contains(err.Error(), "built-in `make`") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -17,6 +17,17 @@ import (
 func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, error) {
 	switch e := expr.(type) {
 	case ast.TypeDefAssertionExpr:
+		if e.Assertion != nil && (len(e.Assertion.TypeParams) > 0 || e.Assertion.ArrayLen != nil) {
+			tn, ok := e.Assertion.ToTypeNode()
+			if !ok {
+				return nil, fmt.Errorf("typedef constructor assertion missing base type")
+			}
+			goType, err := t.transformType(tn)
+			if err != nil {
+				return nil, err
+			}
+			return &goType, nil
+		}
 		baseTypeIdent, err := t.getAssertionBaseTypeIdent(e.Assertion)
 		if err != nil {
 			err = fmt.Errorf("failed to get assertion base type ident during transformation: %w", err)

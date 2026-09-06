@@ -52,10 +52,17 @@ func (tc *TypeChecker) inferWithNode(node ast.Node) ([]ast.TypeNode, error) {
 }
 
 func (tc *TypeChecker) warnf(span ast.SourceSpan, code, format string, a ...any) {
+	title, problem, help, notes := partitionBody(code, fmt.Sprintf(format, a...))
+	if help == "" {
+		help = defaultHelp(code)
+	}
 	tc.Warnings = append(tc.Warnings, Diagnostic{
-		Msg:  fmt.Sprintf(format, a...),
-		Span: span,
-		Code: code,
+		Code:    code,
+		Title:   title,
+		Problem: problem,
+		Help:    help,
+		Notes:   notes,
+		Span:    span,
 	})
 }
 

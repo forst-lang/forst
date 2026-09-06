@@ -1,17 +1,19 @@
 <Tabs>
   <Tab title="Forst">
     ```ft
-    name:     String.Min(3).Max(10).NotEmpty()
+    name:     String.Min(3).Max(10).HasSuffix(".ft")
     quantity: Int.Min(1).Max(99)
     tags:     Array(String).Min(1).Max(10)
+    header:   String.Min(1).MaxBytes(4096)
     ```
   </Tab>
   <Tab title="Generated Go">
     ```go
-    // forst build — constraints on struct fields
-    name     string   // len(name) checked at boundary
+	  // Constraints on struct fields
+    name     string   // rune / byte bounds checked at boundary
     quantity int      // numeric range checked at boundary
     tags     []string // len(tags) checked at boundary
+    header   string   // MaxBytes at boundary
     ```
   </Tab>
 </Tabs>

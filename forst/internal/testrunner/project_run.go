@@ -9,6 +9,7 @@ import (
 
 	"forst/internal/codegen/layout"
 	"forst/internal/compileplan"
+	"forst/internal/depoverlay"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/gowork"
@@ -47,6 +48,20 @@ func RunWithProject(proj *project.Project, opts Options) (ExitCode, error) {
 		if emitErr != nil {
 			return ExitFailure, emitErr
 		}
+		boundary := proj.BoundaryRoot
+		if boundary == "" {
+			boundary = proj.ModuleRoot
+		}
+		overlayReplaces, overlayErr := depoverlay.Emit(opts.Log, boundary, modResult, opts.ExportStructFields)
+		if overlayErr != nil {
+			return ExitFailure, overlayErr
+		}
+		for _, rep := range overlayReplaces {
+			if _, exists := libReplaces[rep.ImportPath]; exists {
+				continue
+			}
+			libReplaces[rep.ImportPath] = rep.Dir
+		}
 	}
 	goOnly, err := collectGoOnlyPackageReplaces(proj.ModuleRoot, proj.ModulePath, testDirs)
 	if err != nil {
@@ -79,6 +94,27 @@ func RunWithProject(proj *project.Project, opts Options) (ExitCode, error) {
 			failed = true
 		}
 	}
+
+	// Discover and run Go-only packages that contain native _test.go files (if running entire module)
+	if len(opts.Paths) == 0 && proj.ModulePath != "" {
+		goTestPkgs, discoverErr := DiscoverGoTestPackages(proj.ModuleRoot, proj.ModulePath, testDirs)
+		if discoverErr == nil {
+			var replacesList []gowork.PackageReplace
+			for imp, dir := range libReplaces {
+				replacesList = append(replacesList, gowork.PackageReplace{ImportPath: imp, Dir: dir})
+			}
+			for _, goPkg := range goTestPkgs {
+				code, err := RunGoTestOnNativePackage(proj, goPkg, replacesList, opts.GoTestArgs)
+				if err != nil {
+					return code, err
+				}
+				if code != ExitSuccess {
+					failed = true
+				}
+			}
+		}
+	}
+
 	if failed {
 		return ExitFailure, nil
 	}

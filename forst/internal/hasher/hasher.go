@@ -6,9 +6,11 @@ import (
 	"forst/internal/ast"
 	"hash/fnv"
 	"io"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
+	"unsafe"
 )
 
 // NodeHash is a unique identifier for an AST node
@@ -63,10 +65,10 @@ var NodeKind = map[string]uint8{
 	"FieldAccess":      34,
 	"Switch":           37,
 	"Fallthrough":      38,
-	"TypeExpression": 39,
-	"ConstGroup":      40,
-	"IotaLiteral":     41,
-	"FunctionLiteral": 42,
+	"TypeExpression":   39,
+	"ConstGroup":       40,
+	"IotaLiteral":      41,
+	"FunctionLiteral":  42,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -108,12 +110,63 @@ func (w *hashWalk) hashNodes(nodes []ast.Node) (NodeHash, error) {
 	return NodeHash(hasher.Sum64()), nil
 }
 
-// writeHash is a helper function to handle binary.Write errors
+// writeHash writes data in encoding/binary little-endian form without reflect on the
+// types HashNode actually passes (uint8, bool, int64, uint64, NodeHash, float64, []byte).
 func writeHash(w io.Writer, data any) error {
-	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
-		return fmt.Errorf("failed to write hash: %v", err)
+	var buf [8]byte
+	switch v := data.(type) {
+	case uint8:
+		buf[0] = v
+		if _, err := w.Write(buf[:1]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case bool:
+		if v {
+			buf[0] = 1
+		}
+		if _, err := w.Write(buf[:1]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case int64:
+		binary.LittleEndian.PutUint64(buf[:], uint64(v))
+		if _, err := w.Write(buf[:]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case uint64:
+		binary.LittleEndian.PutUint64(buf[:], v)
+		if _, err := w.Write(buf[:]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case NodeHash:
+		binary.LittleEndian.PutUint64(buf[:], uint64(v))
+		if _, err := w.Write(buf[:]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case float64:
+		binary.LittleEndian.PutUint64(buf[:], math.Float64bits(v))
+		if _, err := w.Write(buf[:]); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	case []byte:
+		if len(v) == 0 {
+			return nil
+		}
+		if _, err := w.Write(v); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
+	default:
+		if err := binary.Write(w, binary.LittleEndian, data); err != nil {
+			return fmt.Errorf("failed to write hash: %v", err)
+		}
+		return nil
 	}
-	return nil
 }
 
 // writeHashes writes multiple values to the hasher, handling errors
@@ -148,7 +201,8 @@ func (w *hashWalk) hash(node ast.Node) (NodeHash, error) {
 	if node == nil || isNilPointer(node) {
 		return NodeHash(NilHash), nil
 	}
-	if key, ok := NodeIdentityKey(node); ok {
+	key, ok := NodeIdentityKey(node)
+	if ok {
 		if cached, hit := w.memo[key]; hit {
 			return cached, nil
 		}
@@ -157,7 +211,7 @@ func (w *hashWalk) hash(node ast.Node) (NodeHash, error) {
 	if err != nil {
 		return 0, err
 	}
-	if key, ok := NodeIdentityKey(node); ok {
+	if ok {
 		w.memo[key] = hash
 	}
 	return hash, nil
@@ -556,6 +610,20 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 				return 0, err
 			}
 		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
+		}
+		if n.ArrayLen != nil {
+			if err := w.h.writeHashes(hasher, []byte(fmt.Sprintf("%d", *n.ArrayLen))); err != nil {
+				return 0, err
+			}
+		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))
 		copy(constraints, n.Constraints)
@@ -653,16 +721,20 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			w.h.writeHashes(hasher, hash)
 		}
 	case ast.TypeNode:
-		if n.Ident != "" {
-			w.h.writeHashes(hasher, NodeKind["Type"])
-			w.h.writeHashes(hasher, []byte(n.Ident))
-			if n.Ident == ast.TypeArray && n.ArrayLen != nil {
-				w.h.writeHashes(hasher, []byte(strconv.FormatInt(*n.ArrayLen, 10)))
-			}
-			break
-		}
 		w.h.writeHashes(hasher, NodeKind["Type"])
 		w.h.writeHashes(hasher, []byte(n.Ident))
+		if n.Ident == ast.TypeArray && n.ArrayLen != nil {
+			w.h.writeHashes(hasher, []byte(strconv.FormatInt(*n.ArrayLen, 10)))
+		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
+		}
 	case ast.SimpleParamNode:
 		w.h.writeHashes(hasher, NodeKind["SimpleParam"])
 		w.h.writeHashes(hasher, []byte(n.Ident.ID))
@@ -689,6 +761,16 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		w.h.writeHashes(hasher, NodeKind["Assertion"])
 		if n.BaseType != nil {
 			w.h.writeHashes(hasher, []byte(*n.BaseType))
+		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
+		}
+		if n.ArrayLen != nil {
+			w.h.writeHashes(hasher, []byte(fmt.Sprintf("%d", *n.ArrayLen)))
 		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))
@@ -1299,13 +1381,15 @@ func (h NodeHash) ToProvidersIdent() string {
 	return "Providers_" + h.toBase58()
 }
 
-// Helper to check for typed nil pointers
+// isNilPointer reports whether i is a typed nil pointer (or untyped nil).
 func isNilPointer(i any) bool {
 	if i == nil {
 		return true
 	}
-	// Use reflection to check for nil pointer
-	// (avoiding import cycle by not using ast.Node directly)
-	v := reflect.ValueOf(i)
-	return v.Kind() == reflect.Pointer && v.IsNil()
+	word := (*ifaceWords)(unsafe.Pointer(&i))
+	if word.data != nil {
+		return false
+	}
+	// Rare: data is nil. Distinguish typed-nil pointers from inlined zero values.
+	return reflect.TypeOf(i).Kind() == reflect.Pointer
 }

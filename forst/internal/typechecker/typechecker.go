@@ -2,8 +2,8 @@ package typechecker
 
 import (
 	"forst/internal/ast"
-	"forst/internal/hasher"
 	"forst/internal/bridgeinterop"
+	"forst/internal/hasher"
 	"go/types"
 
 	"github.com/sirupsen/logrus"
@@ -79,7 +79,7 @@ type TypeChecker struct {
 	// loopLabelStack records labels of nested for-loops (innermost last) for labeled break/continue
 	loopLabelStack []ast.Identifier
 	// LabelScopes holds per-function label bindings after checkFunctionLabels (for LSP).
-	LabelScopes []LabelScope
+	LabelScopes   []LabelScope
 	labelScopeSeq int
 	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
 	ifChainNarrowingStack [][]narrowingEvent
@@ -103,6 +103,8 @@ type TypeChecker struct {
 	samePackageGoImportPath string
 	// samePackageGo holds go/types for exported Go symbols in the same directory as this Forst package.
 	samePackageGo *types.Package
+	// goPackageTypeIdents tracks Forst type idents registered from same-package Go (skip Go emit).
+	goPackageTypeIdents map[ast.TypeIdent]struct{}
 	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
 	FunctionProviders map[ast.Identifier][]ProviderSlot
 	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).
@@ -115,11 +117,13 @@ type TypeChecker struct {
 	siblingImportTypeDefCache map[string]cachedSiblingTypeDef
 	// shapeAliasIndex lazily maps structural shape / assertion hashes to user type names.
 	shapeAliasIndex *shapeAliasIndex
+	// hashBasedIdents tracks types registered through hash-based provenance (not user T_ names).
+	hashBasedIdents map[ast.TypeIdent]struct{}
 	// compatMemo caches IsTypeCompatible results for a single CheckTypes pass.
 	compatMemo map[compatKey]bool
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
 	goPackagesPreloaded bool
-	Warnings              []Diagnostic
+	Warnings            []Diagnostic
 	// scopeOwners maps declaration idents to the ScopeNode registered at collect (for transform restore).
 	scopeOwners scopeOwners
 	// typecheckNodes is the nodes slice from the last CheckTypes call (scope identity for transform).
@@ -156,12 +160,12 @@ type TypeChecker struct {
 	capturingClosure     bool
 	pendingClosureWrites []*AccessPath
 
-	ensureIR       map[string]ensureIRRecord
-	guardBodyIR    map[ast.Identifier]Assertion
-	ifIsIR         []Assertion
-	lastEnsureIR   ensureIRRecord
+	ensureIR        map[string]ensureIRRecord
+	guardBodyIR     map[ast.Identifier]Assertion
+	ifIsIR          []Assertion
+	lastEnsureIR    ensureIRRecord
 	lastGuardBodyIR Assertion
-	lastIfIsIR     Assertion
+	lastIfIsIR      Assertion
 }
 
 // New creates a new TypeChecker.
@@ -190,6 +194,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log:                                         log,
 		reportPhases:                                reportPhases,
 		scopeOwners:                                 newScopeOwners(),
+		hashBasedIdents:                             make(map[ast.TypeIdent]struct{}),
 		paths:                                       NewPathInterner(),
 		predicates:                                  NewPredicateInterner(),
 		refinementCtx:                               NewRefinementContext(),
@@ -266,7 +271,9 @@ func (tc *TypeChecker) preloadGoImportPackages() error {
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
 	tc.RecordUnloadedGoImportPaths(loaded, err)
-	tc.InitGoPackagesFromBatch(loaded)
+	if err := tc.InitGoPackagesFromBatch(loaded); err != nil {
+		return err
+	}
 	return tc.validateGoImportLocalsAfterLoad(loaded)
 }
 
@@ -299,7 +306,9 @@ func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 // InferTypes runs the second pass after CollectTypes (local or module-wide).
 func (tc *TypeChecker) InferTypes(nodes []ast.Node) error {
 	tc.initGoImportPackages()
-	tc.initSamePackageGoExports()
+	if err := tc.initSamePackageGoExports(); err != nil {
+		return err
+	}
 
 	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
 		return err

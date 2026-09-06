@@ -90,3 +90,9 @@ func (p *Parser) FailWithParseError(token ast.Token, message string) {
 		Msg:     message,
 	})
 }
+
+// FailWithReport panics a ParseError whose Msg is a structured diag.FormatReport body.
+// Token span is preserved for LSP DiagnosticFromParseError.
+func (p *Parser) FailWithReport(token ast.Token, code, title, problem, help string, notes ...string) {
+	p.FailWithParseError(token, parseReport(code, title, problem, help, notes...))
+}

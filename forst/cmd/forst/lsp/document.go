@@ -33,14 +33,14 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 		"uri":            params.TextDocument.URI,
 		"version":        params.TextDocument.Version,
 		"content_length": len(params.TextDocument.Text),
-	}).Info("File opened for compilation")
+	}).Debug("File opened for compilation")
 
 	s.setOpenDocument(params.TextDocument.URI, params.TextDocument.Text)
 
 	memberURIs := s.samePackageOpenURIs(params.TextDocument.URI)
 	diagnostics := s.processForstFileWithURIs(params.TextDocument.URI, params.TextDocument.Text)
 	s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
-	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI)
+	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI, diagnostics)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -87,14 +87,14 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 		"version":        params.TextDocument.Version,
 		"changes_count":  len(params.ContentChanges),
 		"content_length": len(latestContent),
-	}).Info("File content changed")
+	}).Debug("File content changed")
 
 	s.setOpenDocument(params.TextDocument.URI, latestContent)
 
 	memberURIs := s.samePackageOpenURIs(params.TextDocument.URI)
 	diagnostics := s.processForstFileWithURIs(params.TextDocument.URI, latestContent)
 	s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
-	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI)
+	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI, diagnostics)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -128,12 +128,13 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 
 	s.log.WithFields(logrus.Fields{
 		"uri": params.TextDocument.URI,
-	}).Info("File closed")
+	}).Debug("File closed")
 
 	s.deleteOpenDocument(params.TextDocument.URI)
 
 	s.invalidatePeerAnalysisCache(params.TextDocument.URI)
 	s.removePackageSnapshotsReferencingURI(params.TextDocument.URI)
+	s.invalidateFileParseCache(params.TextDocument.URI)
 
 	// Remaining open buffers in the same directory may switch from merged to single-file analysis.
 	s.republishOpenFtInSameDir(params.TextDocument.URI)
@@ -159,6 +160,7 @@ func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 // processForstFileWithURIs is like processForstFile; membership for merged package analysis is always
 // derived from samePackageOpenURIs(uri) so disk peers and open buffers stay a single source of truth.
 func (s *LSPServer) processForstFileWithURIs(uri, content string) []LSPDiagnostic {
+	s.processForstFileInvocations.Add(1)
 	filePath := filePathFromDocumentURI(uri)
 	if filePath == "" || !strings.HasSuffix(strings.ToLower(filePath), ".ft") {
 		return nil
@@ -218,21 +220,25 @@ func (s *LSPServer) republishOpenFtInSameDir(closedURI string) {
 
 // publishPeerDiagnosticsFromGroup republishes diagnostics for other open buffers in the same package group.
 // memberURIs must be the result of samePackageOpenURIs for exceptURI (same ordering as fingerprinting).
-func (s *LSPServer) publishPeerDiagnosticsFromGroup(memberURIs []string, exceptURI string) {
+// shared is the diagnostics already computed for exceptURI from one package-group analyze+transform;
+// peers reuse that work instead of re-running processForstFileWithURIs (which would re-transform).
+func (s *LSPServer) publishPeerDiagnosticsFromGroup(memberURIs []string, exceptURI string, shared []LSPDiagnostic) {
 	if len(memberURIs) <= 1 {
 		return
 	}
 	exceptCanon := canonicalFileURI(exceptURI)
+	if shared == nil {
+		shared = []LSPDiagnostic{}
+	}
 	for _, peer := range memberURIs {
 		if canonicalFileURI(peer) == exceptCanon {
 			continue
 		}
-		c := s.openDocumentContent(peer)
-		if c == "" {
+		// Disk-only peers are not open; skip. Open buffers get the shared package-group result.
+		if c := s.openDocumentContent(peer); c == "" {
 			continue
 		}
-		d := s.processForstFileWithURIs(peer, c)
-		s.sendDiagnosticsNotification(peer, d)
+		s.sendDiagnosticsNotification(peer, shared)
 	}
 }
 
@@ -284,4 +290,10 @@ func (s *LSPServer) openDocumentText(uri string) (string, bool) {
 
 func (s *LSPServer) removePackageSnapshotsReferencingURI(uri string) {
 	s.packageAnalysis.removeSnapshotReferencingURI(uri)
+}
+
+func (s *LSPServer) invalidateFileParseCache(uri string) {
+	if s.fileParseCache != nil {
+		s.fileParseCache.remove(uri)
+	}
 }

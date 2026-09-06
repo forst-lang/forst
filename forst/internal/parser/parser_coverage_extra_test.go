@@ -205,16 +205,27 @@ func TestParseTupleType_emptyArgsError(t *testing.T) {
 	_ = p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 }
 
-func TestParseFunction_multiReturnTypeError(t *testing.T) {
+func TestParseFunction_multiReturnType(t *testing.T) {
 	t.Parallel()
 	src := `package main
 
-func bad(): (Int, String) {
-	return 1
+func boom(): (String, error) {
+	return "", nil
 }
 `
-	if err := parseShouldFail(src); err == nil {
-		t.Fatal("expected multi-return error")
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := assertNodeType[ast.FunctionNode](t, nodes[1], "ast.FunctionNode")
+	if len(fn.ReturnTypes) != 2 {
+		t.Fatalf("want 2 return types, got %d", len(fn.ReturnTypes))
+	}
+	if fn.ReturnTypes[0].Ident != ast.TypeString {
+		t.Fatalf("want String, got %v", fn.ReturnTypes[0].Ident)
+	}
+	if fn.ReturnTypes[1].Ident != ast.TypeError {
+		t.Fatalf("want Error, got %v", fn.ReturnTypes[1].Ident)
 	}
 }
 

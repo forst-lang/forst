@@ -18,20 +18,24 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	}
 	hash, err := tc.Hasher.HashNode(node)
 	if err != nil {
-		tc.log.WithFields(logrus.Fields{
-			"node":     node.String(),
-			"function": "storeInferredType",
-		}).WithError(err).Error("failed to hash node during storeInferredType")
+		if tc.log.IsLevelEnabled(logrus.ErrorLevel) {
+			tc.log.WithFields(logrus.Fields{
+				"node":     node.String(),
+				"function": "storeInferredType",
+			}).WithError(err).Error("failed to hash node during storeInferredType")
+		}
 		return
 	}
 	tc.Types[hash] = processedTypes
-	tc.log.WithFields(logrus.Fields{
-		"node":     node.String(),
-		"key":      hash.ToTypeIdent(),
-		"types":    processedTypes,
-		"function": "storeInferredType",
-		"hash":     fmt.Sprintf("%x", uint64(hash)),
-	}).Trace("Stored inferred type for node")
+	if tc.log.IsLevelEnabled(logrus.TraceLevel) {
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"key":      hash.ToTypeIdent(),
+			"types":    processedTypes,
+			"function": "storeInferredType",
+			"hash":     fmt.Sprintf("%x", uint64(hash)),
+		}).Trace("Stored inferred type for node")
+	}
 }
 
 // storeInferredFunctionReturnType stores the return types for a function in its signature.
@@ -42,6 +46,22 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 		if tc.isPlainSuccessCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) ||
 			tc.isPlainFailureCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) {
 			returnTypes = []ast.TypeNode{fn.ReturnTypes[0]}
+		}
+	}
+	// Prefer the declared named shape return when inference collapsed to a different
+	// same-shaped named type (e.g. Acc value returned as Box).
+	if len(fn.ReturnTypes) == 1 && len(returnTypes) == 1 {
+		declared, inferred := fn.ReturnTypes[0], returnTypes[0]
+		if declared.Ident != "" && inferred.Ident != "" &&
+			declared.Ident != inferred.Ident &&
+			!declared.IsTypeParam() && !inferred.IsTypeParam() &&
+			!declared.IsResultType() && !inferred.IsResultType() &&
+			tc.IsTypeCompatible(inferred, declared) {
+			if _, ok := tc.getShapeFromTypeDef(tc.Defs[declared.Ident]); ok {
+				if _, ok := tc.getShapeFromTypeDef(tc.Defs[inferred.Ident]); ok {
+					returnTypes = []ast.TypeNode{declared}
+				}
+			}
 		}
 	}
 	// Resolve aliased types for return types

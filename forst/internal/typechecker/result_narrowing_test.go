@@ -301,7 +301,7 @@ func main() {
 	if err == nil {
 		t.Fatal("expected CheckTypes error: Ok() requires Result subject")
 	}
-	if !strings.Contains(err.Error(), "Result") {
+	if !strings.Contains(err.Error(), "result-ok-subject") && !strings.Contains(err.Error(), "needs a Result") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -503,7 +503,7 @@ func main() {
 	if err == nil {
 		t.Fatal("expected CheckTypes error: Err() requires Result subject")
 	}
-	if !strings.Contains(err.Error(), "Result") {
+	if !strings.Contains(err.Error(), "result-err-subject") && !strings.Contains(err.Error(), "needs a Result") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

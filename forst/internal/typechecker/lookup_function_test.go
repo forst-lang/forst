@@ -99,7 +99,7 @@ func TestLookupFunctionReturnType_undefinedReceiverMethod(t *testing.T) {
 		},
 	}
 	_, err := tc.LookupFunctionReturnType(fn)
-	if err == nil || !strings.Contains(err.Error(), "undefined receiver method") {
+	if err == nil || !strings.Contains(err.Error(), "undefined method") {
 		t.Fatalf("got %v", err)
 	}
 }

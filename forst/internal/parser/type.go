@@ -57,6 +57,10 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 	case ast.TokenVoid:
 		p.advance()
 		return ast.NewBuiltinType(ast.TypeVoid)
+	case ast.TokenError:
+		// Go-style `error` keyword in type position (e.g. `: (T, error)`).
+		p.advance()
+		return ast.NewBuiltinType(ast.TypeError)
 	case ast.TokenLBracket:
 		p.advance() // consume [
 		if p.current().Type == ast.TokenRBracket {
@@ -67,7 +71,9 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		lenTok := p.expect(ast.TokenIntLiteral)
 		length, err := strconv.ParseInt(lenTok.Value, 10, 64)
 		if err != nil || length < 0 {
-			p.FailWithParseError(lenTok, "fixed array length must be a non-negative integer literal")
+			p.FailWithReport(lenTok, "array-length-invalid", "fixed array length must be a non-negative integer literal",
+				"fixed array length must be a non-negative integer literal.",
+				"use a non-negative integer, e.g. `[3]Int`")
 		}
 		p.expect(ast.TokenRBracket)
 		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
@@ -177,7 +183,9 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 			}
 			p.expect(ast.TokenRParen)
 			if len(elems) == 0 {
-				p.FailWithParseError(p.current(), "Tuple requires at least one type argument")
+				p.FailWithReport(p.current(), "tuple-empty", "Tuple requires at least one type argument",
+					"Tuple requires at least one type argument.",
+					"write `Tuple(T)` or `Tuple(T1, T2)`")
 			}
 			return ast.NewTupleType(elems...)
 		}
@@ -220,6 +228,7 @@ func isPossibleTypeIdentifier(token ast.Token, opts TypeIdentOpts) bool {
 		token.Type == ast.TokenFloat ||
 		token.Type == ast.TokenBool ||
 		token.Type == ast.TokenVoid ||
+		token.Type == ast.TokenError ||
 		token.Type == ast.TokenArray ||
 		token.Type == ast.TokenLBracket ||
 		token.Type == ast.TokenMap ||

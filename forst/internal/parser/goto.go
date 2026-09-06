@@ -46,12 +46,16 @@ func (p *Parser) tryParseTypeThenAssignOp() (ok bool) {
 }
 
 func (p *Parser) parseGotoStatement() ast.Node {
+	gotoTok := p.current()
 	p.advance() // goto
 	if p.current().Type != ast.TokenIdentifier {
 		p.FailWithParseError(p.current(), "expected label after goto")
 	}
 	id := p.expect(ast.TokenIdentifier)
-	return &ast.GotoNode{Label: &ast.Ident{ID: ast.Identifier(id.Value), Span: ast.SpanFromToken(id)}}
+	return &ast.GotoNode{
+		Label: &ast.Ident{ID: ast.Identifier(id.Value), Span: ast.SpanFromToken(id)},
+		Span:  ast.SpanFromToken(gotoTok),
+	}
 }
 
 func (p *Parser) parseLabeledStatement() ast.Node {
@@ -61,7 +65,9 @@ func (p *Parser) parseLabeledStatement() ast.Node {
 
 	stmts := p.parseBlockStatement()
 	if len(stmts) != 1 {
-		p.FailWithParseError(idTok, "labeled statement requires exactly one statement after the label")
+		p.FailWithReport(idTok, "goto-label-body", "labeled statement requires exactly one statement",
+			"labeled statement requires exactly one statement after the label.",
+			"write `label: stmt` with a single statement after the colon")
 	}
 	stmt := stmts[0]
 	if fn, ok := stmt.(*ast.ForNode); ok {

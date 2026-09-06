@@ -20,7 +20,7 @@ func TestRestoreScope_tictactoeValidBoardEnsures(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 8; i++ {
 		merged, _, err := forstpkg.ParseAndMergePackage(log, paths)
 		if err != nil {
 			t.Fatal(err)

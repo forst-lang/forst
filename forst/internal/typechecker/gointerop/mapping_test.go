@@ -107,8 +107,10 @@ func TestForstAssignableToGoType_uintRejectsNegativeInt(t *testing.T) {
 
 type numericHost struct{}
 
-func (numericHost) ForstTypeForGoType(_ types.Type) (ast.TypeNode, bool) { return ast.TypeNode{}, false }
-func (numericHost) IsTypeCompatible(_, _ ast.TypeNode) bool               { return false }
+func (numericHost) ForstTypeForGoType(_ types.Type) (ast.TypeNode, bool) {
+	return ast.TypeNode{}, false
+}
+func (numericHost) IsTypeCompatible(_, _ ast.TypeNode) bool { return false }
 func (numericHost) GoTypeForForstType(f ast.TypeNode) types.Type {
 	switch f.Ident {
 	case ast.TypeInt:

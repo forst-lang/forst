@@ -55,8 +55,8 @@ func TestTransformEnsureConstraintWithIsConstraint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("transformEnsureConstraint failed: %v", err)
 	}
-	if ident, ok := expr.(*goast.Ident); !ok || ident.Name != "false" {
-		t.Fatalf("expected false literal for is/Match type-level constraint (no-op fail check), got %#v", expr)
+	if ident, ok := expr.(*goast.Ident); !ok || ident.Name != "true" {
+		t.Fatalf("expected true literal for is/Match type-level constraint (success no-op), got %#v", expr)
 	}
 }
 

@@ -138,7 +138,7 @@ func TestCheckBuiltinFunctionCall_stringInt(t *testing.T) {
 	if !ok {
 		t.Fatal("missing string builtin")
 	}
-	types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 7}}, nil, ast.SourceSpan{})
+	types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 7}}, nil, ast.FakeSpan())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestBuiltinFunction_lenIsDispatchKind(t *testing.T) {
 func TestCheckBuiltinFunctionCall_stringRejectsNonInt(t *testing.T) {
 	tc := New(logrus.New(), false)
 	fn := BuiltinFunctions["string"]
-	_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.SourceSpan{})
+	_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.FakeSpan())
 	if err == nil {
 		t.Fatal("expected error for string() of string")
 	}
@@ -183,7 +183,7 @@ func TestCheckBuiltinFunctionCall_stringAcceptsByteSlice(t *testing.T) {
 	t.Run("Array(byte) variable", func(t *testing.T) {
 		tc2 := New(logrus.New(), false)
 		tc2.CurrentScope().RegisterSymbol(ast.Identifier("b"), []ast.TypeNode{byteSlice}, SymbolVariable)
-		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.SourceSpan{})
+		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,7 +195,7 @@ func TestCheckBuiltinFunctionCall_stringAcceptsByteSlice(t *testing.T) {
 	t.Run("TypeBytes variable", func(t *testing.T) {
 		tc2 := New(logrus.New(), false)
 		tc2.CurrentScope().RegisterSymbol(ast.Identifier("b"), []ast.TypeNode{ast.NewBuiltinType(ast.TypeBytes)}, SymbolVariable)
-		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.SourceSpan{})
+		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -207,7 +207,7 @@ func TestCheckBuiltinFunctionCall_stringAcceptsByteSlice(t *testing.T) {
 	t.Run("rejects Array(String)", func(t *testing.T) {
 		tc2 := New(logrus.New(), false)
 		tc2.CurrentScope().RegisterSymbol(ast.Identifier("xs"), []ast.TypeNode{ast.NewArrayType(ast.NewBuiltinType(ast.TypeString))}, SymbolVariable)
-		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.SourceSpan{})
+		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error for string() of Array(String)")
 		}
@@ -216,7 +216,7 @@ func TestCheckBuiltinFunctionCall_stringAcceptsByteSlice(t *testing.T) {
 	t.Run("rejects Array(Int)", func(t *testing.T) {
 		tc2 := New(logrus.New(), false)
 		tc2.CurrentScope().RegisterSymbol(ast.Identifier("xs"), []ast.TypeNode{ast.NewArrayType(ast.NewBuiltinType(ast.TypeInt))}, SymbolVariable)
-		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.SourceSpan{})
+		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error for string() of Array(Int)")
 		}
@@ -233,7 +233,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 
 	t.Run("len string ok", func(t *testing.T) {
 		fn := BuiltinFunctions["len"]
-		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "ab"}}, nil, ast.SourceSpan{})
+		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "ab"}}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -246,7 +246,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		tc2 := New(logrus.New(), false)
 		tc2.CurrentScope().RegisterSymbol(ast.Identifier("s"), []ast.TypeNode{ast.NewBuiltinType(ast.TypeString)}, SymbolVariable)
 		fn := BuiltinFunctions["len"]
-		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "s"}}}, nil, ast.SourceSpan{})
+		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "s"}}}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -257,7 +257,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 
 	t.Run("len int fails", func(t *testing.T) {
 		fn := BuiltinFunctions["len"]
-		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}, nil, ast.SourceSpan{})
+		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -268,7 +268,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 			ast.IntLiteralNode{Value: 2},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -283,7 +283,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 			ast.IntLiteralNode{Value: 2},
 			ast.IntLiteralNode{Value: 3},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -297,7 +297,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}}},
 			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -310,7 +310,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		fn := BuiltinFunctions["close"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 1},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -323,7 +323,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		fn := BuiltinFunctions["clear"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -337,7 +337,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.VariableNode{Ident: ast.Ident{ID: "m"}},
 			ast.StringLiteralNode{Value: "k"},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -348,7 +348,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 3},
 			ast.IntLiteralNode{Value: 1},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -362,7 +362,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 1},
 			ast.FloatLiteralNode{Value: 2},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -373,7 +373,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.FloatLiteralNode{Value: 1},
 			ast.FloatLiteralNode{Value: 0},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -391,7 +391,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 			},
 		}
 		fn := BuiltinFunctions["real"]
-		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{complexCall}, nil, ast.SourceSpan{})
+		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{complexCall}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -402,7 +402,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 
 	t.Run("recover", func(t *testing.T) {
 		fn := BuiltinFunctions["recover"]
-		types, err := tc.checkBuiltinFunctionCall(fn, nil, nil, ast.SourceSpan{})
+		types, err := tc.checkBuiltinFunctionCall(fn, nil, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -415,7 +415,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		fn := BuiltinFunctions["panic"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.StringLiteralNode{Value: "x"},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -426,7 +426,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 
 	t.Run("make rejects non-type first arg", func(t *testing.T) {
 		fn := BuiltinFunctions["make"]
-		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.SourceSpan{})
+		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -437,7 +437,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.StringLiteralNode{Value: "a"},
 			ast.IntLiteralNode{Value: 2},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -450,7 +450,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		fn := BuiltinFunctions["fmt.Println"]
 		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.VariableNode{Ident: ast.Ident{ID: "x"}},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -461,7 +461,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.StringLiteralNode{Value: "%d"},
 			ast.IntLiteralNode{Value: 1},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -472,7 +472,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 1},
 			ast.StringLiteralNode{Value: "x"},
-		}, nil, ast.SourceSpan{})
+		}, nil, ast.FakeSpan())
 		if err == nil {
 			t.Fatal("expected error: first argument must be format string")
 		}

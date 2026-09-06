@@ -1,0 +1,19 @@
+package main
+
+// Method call chaining on Forst receiver methods: q.Inc().Value()
+// Golden output: ../out/method_chain.go
+
+type Q = {n: Int}
+
+func (q Q) Inc(): Q {
+	return Q{n: 1}
+}
+
+func (q Q) Value(): Int {
+	return q.n
+}
+
+func main() {
+	q := Q{n: 0}
+	println(string(q.Inc().Value()))
+}

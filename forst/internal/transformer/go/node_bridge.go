@@ -136,14 +136,12 @@ func (t *Transformer) ensureNodeReturnTypeEmitted(ret ast.TypeNode) error {
 			Expr:  ast.TypeDefShapeExpr{Shape: *shape},
 		}, processed)
 	}
-	if _, exists := t.TypeChecker.Defs[typeIdent]; !exists {
-		t.TypeChecker.Defs[typeIdent] = ast.TypeDefNode{
-			Ident: typeIdent,
-			Expr: ast.TypeDefAssertionExpr{
-				Assertion: ret.Assertion,
-			},
-		}
-	}
+	t.TypeChecker.RegisterTypeIfMissing(typeIdent, ast.TypeDefNode{
+		Ident: typeIdent,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: ret.Assertion,
+		},
+	})
 	return t.emitTypeAndReferencedTypes(typeIdent, t.TypeChecker.Defs[typeIdent], processed)
 }
 

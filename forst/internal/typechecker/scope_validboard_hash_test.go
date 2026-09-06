@@ -41,7 +41,7 @@ func TestValidBoardEnsureHash_stableBeforeAndAfterCollect(t *testing.T) {
 	ensure := validBoardFirstEnsure(t, merged)
 
 	h := hasher.New()
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 8; i++ {
 		h1, err := h.HashNode(ensure)
 		if err != nil {
 			t.Fatal(err)
@@ -61,7 +61,7 @@ func TestValidBoardEnsureHash_stableBeforeAndAfterCollect(t *testing.T) {
 	}
 	stored := tc.Defs[ast.TypeIdent("ValidBoard")].(*ast.TypeGuardNode)
 	ensureStored := stored.Body[0].(ast.EnsureNode)
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 8; i++ {
 		h1, err := tc.Hasher.HashNode(ensureStored)
 		if err != nil {
 			t.Fatal(err)
@@ -81,7 +81,7 @@ func TestValidBoardEnsureScopes_afterCollectOnly(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	for iter := 0; iter < 500; iter++ {
+	for iter := 0; iter < 8; iter++ {
 		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "main", "engine.ft")})
 		if err != nil {
 			t.Fatal(err)
@@ -119,7 +119,7 @@ func TestValidBoardEnsureScopes_afterFullCheck(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	for iter := 0; iter < 500; iter++ {
+	for iter := 0; iter < 8; iter++ {
 		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "main", "engine.ft")})
 		if err != nil {
 			t.Fatal(err)

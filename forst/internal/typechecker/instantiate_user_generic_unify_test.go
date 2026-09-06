@@ -93,7 +93,7 @@ func TestInstantiateGenericCall_structuralUnify(t *testing.T) {
 				}},
 				ReturnTypes: []ast.TypeNode{ast.NewBuiltinType(ast.TypeBool)},
 			})
-			inst, err := tc.instantiateGenericCall(sig, [][]ast.TypeNode{{tt.argType}}, ast.SourceSpan{})
+			inst, err := tc.instantiateGenericCall(sig, [][]ast.TypeNode{{tt.argType}}, ast.FakeSpan())
 			if tt.expectError != "" {
 				if err == nil {
 					t.Fatal("expected error")

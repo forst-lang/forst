@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"go/types"
+	"path/filepath"
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/forstdep"
 	"forst/internal/goload"
 	"forst/internal/typechecker/gointerop"
 
@@ -76,7 +78,7 @@ func (tc *TypeChecker) initGoImportPackages() {
 }
 
 // InitGoPackagesFromBatch maps import locals from a preloaded go/packages batch (module-wide).
-func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Package) {
+func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Package) error {
 	tc.ensureImportPathByLocal()
 	if len(loaded) > 0 {
 		tc.seedGoImportPackagesFromLoaded(loaded)
@@ -85,10 +87,52 @@ func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Packa
 		tc.goPackagesPreloaded = true
 	}
 	if tc.samePackageGoImportPath != "" {
-		if pkg, ok := loaded[tc.samePackageGoImportPath]; ok && goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
+		if forstMap := tc.importPathToForstPkgMap(); forstMap != nil && forstMap[tc.samePackageGoImportPath] != "" {
+			if err := tc.loadSamePackageGoWithGenStub(); err != nil {
+				tc.log.WithError(err).Debug("same-package Go load with gen stub failed")
+			}
+		} else if pkg, ok := loaded[tc.samePackageGoImportPath]; ok && goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
 			tc.samePackageGo = pkg.Types
 		}
 	}
+	return tc.registerSamePackageGoNamedTypes()
+}
+
+func (tc *TypeChecker) loadSamePackageGoWithGenStub() error {
+	path := tc.samePackageGoImportPath
+	if path == "" || tc.GoWorkspaceDir == "" {
+		return nil
+	}
+	locs, err := goload.LocatePackageDirs(tc.GoWorkspaceDir, []string{path})
+	if err != nil {
+		return err
+	}
+	loc, ok := locs[path]
+	if !ok || loc.Dir == "" {
+		return nil
+	}
+	pkgName := tc.ForstPackage()
+	if pkgName == "" {
+		pkgName = filepath.Base(loc.Dir)
+	}
+	overlay, err := forstdep.GenGoStubOverlay(loc.Dir, pkgName)
+	if err != nil {
+		return err
+	}
+	var opts []goload.LoadOpt
+	if len(overlay) > 0 {
+		opts = append(opts, goload.WithOverlay(overlay))
+	}
+	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{path}, opts...)
+	if err != nil {
+		return nil // Forst-only dirs often fail go/packages; not an error for Forst
+	}
+	pkg, ok := loaded[path]
+	if !ok || !goload.PackageLoadOK(pkg, path) {
+		return nil
+	}
+	tc.samePackageGo = pkg.Types
+	return nil
 }
 
 func (tc *TypeChecker) ensureImportPathByLocal() {
@@ -101,9 +145,13 @@ func (tc *TypeChecker) ensureImportPathByLocal() {
 func (tc *TypeChecker) missingGoImportPaths() []string {
 	seen := make(map[string]struct{})
 	var paths []string
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
@@ -126,9 +174,13 @@ func (tc *TypeChecker) missingGoImportPaths() []string {
 }
 
 func (tc *TypeChecker) allGoImportLocalsLoaded() bool {
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
@@ -158,9 +210,14 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 	if tc.goPkgsByLocal == nil {
 		tc.goPkgsByLocal = make(map[string]*types.Package)
 	}
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		// Forst sibling packages are resolved from .ft, not go/packages (may be Forst-only or have *.gen.go).
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		pkgp, ok := loaded[ip]
@@ -195,10 +252,17 @@ func collectGoImportPaths(tcs []*TypeChecker) []string {
 		if tc == nil {
 			continue
 		}
+		forstMap := tc.importPathToForstPkgMap()
 		for _, p := range gointerop.ImportPathsFromForstImports(tc.imports) {
+			if forstMap != nil && forstMap[p] != "" {
+				continue
+			}
 			pathSet[p] = struct{}{}
 		}
 		if tc.samePackageGoImportPath != "" {
+			if forstMap != nil && forstMap[tc.samePackageGoImportPath] != "" {
+				continue
+			}
 			pathSet[tc.samePackageGoImportPath] = struct{}{}
 		}
 	}
@@ -222,13 +286,13 @@ func BatchLoadGoPackagesForModuleWithLoader(moduleRoot string, tcs []*TypeChecke
 	return gointerop.LoadPackages(moduleRoot, collectGoImportPaths(tcs), loader)
 }
 
-func (tc *TypeChecker) initSamePackageGoExports() {
+func (tc *TypeChecker) initSamePackageGoExports() error {
 	if tc.goPackagesPreloaded {
-		return
+		return tc.registerSamePackageGoNamedTypes()
 	}
 	tc.samePackageGo = nil
 	if tc.samePackageGoImportPath == "" || tc.GoWorkspaceDir == "" {
-		return
+		return nil
 	}
 	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{tc.samePackageGoImportPath})
 	if err != nil {
@@ -236,13 +300,178 @@ func (tc *TypeChecker) initSamePackageGoExports() {
 			"function": "initSamePackageGoExports",
 			"path":     tc.samePackageGoImportPath,
 		}).WithError(err).Debug("go/packages load failed for same-package Go exports")
-		return
+		return nil
 	}
 	pkg, ok := loaded[tc.samePackageGoImportPath]
 	if !ok || !goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
-		return
+		return nil
 	}
 	tc.samePackageGo = pkg.Types
+	return tc.registerSamePackageGoNamedTypes()
+}
+
+// registerSamePackageGoNamedTypes imports same-package Go named types into Defs so Forst
+// signatures and literals can refer to them without re-emitting the Go type declarations.
+// An existing Forst definition for the same ident must be structurally compatible with the
+// Go type; otherwise a duplicate-type diagnostic is returned.
+func (tc *TypeChecker) registerSamePackageGoNamedTypes() error {
+	if tc.samePackageGo == nil {
+		return nil
+	}
+	if tc.goPackageTypeIdents == nil {
+		tc.goPackageTypeIdents = make(map[ast.TypeIdent]struct{})
+	}
+	scope := tc.samePackageGo.Scope()
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		tn, ok := obj.(*types.TypeName)
+		if !ok || tn == nil {
+			continue
+		}
+		ident := ast.TypeIdent(name)
+		def, ok := tc.typeDefFromSamePackageGoType(tn)
+		if !ok {
+			tc.log.WithFields(logrus.Fields{
+				"function": "registerSamePackageGoNamedTypes",
+				"type":     name,
+			}).Debug("skipping same-package Go type that could not be mapped to a Forst typedef")
+			continue
+		}
+		if existing, exists := tc.Defs[ident]; exists {
+			if tc.IsGoPackageType(ident) {
+				continue
+			}
+			if err := tc.ensureForstDefCompatibleWithSamePackageGo(ident, existing, def); err != nil {
+				return err
+			}
+			// Compatible Forst alias of the same-package Go type: omit re-emit.
+			tc.goPackageTypeIdents[ident] = struct{}{}
+			continue
+		}
+		tc.Defs[ident] = def
+		tc.goPackageTypeIdents[ident] = struct{}{}
+		tc.log.WithFields(logrus.Fields{
+			"function": "registerSamePackageGoNamedTypes",
+			"type":     name,
+		}).Debug("registered same-package Go named type into Forst Defs")
+	}
+	return nil
+}
+
+func (tc *TypeChecker) ensureForstDefCompatibleWithSamePackageGo(ident ast.TypeIdent, existing ast.Node, goDef ast.TypeDefNode) error {
+	existingTD, ok := existing.(ast.TypeDefNode)
+	if !ok {
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"type %s conflicts with same-package Go type %s", ident, ident)
+	}
+	existingShape, existingOK := tc.getShapeFromTypeDef(existingTD)
+	goShape, goOK := tc.getShapeFromTypeDef(goDef)
+	if existingOK && goOK {
+		if tc.shapesAreStructurallyIdentical(*existingShape, *goShape) {
+			return nil
+		}
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"Forst type %s conflicts with same-package Go type %s (incompatible fields)", ident, ident)
+	}
+	// Non-shape typedefs: accept only when both map to the same assertion base type.
+	if existingOK != goOK {
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"Forst type %s conflicts with same-package Go type %s", ident, ident)
+	}
+	if ea, ok := existingTD.Expr.(ast.TypeDefAssertionExpr); ok {
+		if ga, ok := goDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			if ea.Assertion != nil && ga.Assertion != nil &&
+				ea.Assertion.BaseType != nil && ga.Assertion.BaseType != nil &&
+				*ea.Assertion.BaseType == *ga.Assertion.BaseType {
+				return nil
+			}
+		}
+	}
+	return reportBodyf(ast.FakeSpan(), "duplicate-type",
+		"Forst type %s conflicts with same-package Go type %s", ident, ident)
+}
+
+// SamePackageGoDefinesType reports whether same-package Go already defines ident as a type name.
+func (tc *TypeChecker) SamePackageGoDefinesType(ident ast.TypeIdent) bool {
+	if tc == nil || tc.samePackageGo == nil {
+		return false
+	}
+	name := string(ident)
+	if name == "" || strings.Contains(name, ".") {
+		return false
+	}
+	obj := tc.samePackageGo.Scope().Lookup(name)
+	if obj == nil {
+		return false
+	}
+	_, ok := obj.(*types.TypeName)
+	return ok
+}
+
+// IsGoPackageType reports whether ident was registered from same-package Go (do not emit).
+func (tc *TypeChecker) IsGoPackageType(ident ast.TypeIdent) bool {
+	if tc == nil || tc.goPackageTypeIdents == nil {
+		return false
+	}
+	_, ok := tc.goPackageTypeIdents[ident]
+	return ok
+}
+
+func (tc *TypeChecker) typeDefFromSamePackageGoType(tn *types.TypeName) (ast.TypeDefNode, bool) {
+	if tn == nil {
+		return ast.TypeDefNode{}, false
+	}
+	ident := ast.TypeIdent(tn.Name())
+	goTyp := types.Unalias(tn.Type())
+	switch u := goTyp.Underlying().(type) {
+	case *types.Struct:
+		shape, ok := shapeFromSamePackageGoStruct(u)
+		if !ok {
+			return ast.TypeDefNode{}, false
+		}
+		return ast.TypeDefNode{
+			Ident: ident,
+			Expr:  ast.TypeDefShapeExpr{Shape: shape},
+		}, true
+	case *types.Basic:
+		ft, ok := tc.mapGoType(u)
+		if !ok || ft.Ident == ast.TypeImplicit {
+			return ast.TypeDefNode{}, false
+		}
+		base := ft.Ident
+		return ast.TypeDefNode{
+			Ident: ident,
+			Expr: ast.TypeDefAssertionExpr{
+				Assertion: &ast.AssertionNode{BaseType: &base},
+			},
+		}, true
+	default:
+		return ast.TypeDefNode{}, false
+	}
+}
+
+// shapeFromSamePackageGoStruct builds a Forst shape preserving Go field names (same-package).
+func shapeFromSamePackageGoStruct(st *types.Struct) (ast.ShapeNode, bool) {
+	if st == nil {
+		return ast.ShapeNode{}, false
+	}
+	fields := make(map[string]ast.ShapeFieldNode, st.NumFields())
+	order := make([]string, 0, st.NumFields())
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if f == nil || f.Anonymous() {
+			continue
+		}
+		ft, ok := gointerop.TypeToForstType(f.Type())
+		if !ok {
+			continue
+		}
+		ftCopy := ft
+		name := f.Name()
+		fields[name] = ast.ShapeFieldNode{Type: &ftCopy, GoExport: f.Exported()}
+		order = append(order, name)
+	}
+	return ast.ShapeNode{Fields: fields, FieldOrder: order}, true
 }
 
 func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, bool, error) {
@@ -254,13 +483,18 @@ func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallN
 		var diag *Diagnostic
 		if errors.As(err, &diag) {
 			switch {
-			case strings.Contains(diag.Msg, "not found in Go package"):
+			case diag.Code == "go-member-missing" || strings.Contains(diag.Error(), "not found"):
+				// Soft miss: fall through to Forst builtins (e.g. println).
 				return nil, false, nil
-			case strings.Contains(diag.Msg, "is not a function"):
+			case strings.Contains(diag.Error(), "is not a function"):
 				return nil, false, nil
 			default:
 				return nil, true, err
 			}
+		}
+		var mm *gointerop.MemberMissingError
+		if errors.As(err, &mm) {
+			return nil, false, nil
 		}
 		return nil, true, err
 	}
@@ -324,13 +558,13 @@ func (tc *TypeChecker) lookupDotImportFunc(funcName string, sp ast.SourceSpan) (
 		return nil, nil
 	}
 	if len(matched) > 1 {
-		return nil, diagnosticf(sp, "dot-import", "%s is ambiguous (multiple dot-imported packages)", funcName)
+		return nil, reportBodyf(sp, "dot-import", "%s is ambiguous (multiple dot-imported packages)", funcName)
 	}
 	return matched[0], nil
 }
 
 func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+	out, err := gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
 		Pkg:             pkg,
 		QualDisplay:     qualDisplay,
 		FuncName:        funcName,
@@ -338,10 +572,11 @@ func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName
 		ArgTypes:        argTypes,
 		WantSingleValue: wantSingleValue,
 	})
+	return out, tc.mapGoInteropError(err)
 }
 
 func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
-	return gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
+	out, err := gointerop.CheckFuncCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.FuncCall{
 		Pkg:             pkg,
 		QualDisplay:     pkgDisplay,
 		FuncName:        funcName,
@@ -350,6 +585,18 @@ func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, func
 		WantSingleValue: wantSingleValue,
 		RequireExported: true,
 	})
+	return out, tc.mapGoInteropError(err)
+}
+
+func (tc *TypeChecker) mapGoInteropError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var mm *gointerop.MemberMissingError
+	if errors.As(err, &mm) && mm != nil {
+		return goMemberMissingError(mm.Pkg, mm.Member, mm.Exports, mm.Span)
+	}
+	return err
 }
 
 func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
@@ -366,7 +613,7 @@ func (tc *TypeChecker) forstAssignableToGoType(f ast.TypeNode, g types.Type) boo
 	return gointerop.ForstAssignableToGoType(tc.goInteropHost(), f, g)
 }
 
-func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fieldPath []string) (ast.TypeNode, error) {
+func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fieldPath []string, span ast.SourceSpan) (ast.TypeNode, error) {
 	if len(fieldPath) == 0 {
 		return ast.TypeNode{}, fmt.Errorf("package %s used as value", local)
 	}
@@ -376,7 +623,7 @@ func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fie
 	}
 	obj := gp.Scope().Lookup(fieldPath[0])
 	if obj == nil {
-		return ast.TypeNode{}, fmt.Errorf("%s.%s not found in Go package", local, fieldPath[0])
+		return ast.TypeNode{}, goMemberMissingError(string(local), fieldPath[0], goExportedNames(gp.Scope()), span)
 	}
 	var goTyp types.Type
 	switch o := obj.(type) {
@@ -561,76 +808,115 @@ func (tc *TypeChecker) normalizeGoImportParamType(typ ast.TypeNode) (ast.TypeNod
 }
 
 func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
+	gt, _ := tc.goTypeInfoForExpression(expr)
+	return gt
+}
+
+// goTypeInfoForExpression returns the tracked Go type and whether the expression is addressable.
+func (tc *TypeChecker) goTypeInfoForExpression(expr ast.ExpressionNode) (types.Type, bool) {
 	if tc == nil || expr == nil {
-		return nil
+		return nil, false
 	}
 	switch e := expr.(type) {
 	case ast.VariableNode:
 		if gt := tc.variableGoTypes[e.Ident.ID]; gt != nil {
-			return gt
+			return gt, true
 		}
 		parts := strings.Split(string(e.Ident.ID), ".")
 		if len(parts) > 1 {
 			if base := tc.variableGoTypes[ast.Identifier(parts[0])]; base != nil {
 				last, err := goTypeAtFieldPath(base, parts[1:])
 				if err == nil {
-					return last
+					return last, true
 				}
 			}
 		}
 	case ast.FunctionCallNode:
 		if gt := tc.goTypeFromBuiltinNewCall(e); gt != nil {
-			return gt
+			return gt, false
 		}
 		if sig := tc.goFuncSignatureFromCall(e); sig != nil && sig.Results().Len() > 0 {
-			return sig.Results().At(0).Type()
+			return sig.Results().At(0).Type(), false
 		}
 	case ast.MethodCallNode:
-		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
-			obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, string(e.Method.ID))
+		goRecv, addr := tc.goTypeInfoForExpression(e.Receiver)
+		if goRecv != nil {
+			obj, _, _ := types.LookupFieldOrMethod(goRecv, addr, nil, string(e.Method.ID))
 			if fn, ok := obj.(*types.Func); ok {
 				if sig, ok := fn.Type().(*types.Signature); ok && sig.Results().Len() > 0 {
-					return sig.Results().At(0).Type()
+					return sig.Results().At(0).Type(), false
 				}
 			}
 		}
 	case ast.FieldAccessNode:
-		if goRecv := tc.goTypeForExpression(e.Target); goRecv != nil {
+		goRecv, addr := tc.goTypeInfoForExpression(e.Target)
+		if goRecv != nil {
 			obj, _, _ := types.LookupFieldOrMethod(goRecv, false, nil, string(e.Field.ID))
 			if obj != nil {
-				return obj.Type()
+				return obj.Type(), addr
 			}
 		}
 	case ast.SliceExpressionNode:
 		if goT := tc.goTypeForExpression(e.Target); goT != nil {
 			switch u := goT.Underlying().(type) {
+			case *types.Basic:
+				if u.Info()&types.IsString != 0 {
+					return goT, false
+				}
 			case *types.Slice:
-				return types.NewSlice(u.Elem())
+				return types.NewSlice(u.Elem()), false
 			case *types.Array:
-				return types.NewSlice(u.Elem())
+				return types.NewSlice(u.Elem()), false
+			}
+		}
+	case ast.IndexExpressionNode:
+		if goT := tc.goTypeForExpression(e.Target); goT != nil {
+			switch u := goT.Underlying().(type) {
+			case *types.Slice:
+				return u.Elem(), true
+			case *types.Array:
+				return u.Elem(), true
+			case *types.Map:
+				return u.Elem(), false
 			}
 		}
 	case ast.ReferenceNode:
 		if inner := tc.goTypeForExpression(e.Value); inner != nil {
-			return types.NewPointer(inner)
+			return types.NewPointer(inner), false
 		}
 	case ast.ShapeNode:
 		if e.BaseType != nil {
 			if gt := tc.goTypeForQualifiedImportTypeIdent(*e.BaseType); gt != nil {
-				return gt
+				return gt, false
+			}
+			if gt := tc.goNamedTypeForForstIdent(*e.BaseType); gt != nil {
+				return gt, false
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
-func (tc *TypeChecker) checkGoMethodCall(recv types.Type, methodName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkGoMethodCall(recv types.Type, method ast.Ident, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+	return tc.checkGoMethodCallAddr(recv, true, method, e, argTypes, wantSingleValue)
+}
+
+func (tc *TypeChecker) checkGoMethodCallAddr(recv types.Type, addressable bool, method ast.Ident, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+	methodName := string(method.ID)
+	if methodName == "" {
+		methodName = string(e.Function.ID)
+	}
+	if i := strings.LastIndex(methodName, "."); i >= 0 {
+		methodName = methodName[i+1:]
+	}
 	return gointerop.CheckMethodCall(tc.goInteropHost(), tc.goInteropDiag(), gointerop.MethodCall{
 		Recv:            recv,
 		MethodName:      methodName,
+		Method:          method,
 		Call:            e,
 		ArgTypes:        argTypes,
 		WantSingleValue: wantSingleValue,
+		Addressable:     addressable,
 	})
 }
 
@@ -645,23 +931,43 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 			}
 			return
 		}
-		sig := tc.goFuncSignatureFromCall(fc)
-		if sig == nil {
-			return
-		}
-		res := sig.Results()
-		if res.Len() != len(assign.LValues) {
-			// Arity mismatch (e.g. multi-return wrapped as Tuple): do not bind Go types.
-			return
-		}
-		for i, lv := range assign.LValues {
-			vn, ok := lv.(ast.VariableNode)
-			if !ok {
-				continue
+		if sig := tc.goFuncSignatureFromCall(fc); sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
 			}
-			tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			return
+		}
+		if sig := tc.goMethodSignatureFromDottedCall(fc); sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			}
+			return
 		}
 		return
+	}
+	if mc, ok := assign.RValues[0].(ast.MethodCallNode); ok {
+		sig := tc.goMethodSignatureFromCall(mc)
+		if sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			}
+			return
+		}
 	}
 	if len(assign.LValues) != 1 {
 		return
@@ -673,6 +979,38 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if gt := tc.goTypeForExpression(assign.RValues[0]); gt != nil {
 		tc.variableGoTypes[vn.Ident.ID] = gt
 	}
+}
+
+func (tc *TypeChecker) goMethodSignatureFromCall(mc ast.MethodCallNode) *types.Signature {
+	goRecv, addr := tc.goTypeInfoForExpression(mc.Receiver)
+	if goRecv == nil {
+		return nil
+	}
+	obj, _, _ := types.LookupFieldOrMethod(goRecv, addr, nil, string(mc.Method.ID))
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, _ := fn.Type().(*types.Signature)
+	return sig
+}
+
+func (tc *TypeChecker) goMethodSignatureFromDottedCall(fc ast.FunctionCallNode) *types.Signature {
+	parts := strings.Split(string(fc.Function.ID), ".")
+	if len(parts) != 2 {
+		return nil
+	}
+	goRecv := tc.variableGoTypes[ast.Identifier(parts[0])]
+	if goRecv == nil {
+		return nil
+	}
+	obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, parts[1])
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, _ := fn.Type().(*types.Signature)
+	return sig
 }
 
 // goTypeFromBuiltinNewCall returns *T when call is new(T) and T maps to a Go type.
@@ -725,5 +1063,3 @@ func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName str
 	}
 	return sig
 }
-
-

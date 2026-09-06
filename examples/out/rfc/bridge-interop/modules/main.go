@@ -12,7 +12,7 @@ type T_Zn4FXrBCht3 struct {
 
 func main() {
 	order, orderErr := forst_bridge_callsync_legacy_api_checkout_js_createOrder()
-	if !(orderErr == nil) {
+	if orderErr != nil {
 		{
 			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", orderErr)
 			os.Exit(1)

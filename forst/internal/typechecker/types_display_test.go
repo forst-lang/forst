@@ -68,6 +68,7 @@ func TestFormatTypeNodeDisplay_mapsAssertionRefinementHashToTypeAlias(t *testing
 		t.Fatal(err)
 	}
 	hashIdent := h.ToTypeIdent()
+	tc.markHashBasedIdent(hashIdent)
 	tc.Defs[hashIdent] = ast.TypeDefNode{
 		Ident: hashIdent,
 		Expr: ast.TypeDefShapeExpr{

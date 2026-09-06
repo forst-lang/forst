@@ -123,7 +123,7 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from 
     FORST_ROOT=/app /app/.forst/build/bin/main
     ```
 
-    With `bridge.hostMode`, the same binary runs your Forst entry and starts the Node app as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
+    Node stays the process that serves HTTP. Point `@forst/gen` at this binary with `FORST_BASE_URL`.
 
     For Go source inspection or hand `go build`, emit sources with `generate.go` flags:
 
@@ -471,21 +471,22 @@ See [Invoke security](/interop/invoke/security) for the local transport, token s
 
 When the built-in server starts, Forst writes `.forst/invoke.ready` with `socketPath` (Unix default) or `url` (TCP) for tooling auto-discovery.
 
-## Host mode (Remix and similar)
+## Choose who starts the Node app
 
-Incremental migration often runs three channels in one deployment:
+Keep Node as the parent when you are calling Forst from Express, Remix, or scripts. The Node process serves browsers and loaders. It calls `@forst/gen` over HTTP. Start Forst with `forst dev`, [`@forst/sidecar`](https://www.npmjs.com/package/@forst/sidecar), or a `forst build` binary with `server.embedded`.
 
-| Channel | Direction | Typical endpoint |
+Enable host mode when compiled Forst must call JavaScript that shares memory with that Node app. Prisma clients, global singletons, and some Remix or Vite internals live in the app process. Go then starts the Node app as a child.
+
+| Goal | Parent process | What to enable |
 | --- | --- | --- |
-| App HTTP | Browser → Node app | `:6322` (e.g. remix-serve in local forst host mode) |
-| Built-in HTTP server | Node → Forst | `http://127.0.0.1:6321/invoke` |
-| Bridgert host socket | Forst → legacy JavaScript | `.forst/node.sock` |
+| Routes and loaders call Forst | Node | `server.embedded` in production, or `forst dev` / sidecar in development |
+| Forst also calls JavaScript inside the Node app | Go | `server.embedded` and `bridge.hostMode` |
 
-Enable both `server.embedded` and `bridge.hostMode` in `ftconfig.json`. Remix loaders call generated client functions over `:6321`; Forst `main` calls legacy JS over the nodert socket.
+Host mode setup is in [Run in host mode](/interop/bridge/build-and-runtime#run-in-host-mode).
 
-Full combined demo: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve).
+When Node already runs in another container or unit, set `FORST_SKIP_NODE_HOST=1` on the Forst binary so it does not spawn the Node app. The Node process still calls invoke over HTTP.
 
-Bridgert setup is covered in [Run in host mode](/interop/bridge/build-and-runtime#run-in-host-mode).
+A repository example that uses both directions: [`examples/in/rfc/bridge-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/bridge-interop/remix-serve).
 
 ## Export rules
 

@@ -12,9 +12,9 @@ import (
 
 type goImportCorpus struct {
 	Cases []struct {
-		File            string `json:"file"`
-		SamePackageGo   string `json:"samePackageGo"`
-		RequireImport   string `json:"requireImport"`
+		File          string `json:"file"`
+		SamePackageGo string `json:"samePackageGo"`
+		RequireImport string `json:"requireImport"`
 	} `json:"cases"`
 }
 

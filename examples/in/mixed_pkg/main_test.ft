@@ -1,0 +1,10 @@
+package main
+
+import "testing"
+
+func TestHelperAdd(t *testing.T) {
+	got := HelperAdd(20, 22)
+	if got != 42 {
+		t.Fatalf("HelperAdd(20, 22) = %d, want 42", got)
+	}
+}

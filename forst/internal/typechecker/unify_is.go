@@ -40,7 +40,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node) (ast.TypeN
 	// Handle different right-hand side types
 	switch r := right.(type) {
 	case ast.TypeDefAssertionExpr:
-		if err := tc.validateTypeDefAssertion(r.Assertion, varLeftType); err != nil {
+		if err := tc.validateTypeDefAssertion(r.Assertion, varLeftType, spanOfNode(left)); err != nil {
 			return ast.TypeNode{}, err
 		}
 		// Process type guard fields
@@ -63,7 +63,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node) (ast.TypeN
 		}
 
 	case ast.AssertionNode:
-		if err := tc.validateAssertionNode(r, varLeftType); err != nil {
+		if err := tc.validateAssertionNode(r, varLeftType, spanOfNode(left)); err != nil {
 			return ast.TypeNode{}, err
 		}
 
@@ -77,7 +77,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node) (ast.TypeN
 		}
 		rightType := rightTypes[0]
 		if rightType.Ident != ast.TypeShape {
-			return ast.TypeNode{}, fmt.Errorf("right-hand side of 'is' must be a Shape type or assertion, got %s", rightType.Ident)
+			return ast.TypeNode{}, fmt.Errorf("right-hand side of 'is' must be a Shape type or assertion, got %s", formatTypeIdentForDiag(rightType.Ident))
 		}
 	}
 

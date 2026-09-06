@@ -245,7 +245,7 @@ tasks:
     dir: forst
     deps: [build:runtime]
     cmds:
-      - go test -v ./internal/typechecker/...
+      - go test ./internal/typechecker/...
 
   test:unit:transformer:
     desc: Run unit tests for transformer
@@ -324,11 +324,78 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_builtins.ft
 
+
+  example:string-slice:
+    desc: Compile string_slice example (string subslice s[low:high])
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/string_slice.ft
+
+  example:void-early-return:
+    desc: Compile void_early_return (bare return in void function)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/void_early_return.ft
+
+  example:shape-value-mutate:
+    desc: Compile shape_value_mutate (field assign then return value shape)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/shape_value_mutate.ft
+
+  example:blank-ident:
+    desc: Compile blank_ident (_ assignment and range blank)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/blank_ident.ft
+
+  example:func-multi-return:
+    desc: Compile func_multi_return (Go-style multi-value returns)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/func_multi_return.ft
+
   example:slices:
     desc: Compile slices example (subslice expressions xs[low:high], xs[low:], xs[:high])
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/slices.ft
+
+  example:method-chain:
+    desc: Compile method_chain (Forst receiver method chaining q.Inc().Value())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/method_chain.ft
+
+  example:field-after-call:
+    desc: Compile field_after_call (field access on call result makeQ().n)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/field_after_call.ft
+
+  example:string-quote-escape:
+    desc: Compile string_quote_escape (escaped quote in string literal is one character)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/string_quote_escape.ft
+
+  example:index-then-field:
+    desc: Compile index_then_field (index then field xs[0].name)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/index_then_field.ft
+
+  example:bytes-alias:
+    desc: Compile bytes_alias (type Bytes = []Byte emits []byte)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/bytes_alias.ft
+
+  example:method-multireturn:
+    desc: Compile method_multireturn (unpack same-package Go method multi-return)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/method_multireturn/main.ft
 
   example:go-interop:
     desc: Run go_interop example (Go FFI + same-package hand-written Go)

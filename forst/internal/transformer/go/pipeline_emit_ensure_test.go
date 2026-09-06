@@ -61,7 +61,6 @@ func main() {
 	for _, sub := range []string{
 		`type NotOk struct`,
 		`func check() error`,
-		`n <= 0`,
 		`return NotOk{msg: "bad"}`,
 		`package main`,
 	} {
@@ -69,9 +68,39 @@ func main() {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
 	}
+	if !strings.Contains(out, `!(n > 0)`) && !strings.Contains(out, `n <= 0`) {
+		t.Fatalf("expected negated GreaterThan success check\n----\n%s\n----", out)
+	}
 }
 
-// Exercises transformEnsureConstraint alias-chain retry: typedef does not map directly to builtinConstraints keys.
+// ensure x is Sku expands typedef String.Min.Max into the same Meet emit as inline constraints.
+func TestPipeline_ensureConstrainedAliasTypeTarget_emitsMinMax(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+type Sku = String.Min(1).Max(64)
+
+func main() {
+	sku := "ABC"
+	ensure sku is Sku
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`type Sku string`,
+		`utf8.RuneCountInString`,
+		`< 1`,
+		`> 64`,
+		`||`,
+		`os.Exit`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
 func TestPipeline_ensureBuiltinOnStringAlias_resolvesAliasChain(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -87,7 +116,7 @@ func main() {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`type Label string`,
-		`len(string(s)) < 1`,
+		`utf8.RuneCountInString`,
 		`os.Exit`,
 		`func main`,
 	} {
@@ -112,13 +141,15 @@ func main() {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`type Count int`,
-		`n <= 0`,
 		`os.Exit`,
 		`func main`,
 	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
+	}
+	if !strings.Contains(out, `!(n > 0)`) && !strings.Contains(out, `n <= 0`) {
+		t.Fatalf("expected GreaterThan ensure check\n----\n%s\n----", out)
 	}
 }
 
@@ -165,13 +196,15 @@ func main() {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`var p *int = nil`,
-		`p != nil`,
 		`os.Exit`,
 		`func main`,
 	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
+	}
+	if !strings.Contains(out, `!(p == nil)`) && !strings.Contains(out, `p != nil`) {
+		t.Fatalf("expected Nil ensure check\n----\n%s\n----", out)
 	}
 }
 
@@ -327,8 +360,8 @@ func TestEnsureStringMin(t *testing.T) {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`t.Fatalf(`,
-		`got len=%d (%q)`,
-		`len(`,
+		`got runes=%d (%q)`,
+		`utf8.RuneCountInString`,
 		`s`,
 	} {
 		if !strings.Contains(out, sub) {
@@ -405,8 +438,8 @@ func TestEnsureStringAliasMin(t *testing.T) {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`t.Fatalf(`,
-		`got len=%d (%q)`,
-		`len(string(s))`,
+		`got runes=%d (%q)`,
+		`utf8.RuneCountInString(string(s))`,
 	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)

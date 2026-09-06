@@ -32,12 +32,12 @@ func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (ast.TypeNode, err
 		if name != nil {
 			if def, ok := tc.Defs[*name]; ok {
 				if _, isGuard := def.(ast.TypeGuardNode); isGuard {
-					return ast.TypeNode{}, diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+					return ast.TypeNode{}, reportBodyf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
 						"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
 						*name, *name)
 				}
 				if _, isGuard := def.(*ast.TypeGuardNode); isGuard {
-					return ast.TypeNode{}, diagnosticf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
+					return ast.TypeNode{}, reportBodyf(ensure.Variable.Ident.Span, "refinement-bare-guard-needs-parens",
 						"refinement-bare-guard-needs-parens: guard %s requires parentheses — use `%s()` for an assertion, or a type name for a type target",
 						*name, *name)
 				}
@@ -45,11 +45,11 @@ func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (ast.TypeNode, err
 		}
 	}
 
-	if err := tc.rejectTypeNameAsAssertionCall(ensure.Assertion); err != nil {
+	if err := tc.rejectTypeNameAsAssertionCall(ensure.Assertion, ensure.Variable.Ident.Span); err != nil {
 		return ast.TypeNode{}, err
 	}
 
-	if err := tc.validateAssertionNode(ensure.Assertion, variableType); err != nil {
+	if err := tc.validateAssertionNode(ensure.Assertion, variableType, ensure.Variable.Ident.Span); err != nil {
 		return ast.TypeNode{}, err
 	}
 

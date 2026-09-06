@@ -58,21 +58,9 @@ func (t *Transformer) transformEnsureStatement(ensureNode ast.EnsureNode, origin
 		return nil, fmt.Errorf("expected ExprStmt from transformEnsureCondition, got %T", stmts[0])
 	}
 
-	finalCondition := exprStmt.X
-	shouldNegate := len(ensureNode.Assertion.Constraints) == 0
-	for _, constraint := range ensureNode.Assertion.Constraints {
-		if t.TypeChecker.IsTypeGuardConstraint(constraint.Name) {
-			shouldNegate = true
-			break
-		}
-		if (constraint.Name == "Ok" || constraint.Name == "Err") && !t.TypeChecker.IsTypeGuardConstraint(constraint.Name) {
-			shouldNegate = true
-			break
-		}
-	}
-	if shouldNegate {
-		finalCondition = &goast.UnaryExpr{Op: token.NOT, X: finalCondition}
-	}
+	// Builtin, type-guard, Ok/Err, and Meet/Join expressions all use success polarity.
+	// Ensure fails when the success condition is false.
+	finalCondition := negateCondition(exprStmt.X)
 
 	finallyStmts := []goast.Stmt{}
 	errorStmt := t.transformErrorStatement(fn, ensureNode)

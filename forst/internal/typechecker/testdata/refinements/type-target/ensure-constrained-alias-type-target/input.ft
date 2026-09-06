@@ -1,0 +1,12 @@
+package main
+
+type Sku = String.Min(1).Max(64)
+
+func useSku(s Sku) {}
+
+func check(raw String) {
+	ensure raw is Sku
+	useSku(raw)
+}
+
+func main() {}

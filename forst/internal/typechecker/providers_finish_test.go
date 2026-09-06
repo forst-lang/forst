@@ -27,8 +27,8 @@ func TestValidateSidecarExportable_rejectsProvidersOnExportedFn(t *testing.T) {
 	if !ok || diag.Code != "providers-sidecar-export" {
 		t.Fatalf("got %T %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Handle") || !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("msg = %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Handle") || !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("msg = %q", diag.Error())
 	}
 }
 
@@ -62,8 +62,8 @@ func TestValidateWiringRootFn_unsatisfiedProviders(t *testing.T) {
 	if !ok || diag.Code != "providers-unsatisfied" {
 		t.Fatalf("got %T %v", err, err)
 	}
-	if !strings.Contains(diag.Msg, "Logger") {
-		t.Fatalf("msg = %q", diag.Msg)
+	if !strings.Contains(diag.Error(), "Logger") {
+		t.Fatalf("msg = %q", diag.Error())
 	}
 }
 
@@ -142,8 +142,7 @@ func TestValidateModuleProviders_satisfiedCrossPackageOk(t *testing.T) {
 		Scope:       map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
 	}}
 	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
-		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
-		},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}}},
 	}
 	importMap := map[string]string{"testmod/auth": "auth"}
 	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {
@@ -168,8 +167,7 @@ func TestValidateModuleProviders_callerForwardsCrossPackage(t *testing.T) {
 		},
 	}
 	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
-		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
-		},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}}},
 	}
 	importMap := map[string]string{"testmod/auth": "auth"}
 	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {

@@ -170,6 +170,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 		return ast.TypeNode{}, fmt.Errorf("failed to hash processed shape: %w", err)
 	}
 	finalTypeIdent := finalHash.ToTypeIdent()
+	tc.markHashBasedIdent(finalTypeIdent)
 	tc.registerType(ast.TypeDefNode{
 		Ident: finalTypeIdent,
 		Expr:  ast.TypeDefShapeExpr{Shape: processedShape},

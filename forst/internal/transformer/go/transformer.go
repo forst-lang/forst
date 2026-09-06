@@ -118,6 +118,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	sort.Slice(typeNames, func(i, j int) bool { return typeNames[i] < typeNames[j] })
 	if !t.OmitPackageTypeDefs {
 		for _, name := range typeNames {
+			if t.shouldOmitGoPackageType(name) {
+				continue
+			}
 			def := t.TypeChecker.Defs[name]
 			switch def := def.(type) {
 			case ast.TypeDefNode:
@@ -244,6 +247,13 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	t.appendNodeBridgeIfNeeded()
 
 	return t.Output.GenerateFile()
+}
+
+func (t *Transformer) shouldOmitGoPackageType(typeIdent ast.TypeIdent) bool {
+	if t == nil || t.TypeChecker == nil {
+		return false
+	}
+	return t.TypeChecker.IsGoPackageType(typeIdent) || t.TypeChecker.SamePackageGoDefinesType(typeIdent)
 }
 
 func (t *Transformer) IsMainPackage() bool {
@@ -518,6 +528,15 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def an
 		return nil
 	}
 	processed[typeIdent] = true
+
+	// Same-package Go named types already exist in sibling .go; do not re-emit.
+	if t.shouldOmitGoPackageType(typeIdent) {
+		t.log.WithFields(logrus.Fields{
+			"function":  "emitTypeAndReferencedTypes",
+			"typeIdent": typeIdent,
+		}).Debug("[DEBUG] Skipping emit for same-package Go type")
+		return nil
+	}
 
 	// Check if already emitted
 	alreadyEmitted := false

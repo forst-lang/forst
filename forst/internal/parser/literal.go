@@ -9,26 +9,39 @@ import (
 // parseLiteral parses basic literal types (string, int, float, bool)
 func (p *Parser) parseLiteral() ast.LiteralNode {
 	neg := false
+	var minusTok ast.Token
 	if p.current().Type == ast.TokenMinus {
 		neg = true
+		minusTok = p.current()
 		p.advance()
 	}
 
 	token := p.current()
 	p.advance() // Consume the token
 
+	spanFrom := func(end ast.Token) ast.SourceSpan {
+		if neg {
+			return ast.SpanBetweenTokens(minusTok, end)
+		}
+		return ast.SpanFromToken(end)
+	}
+
 	switch token.Type {
 	case ast.TokenStringLiteral:
 		if neg {
 			p.FailWithParseError(token, "Invalid use of unary minus before string literal")
 		}
-		// Remove quotes from the string value
 		value := token.Value
-		if len(value) >= 2 {
-			value = value[1 : len(value)-1] // Remove surrounding quotes
+		if len(value) >= 2 && (value[0] == '"' || value[0] == '`') {
+			unquoted, err := strconv.Unquote(value)
+			if err != nil {
+				p.FailWithParseError(token, "illegal string literal")
+			}
+			value = unquoted
 		}
 		return ast.StringLiteralNode{
 			Value: value,
+			Span:  ast.SpanFromToken(token),
 		}
 
 	case ast.TokenRuneLiteral:
@@ -45,6 +58,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		return ast.RuneLiteralNode{
 			Value: int64(r),
+			Span:  ast.SpanFromToken(token),
 		}
 
 	case ast.TokenIntLiteral:
@@ -66,6 +80,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			}
 			return ast.FloatLiteralNode{
 				Value: floatVal,
+				Span:  spanFrom(floatSuffix),
 			}
 		}
 
@@ -80,6 +95,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		return ast.IntLiteralNode{
 			Value: intVal,
 			Raw:   token.Value,
+			Span:  spanFrom(token),
 		}
 
 	case ast.TokenFloatLiteral:
@@ -93,6 +109,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		return ast.FloatLiteralNode{
 			Value: floatVal,
+			Span:  spanFrom(token),
 		}
 
 	case ast.TokenTrue:
@@ -101,6 +118,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		return ast.BoolLiteralNode{
 			Value: true,
+			Span:  ast.SpanFromToken(token),
 		}
 
 	case ast.TokenFalse:
@@ -109,6 +127,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		return ast.BoolLiteralNode{
 			Value: false,
+			Span:  ast.SpanFromToken(token),
 		}
 
 	case ast.TokenLBracket:
@@ -127,19 +146,20 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 
 		arrayType := p.parseOptionalArrayElementTypeSuffix(rbrack)
 		if p.current().Type == ast.TokenLBrace {
-			return p.parseBraceCompositeArrayLiteral(arrayType)
+			return p.parseBraceCompositeArrayLiteral(arrayType, token)
 		}
 
 		return ast.ArrayLiteralNode{
 			Value: items,
 			Type:  arrayType,
+			Span:  ast.SpanBetweenTokens(token, rbrack),
 		}
 
 	case ast.TokenNil:
 		if neg {
 			p.FailWithParseError(token, "Invalid use of unary minus before nil")
 		}
-		return ast.NilLiteralNode{}
+		return ast.NilLiteralNode{Span: ast.SpanFromToken(token)}
 
 	default:
 		p.FailWithUnexpectedToken(token, "a literal")
@@ -150,8 +170,9 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 // parseBraceCompositeArrayLiteral parses `{ elem, elem, … }` after a typed `[]T` prefix.
 // Nested `{…}` elements are treated as Go-style nested composites (not Forst shapes),
 // so `[][]String{{"a","b"}}` works for table-driven tests.
-func (p *Parser) parseBraceCompositeArrayLiteral(elemType ast.TypeNode) ast.ArrayLiteralNode {
-	p.expect(ast.TokenLBrace)
+// openBracket is the opening `[` of the `[]T` prefix (for span start).
+func (p *Parser) parseBraceCompositeArrayLiteral(elemType ast.TypeNode, openBracket ast.Token) ast.ArrayLiteralNode {
+	lbrace := p.expect(ast.TokenLBrace)
 	var items []ast.ExpressionNode
 	for p.current().Type != ast.TokenRBrace {
 		if p.current().Type == ast.TokenLBrace {
@@ -159,7 +180,7 @@ func (p *Parser) parseBraceCompositeArrayLiteral(elemType ast.TypeNode) ast.Arra
 			if elemType.Ident == ast.TypeArray && len(elemType.TypeParams) == 1 {
 				nestedElem = elemType.TypeParams[0]
 			}
-			items = append(items, p.parseBraceCompositeArrayLiteral(nestedElem))
+			items = append(items, p.parseBraceCompositeArrayLiteral(nestedElem, p.current()))
 		} else {
 			items = append(items, p.parseExpression())
 		}
@@ -167,10 +188,15 @@ func (p *Parser) parseBraceCompositeArrayLiteral(elemType ast.TypeNode) ast.Arra
 			p.advance()
 		}
 	}
-	p.expect(ast.TokenRBrace)
+	rbrace := p.expect(ast.TokenRBrace)
+	start := openBracket
+	if openBracket.Type == ast.TokenLBrace {
+		start = lbrace
+	}
 	return ast.ArrayLiteralNode{
 		Value: items,
 		Type:  elemType,
+		Span:  ast.SpanBetweenTokens(start, rbrace),
 	}
 }
 

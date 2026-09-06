@@ -21,7 +21,10 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 			"function":  "lookupNestedField",
 			"fieldName": fieldName,
 		}).Debugf("Shape is nil")
-		return ast.TypeNode{}, fmt.Errorf("shape is nil")
+		return ast.TypeNode{}, reportf(fieldName.Span, "shape-invalid-path",
+			"invalid field path",
+			"Tried to look up a field on a missing shape.",
+			"ensure the parent value is a shape type with fields")
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -37,7 +40,7 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 			"fieldName":       fieldName,
 			"availableFields": fmt.Sprintf("%+v", shape.Fields),
 		}).Debugf("Field not found in nested shape")
-		return ast.TypeNode{}, fmt.Errorf("field %s not found in nested shape", fieldName.ID)
+		return ast.TypeNode{}, shapeUnknownFieldError("", string(fieldName.ID), shapeFieldNames(shape.Fields), fieldName.Span)
 	}
 
 	tc.log.WithFields(logrus.Fields{

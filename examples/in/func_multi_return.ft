@@ -1,0 +1,18 @@
+package main
+
+import "fmt"
+
+// Go-style multi-value return types: `: (T, error)`.
+// Golden output: ../out/func_multi_return.go
+func Boom(): (String, error) {
+	return "", fmt.Errorf("x")
+}
+
+func main() {
+	s, err := Boom()
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	println(s)
+}

@@ -53,3 +53,9 @@ func (s *stubModuleView) ImportPathToForstPkg() map[string]string { return s.imp
 func (s *stubModuleView) ForstPackageTypeChecker(pkg string) *typechecker.TypeChecker {
 	return s.pkgs[pkg]
 }
+func (s *stubModuleView) TypeCheckerForImportPath(importPath string) *typechecker.TypeChecker {
+	if pkg := s.importMap[importPath]; pkg != "" {
+		return s.pkgs[pkg]
+	}
+	return nil
+}

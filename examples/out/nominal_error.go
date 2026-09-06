@@ -1,7 +1,6 @@
 package main
 
 import "fmt"
-import errors "errors"
 import os "os"
 // NotPositive: TypeDefErrorExpr({message: String})
 type NotPositive struct {
@@ -32,7 +31,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		{
-			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", errors.New("ensure err is Error.Nil(): want nil"))
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", err)
 			os.Exit(1)
 		}
 	}

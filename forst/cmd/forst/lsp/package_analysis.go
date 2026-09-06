@@ -233,6 +233,7 @@ func parseLimit(n int) int {
 }
 
 // parsePackageGroupMembersParallel lexes and parses each URI; results[i] corresponds to uris[i].
+// Unchanged members reuse a content-hash keyed parse cache so editing one file does not re-lex peers.
 func (s *LSPServer) parsePackageGroupMembersParallel(uris []string, contents map[string]string) ([]fileParseResult, error) {
 	cd, ok := s.debugger.(*CompilerDebugger)
 	if !ok {
@@ -247,10 +248,19 @@ func (s *LSPServer) parsePackageGroupMembersParallel(uris []string, contents map
 	for i := range uris {
 		g.Go(func() error {
 			u := uris[i]
+			content := contents[u]
+			hash := contentSHA256(content)
+			if s.fileParseCache != nil {
+				if cached, hit := s.fileParseCache.get(u, hash); hit {
+					results[i] = cached
+					return nil
+				}
+			}
+
+			s.fileParseInvocations.Add(1)
 			fp := filePathFromDocumentURI(u)
 			pkgPath := extractPackagePath(fp)
 			fid := string(packageStore.RegisterFile(fp, pkgPath))
-			content := contents[u]
 
 			lex := lexer.New([]byte(content), fid, s.log)
 			tokens := lex.Lex()
@@ -270,7 +280,7 @@ func (s *LSPServer) parsePackageGroupMembersParallel(uris []string, contents map
 				nodes, parseErr = psr.ParseFile()
 			}()
 
-			results[i] = fileParseResult{
+			result := fileParseResult{
 				URI:      u,
 				FilePath: fp,
 				Content:  content,
@@ -279,6 +289,10 @@ func (s *LSPServer) parsePackageGroupMembersParallel(uris []string, contents map
 				Nodes:    nodes,
 				ParseErr: parseErr,
 			}
+			if s.fileParseCache != nil {
+				s.fileParseCache.put(u, hash, result)
+			}
+			results[i] = result
 			return nil
 		})
 	}

@@ -1,205 +1,8 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/internal/ast"
 )
-
-// Infers the return type of a function from its body
-// This function should be called while the function scope is active
-func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeNode, error) {
-	parsedType := fn.ReturnTypes
-	inferredType := []ast.TypeNode{}
-
-	// For empty functions, default to void return type
-	if len(fn.Body) == 0 {
-		return ensureMatching(tc, fn, inferredType, parsedType, "Empty function is not void")
-	}
-
-	// Check if there are any ensure nodes and determine if function should return error.
-	// Use Kind() so *ast.EnsureNode and ast.EnsureNode both count (interface assertion on the
-	// concrete struct type alone misses pointers).
-	hasEnsure := false
-	for _, stmt := range fn.Body {
-		if stmt.Kind() == ast.NodeKindEnsure {
-			hasEnsure = true
-			break
-		}
-	}
-
-	// Find all return statements and collect their types
-	returnStmtTypes := make([][]ast.TypeNode, 0)
-	for _, retStmt := range collectReturnStatements(fn.Body) {
-		// Get types of all return values
-		retTypes := make([]ast.TypeNode, 0)
-		for i, value := range retStmt.Values {
-			// Contextual typing for nil
-			if value.Kind() == ast.NodeKindNilLiteral {
-				// Try to get expected type from parsedType, function signature, or previous returns
-				var expectedType ast.TypeNode
-				if len(parsedType) > i {
-					expectedType = parsedType[i]
-				} else if len(fn.ReturnTypes) > i {
-					expectedType = fn.ReturnTypes[i]
-				} else if len(returnStmtTypes) > 0 && len(returnStmtTypes[0]) > i {
-					expectedType = returnStmtTypes[0][i]
-				} else if hasEnsure && i == 1 {
-					// If there's an ensure statement and this is the second return value, expect Error
-					expectedType = ast.TypeNode{Ident: ast.TypeError}
-				}
-				if isNilableType(tc, expectedType) {
-					retTypes = append(retTypes, expectedType)
-				} else {
-					return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", expectedType.Ident)
-				}
-			} else {
-				retType, err := tc.inferReturnValueTypes(value)
-				if err != nil {
-					return nil, err
-				}
-				if len(retType) == 1 {
-					if tc.log != nil {
-						tc.log.WithFields(map[string]any{
-							"function":     fn.Ident.ID,
-							"returnIndex":  i,
-							"returnAST":    fmt.Sprintf("%T", value),
-							"inferredType": retType[0].Ident,
-						}).Debug("[PINPOINT] Inferred return type for function")
-					}
-					retTypes = append(retTypes, retType[0])
-				} else if len(retType) > 1 && len(retStmt.Values) == 1 && len(retType) == len(parsedType) {
-					// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
-					if tc.log != nil {
-						tc.log.WithFields(map[string]any{
-							"function":      fn.Ident.ID,
-							"returnAST":     fmt.Sprintf("%T", value),
-							"inferredTypes": formatTypeList(retType),
-						}).Debug("[PINPOINT] Multi-value return from single expression")
-					}
-					retTypes = append(retTypes, retType...)
-				} else {
-					return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
-				}
-			}
-		}
-		returnStmtTypes = append(returnStmtTypes, retTypes)
-	}
-
-	// If we found return statements, verify they all have the same type (or valid Result arms).
-	if len(returnStmtTypes) > 1 {
-		if len(parsedType) == 1 && parsedType[0].IsResultType() {
-			for _, retTypes := range returnStmtTypes {
-				if len(retTypes) != 1 {
-					return nil, fmt.Errorf("result-returning function expects single-value returns, got %d values", len(retTypes))
-				}
-				if !tc.isCompatibleResultReturnArm(retTypes[0], parsedType[0]) {
-					return nil, failWithTypeMismatch(fn, retTypes, parsedType, "Inconsistent type of return statements")
-				}
-			}
-		} else {
-			firstType := returnStmtTypes[0]
-			for _, retTypes := range returnStmtTypes[1:] {
-				for i, retType := range retTypes {
-					if i >= len(firstType) {
-						return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
-					}
-					if !tc.IsTypeCompatible(retType, firstType[i]) {
-						return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
-					}
-				}
-			}
-		}
-	}
-
-	// Get last statement which should be the implicit return value when no explicit return type
-	// is declared. See docs/language/errors-and-result.mdx § Return inference and implicit returns.
-	lastStmt := fn.Body[len(fn.Body)-1]
-
-	// If last statement is an expression, its type is the return type
-	if expr, ok := lastStmt.(ast.ExpressionNode); ok {
-		exprTypes, err := tc.inferReturnValueTypes(expr)
-		if err != nil {
-			return nil, err
-		}
-
-		inferredType = exprTypes
-
-		// If we found return statements, verify the expression type matches
-		if len(returnStmtTypes) > 0 {
-			for i, exprType := range exprTypes {
-				if i >= len(returnStmtTypes[0]) {
-					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
-				}
-				if !tc.IsTypeCompatible(exprType, returnStmtTypes[0][i]) {
-					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
-				}
-			}
-		}
-
-		return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return expression type")
-	}
-
-	// If we found return statements, use the first return type (or declared Result when arms differ).
-	if len(returnStmtTypes) > 0 {
-		if len(parsedType) == 1 && parsedType[0].IsResultType() && len(returnStmtTypes) > 1 {
-			inferredType = parsedType
-		} else {
-			inferredType = returnStmtTypes[0]
-		}
-	}
-
-	// Multi-value return against a declared Tuple(S...) return type: keep Tuple as the single return type.
-	if len(parsedType) == 1 && parsedType[0].IsTupleType() && len(returnStmtTypes) > 0 {
-		retVals := returnStmtTypes[0]
-		tup := parsedType[0]
-		if len(retVals) == len(tup.TypeParams) {
-			for i, elem := range retVals {
-				if !tc.IsTypeCompatible(elem, tup.TypeParams[i]) {
-					return nil, failWithTypeMismatch(fn, retVals, tup.TypeParams, "Tuple return element mismatch")
-				}
-			}
-			inferredType = parsedType
-			return inferredType, nil
-		}
-	}
-
-	// Handle ensure statements
-	if hasEnsure {
-		if tc.IsGoTestFunction(fn) {
-			// Go test functions must stay void; ensure lowers to t.Fatal, not error return.
-			inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
-		} else if len(inferredType) == 0 {
-			if len(parsedType) == 1 && parsedType[0].IsResultType() {
-				inferredType = parsedType
-			} else if !tc.functionEnsureImpliesResultReturn(fn) {
-				inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
-			} else {
-				inferredType = []ast.TypeNode{
-					{Ident: ast.TypeError},
-				}
-			}
-		} else if tc.functionEnsureImpliesResultReturn(fn) && (len(parsedType) != 1 || !parsedType[0].IsResultType()) && (len(inferredType) != 1 || !inferredType[0].IsResultType()) {
-			if len(inferredType) < 1 || len(inferredType) > 2 {
-				return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))
-			}
-
-			// Single success value + ensure: always infer Result(S, Error) (one type), not a (S, error) pair.
-			if len(inferredType) == 1 && inferredType[0].Ident != ast.TypeError {
-				inferredType = []ast.TypeNode{ast.NewResultType(inferredType[0], ast.TypeNode{Ident: ast.TypeError})}
-			}
-
-			if len(inferredType) == 2 && inferredType[len(inferredType)-1].Ident != ast.TypeError {
-				inferredType[len(inferredType)-1] = ast.TypeNode{Ident: ast.TypeError}
-			}
-		}
-	}
-
-	if len(inferredType) == 0 {
-		inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
-	}
-
-	return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return type")
-}
 
 // inferReturnValueTypes returns types for a return expression, preferring types inferred
 // during the body pass (while lexical scopes for loops, if branches, etc. were active).
@@ -247,20 +50,17 @@ func ensureLooksLikeResultDiscriminator(n ast.EnsureNode) bool {
 
 // Helper: isNilableType checks if a type can be assigned nil
 func isNilableType(tc *TypeChecker, t ast.TypeNode) bool {
-	// Follow type aliases to the base type
 	base := t
 	chain := tc.GetTypeAliasChain(t)
 	if len(chain) > 0 {
 		base = chain[len(chain)-1]
 	}
 
-	// Check if the base type is nilable
 	switch base.Ident {
 	case ast.TypePointer, ast.TypeError, ast.TypeMap, ast.TypeArray:
 		return true
 	}
 
-	// Also check string versions for built-in types
 	switch string(base.Ident) {
 	case "Pointer", "Error", "Map", "Array":
 		return true

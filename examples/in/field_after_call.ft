@@ -1,0 +1,14 @@
+package main
+
+// Field access on a call result: makeQ().n
+// Golden output: ../out/field_after_call.go
+
+type Q = {n: Int}
+
+func makeQ(): Q {
+	return Q{n: 7}
+}
+
+func main() {
+	println(string(makeQ().n))
+}

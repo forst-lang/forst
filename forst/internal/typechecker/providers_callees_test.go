@@ -10,10 +10,10 @@ import (
 func TestSplitQualifiedCallee(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		in          string
-		wantLocal   string
-		wantFn      string
-		wantOK      bool
+		in        string
+		wantLocal string
+		wantFn    string
+		wantOK    bool
 	}{
 		{"auth.LogEvent", "auth", "LogEvent", true},
 		{"LogEvent", "", "LogEvent", false},
@@ -105,8 +105,8 @@ func TestRevalidateUnusedWiringKeysAfterModuleMerge_stripsStaleAndRecomputes(t *
 		},
 	}
 	tc.Warnings = []Diagnostic{
-		{Code: "providers-unused-key", Msg: "wiring key \"Logger\" is not required"},
-		{Code: "other-warning", Msg: "keep me"},
+		{Code: "providers-unused-key", Title: `wiring key "Logger" is not required`, Help: "remove unused wiring keys"},
+		{Code: "other-warning", Title: "keep me", Help: "n/a"},
 	}
 	tc.FunctionProviders = map[ast.Identifier][]ProviderSlot{
 		"expireToken": {{RootIdent: "Logger", Key: "Logger"}},
@@ -115,14 +115,14 @@ func TestRevalidateUnusedWiringKeysAfterModuleMerge_stripsStaleAndRecomputes(t *
 	tc.RevalidateUnusedWiringKeysAfterModuleMerge()
 
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Logger") {
-			t.Fatalf("stale Logger unused warning should be stripped, got: %s", w.Msg)
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Logger") {
+			t.Fatalf("stale Logger unused warning should be stripped, got: %s", w.Error())
 		}
 	}
 	foundClock := false
 	foundOther := false
 	for _, w := range tc.Warnings {
-		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
+		if w.Code == "providers-unused-key" && strings.Contains(w.Error(), "Clock") {
 			foundClock = true
 		}
 		if w.Code == "other-warning" {
@@ -184,5 +184,11 @@ type testModuleView struct {
 	pkgs      map[string]*TypeChecker
 }
 
-func (v *testModuleView) ImportPathToForstPkg() map[string]string { return v.importMap }
+func (v *testModuleView) ImportPathToForstPkg() map[string]string         { return v.importMap }
 func (v *testModuleView) ForstPackageTypeChecker(pkg string) *TypeChecker { return v.pkgs[pkg] }
+func (v *testModuleView) TypeCheckerForImportPath(importPath string) *TypeChecker {
+	if pkg := v.importMap[importPath]; pkg != "" {
+		return v.pkgs[pkg]
+	}
+	return nil
+}
