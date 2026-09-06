@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.19.1](https://github.com/forst-lang/forst/compare/v0.19.0...v0.19.1) (2026-09-06)
+
+
+### Features
+
+* **compiler:** compile Forst packages from `go.mod` dependencies ([#208](https://github.com/forst-lang/forst/issues/208)) ([62269e1](https://github.com/forst-lang/forst/commit/62269e117df4ccdd91f86d52bf9190698e203bc6))
+
+
+### Bug Fixes
+
+* **typechecker:** allow String and Bytes as slice targets ([#207](https://github.com/forst-lang/forst/issues/207)) ([2edd331](https://github.com/forst-lang/forst/commit/2edd3316b210c1ee91ddbb1d87f03ea05aaa0404))
+* **typechecker:** resolve fields and methods on call and index results ([#205](https://github.com/forst-lang/forst/issues/205)) ([591b2ea](https://github.com/forst-lang/forst/commit/591b2eae5f92120741e638cca60129e2335e668e))
+
 ## [0.19.0](https://github.com/forst-lang/forst/compare/v0.18.1...v0.19.0) (2026-09-06)
 
 
