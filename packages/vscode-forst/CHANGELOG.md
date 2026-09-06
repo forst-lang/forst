@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.5.0...vscode-forst-v0.6.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **diagnostics:** consumers of Diagnostic.Msg, diagnosticf, or legacy diag message formatters must use Report fields / FormatReport and pass spans at every user-facing emit site.
+* **refinements:** `ensure … or Err(...)` as the failure form is replaced by `ensure … else Err(...)`. Migrate existing failure sites to `else`; reserve `or` for assertion alternatives such as `A() or B()`.
+* Ensure failure blocks now require the else keyword. Bare failure blocks without else will produce a parse error.
+
+### Features
+
+* **diagnostics:** ship structured reports with real spans ([#201](https://github.com/forst-lang/forst/issues/201)) ([8f51c42](https://github.com/forst-lang/forst/commit/8f51c4263a3201f0d92e660853ff7a2c81cc79f4))
+* **refinements:** ensure proofs that survive until mutation ([#198](https://github.com/forst-lang/forst/issues/198)) ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+* **typechecker:** allow `ensure` against named constrained types ([#204](https://github.com/forst-lang/forst/issues/204)) ([d84233f](https://github.com/forst-lang/forst/commit/d84233f19ede18d1cb5519f1be0d8c4c7f141e0e))
+
+
+### Bug Fixes
+
+* **vscode:** highlight ensure else ErrorName sites ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+
+
+### Documentation
+
+* document implicit Error propagation for ensure !err ([a6aac0f](https://github.com/forst-lang/forst/commit/a6aac0fa2bd91a4e86c2dd437f348f71bb913b37))
+
 ## [0.5.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.4.0...vscode-forst-v0.5.0) (2026-09-03)
 
 
