@@ -31,10 +31,13 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		if neg {
 			p.FailWithParseError(token, "Invalid use of unary minus before string literal")
 		}
-		// Remove quotes from the string value
 		value := token.Value
-		if len(value) >= 2 {
-			value = value[1 : len(value)-1] // Remove surrounding quotes
+		if len(value) >= 2 && (value[0] == '"' || value[0] == '`') {
+			unquoted, err := strconv.Unquote(value)
+			if err != nil {
+				p.FailWithParseError(token, "illegal string literal")
+			}
+			value = unquoted
 		}
 		return ast.StringLiteralNode{
 			Value: value,

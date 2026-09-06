@@ -206,11 +206,11 @@ func f(xs []String): String {
 `
 	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
-		t.Fatal("expected field-access error on non-Go expression")
+		t.Fatal("expected shape-unknown-field error on String")
 	}
 	var diag *Diagnostic
-	if !errors.As(err, &diag) || diag.Code != "field-access" {
-		t.Fatalf("want field-access diagnostic, got %v", err)
+	if !errors.As(err, &diag) || diag.Code != "shape-unknown-field" {
+		t.Fatalf("want shape-unknown-field diagnostic, got %v", err)
 	}
 }
 

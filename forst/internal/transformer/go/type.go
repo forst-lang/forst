@@ -244,7 +244,7 @@ func transformTypeIdent(ident ast.TypeIdent) (*goast.Ident, error) {
 		return &goast.Ident{Name: "complex64"}, nil
 	case ast.TypeComplex128:
 		return &goast.Ident{Name: "complex128"}, nil
-	case ast.TypeIdent("byte"):
+	case ast.TypeIdent("byte"), ast.TypeIdent("Byte"):
 		return &goast.Ident{Name: "byte"}, nil
 	case ast.TypeIdent("float32"):
 		return &goast.Ident{Name: "float32"}, nil

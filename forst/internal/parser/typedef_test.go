@@ -2,6 +2,7 @@ package parser
 
 import (
 	"forst/internal/ast"
+	"forst/internal/lexer"
 	"testing"
 )
 
@@ -77,5 +78,38 @@ func TestParseTypeDef(t *testing.T) {
 			}
 			tt.validate(t, nodes)
 		})
+	}
+}
+
+func TestParseTypeDef_sliceAliasPreservesTypeParams(t *testing.T) {
+	src := `package main
+type Bytes = []Byte
+`
+	logger := ast.SetupTestLogger(nil)
+	toks := lexer.New([]byte(src), "t.ft", logger).Lex()
+	p := New(toks, "t.ft", logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	var td ast.TypeDefNode
+	for _, n := range nodes {
+		if d, ok := n.(ast.TypeDefNode); ok && d.Ident == "Bytes" {
+			td = d
+			break
+		}
+	}
+	if td.Ident == "" {
+		t.Fatal("expected Bytes typedef")
+	}
+	ade, ok := td.Expr.(ast.TypeDefAssertionExpr)
+	if !ok || ade.Assertion == nil {
+		t.Fatalf("want TypeDefAssertionExpr, got %T", td.Expr)
+	}
+	if ade.Assertion.BaseType == nil || *ade.Assertion.BaseType != ast.TypeArray {
+		t.Fatalf("want TYPE_ARRAY base, got %v", ade.Assertion.BaseType)
+	}
+	if len(ade.Assertion.TypeParams) != 1 || ade.Assertion.TypeParams[0].Ident != "Byte" {
+		t.Fatalf("want TypeParams [Byte], got %#v", ade.Assertion.TypeParams)
 	}
 }

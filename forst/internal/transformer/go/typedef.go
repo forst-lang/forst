@@ -42,8 +42,17 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 	}
 
 	// Plain alias chains to a built-in (e.g. SessionId = UserId = String) emit the underlying Go type.
-	if _, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
-		if bu := t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(node.Ident); bu != "" {
+	// Constructor aliases (e.g. type Bytes = []Byte) keep TypeParams and are lowered via transformType.
+	if ade, ok := node.Expr.(ast.TypeDefAssertionExpr); ok && ade.Assertion != nil {
+		if len(ade.Assertion.TypeParams) > 0 || ade.Assertion.ArrayLen != nil {
+			if tn, ok := ade.Assertion.ToTypeNode(); ok {
+				goType, err := t.transformType(tn)
+				if err != nil {
+					return nil, err
+				}
+				expr = &goType
+			}
+		} else if bu := t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(node.Ident); bu != "" {
 			goIdent, err := transformTypeIdent(bu)
 			if err != nil {
 				return nil, err

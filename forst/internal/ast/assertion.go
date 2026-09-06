@@ -16,6 +16,11 @@ type AssertionNode struct {
 	Constraints []ConstraintNode
 	// OrChains holds subsequent Join alternatives after `or` (same place).
 	OrChains []AssertionNode
+	// TypeParams holds element/key/value types when BaseType is a type constructor
+	// (Array, Map, Pointer, Channel, etc.) — preserved from typedef RHS like `[]Byte`.
+	TypeParams []TypeNode
+	// ArrayLen is set for fixed-size arrays `[N]T` in typedef aliases.
+	ArrayLen *int64
 }
 
 // ConstraintNode is a constraint on a type or value, with arguments
@@ -64,6 +69,18 @@ func (c ConstraintArgumentNode) String() string {
 	return "?"
 }
 
+// ToTypeNode rebuilds a TypeNode from a typedef/assertion base that may carry constructor params.
+func (a AssertionNode) ToTypeNode() (TypeNode, bool) {
+	if a.BaseType == nil {
+		return TypeNode{}, false
+	}
+	return TypeNode{
+		Ident:      *a.BaseType,
+		TypeParams: a.TypeParams,
+		ArrayLen:   a.ArrayLen,
+	}, true
+}
+
 // String returns a string representation of the assertion
 func (a AssertionNode) String() string {
 	return a.ToString(a.BaseType)
@@ -82,7 +99,11 @@ func (a AssertionNode) ToString(baseType *TypeIdent) string {
 	if baseType == nil {
 		head = constraintsString
 	} else if constraintsString == "" {
-		head = baseType.String()
+		if len(a.TypeParams) > 0 || a.ArrayLen != nil {
+			head = a.mustTypeNodeString(baseType)
+		} else {
+			head = baseType.String()
+		}
 	} else {
 		head = fmt.Sprintf("%s.%s", baseType.String(), constraintsString)
 	}
@@ -92,10 +113,20 @@ func (a AssertionNode) ToString(baseType *TypeIdent) string {
 	return head
 }
 
+func (a AssertionNode) mustTypeNodeString(baseType *TypeIdent) string {
+	tn := TypeNode{Ident: *baseType, TypeParams: a.TypeParams, ArrayLen: a.ArrayLen}
+	return tn.String()
+}
+
 // MeetChains returns this assertion's Meet chain plus each OrChains alternative
 // as separate Meet-only assertions (OrChains cleared).
 func (a AssertionNode) MeetChains() []AssertionNode {
-	first := AssertionNode{BaseType: a.BaseType, Constraints: a.Constraints}
+	first := AssertionNode{
+		BaseType:    a.BaseType,
+		Constraints: a.Constraints,
+		TypeParams:  a.TypeParams,
+		ArrayLen:    a.ArrayLen,
+	}
 	if len(a.OrChains) == 0 {
 		return []AssertionNode{first}
 	}

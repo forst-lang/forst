@@ -212,9 +212,11 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
+		ownerTypes, _ := t.TypeChecker.LookupInferredType(e.Target, false)
+		fieldName := t.goSelectorFieldName(ownerTypes, string(e.Field.ID))
 		return &goast.SelectorExpr{
 			X:   tgt,
-			Sel: goast.NewIdent(string(e.Field.ID)),
+			Sel: goast.NewIdent(fieldName),
 		}, nil
 
 	case ast.MethodCallNode:

@@ -30,7 +30,14 @@ func (tc *TypeChecker) underlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent
 	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
 		return ""
 	}
+	// Type constructors with params are not scalar underlying builtins for emit.
+	if len(ade.Assertion.TypeParams) > 0 || ade.Assertion.ArrayLen != nil {
+		return ""
+	}
 	base := *ade.Assertion.BaseType
+	if isBareTypeConstructorIdent(base) {
+		return ""
+	}
 	if tc.isBuiltinType(base) {
 		return base
 	}
@@ -38,6 +45,15 @@ func (tc *TypeChecker) underlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent
 		return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(base))
 	}
 	return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(base))
+}
+
+func isBareTypeConstructorIdent(id ast.TypeIdent) bool {
+	switch id {
+	case ast.TypeArray, ast.TypeMap, ast.TypePointer, ast.TypeChannel, ast.TypeResult, ast.TypeTuple:
+		return true
+	default:
+		return false
+	}
 }
 
 func (tc *TypeChecker) UnderlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent) ast.TypeIdent {

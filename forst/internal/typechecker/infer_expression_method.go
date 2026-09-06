@@ -30,24 +30,28 @@ func (tc *TypeChecker) inferExpressionMethodCall(expr ast.Node) ([]ast.TypeNode,
 			tc.storeInferredType(e, ret)
 			return ret, true, nil
 		}
+		recvTypes, err := tc.inferExpressionType(e.Receiver)
+		if err != nil {
+			return nil, true, err
+		}
+		recvID := ast.Identifier("")
+		fnID := ast.Identifier(string(e.Method.ID))
 		if vn, ok := e.Receiver.(ast.VariableNode); ok {
-			recvTypes, err := tc.inferExpressionType(e.Receiver)
-			if err != nil {
-				return nil, true, err
-			}
-			fc := ast.FunctionCallNode{Function: ast.Ident{ID: ast.Identifier(string(vn.Ident.ID) + "." + string(e.Method.ID))}, Arguments: e.Arguments, CallSpan: e.CallSpan, ArgSpans: e.ArgSpans}
-			ret, err := tc.inferMethodCallType(vn.Ident.ID, recvTypes, string(e.Method.ID), fc, argTypes)
-			if err != nil {
-				return nil, true, err
-			}
-			tc.storeInferredType(e, ret)
-			return ret, true, nil
+			recvID = vn.Ident.ID
+			fnID = ast.Identifier(string(vn.Ident.ID) + "." + string(e.Method.ID))
 		}
-		sp := e.Method.Span
-		if !sp.IsSet() {
-			sp = e.CallSpan
+		fc := ast.FunctionCallNode{
+			Function:  ast.Ident{ID: fnID, Span: e.Method.Span},
+			Arguments: e.Arguments,
+			CallSpan:  e.CallSpan,
+			ArgSpans:  e.ArgSpans,
 		}
-		return nil, true, reportBodyf(sp, "undefined-identifier", "method %s on receiver type %T", e.Method.ID, e.Receiver)
+		ret, err := tc.inferMethodCallType(recvID, recvTypes, string(e.Method.ID), fc, argTypes)
+		if err != nil {
+			return nil, true, err
+		}
+		tc.storeInferredType(e, ret)
+		return ret, true, nil
 	}
 	return nil, false, nil
 }

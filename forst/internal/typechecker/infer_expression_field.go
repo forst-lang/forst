@@ -35,7 +35,15 @@ func (tc *TypeChecker) inferExpressionFieldAccess(expr ast.Node) ([]ast.TypeNode
 			tc.storeInferredType(e, []ast.TypeNode{ft})
 			return []ast.TypeNode{ft}, true, nil
 		}
-		return nil, true, reportBodyf(e.Field.Span, "field-access", "field access on non-Go expression is not supported")
+		if len(targetTypes) != 1 {
+			return nil, true, reportBodyf(e.Field.Span, "field-access", "field access requires a single target type")
+		}
+		ft, err := tc.lookupFieldPath(targetTypes[0], []string{string(e.Field.ID)}, e.Field.Span)
+		if err != nil {
+			return nil, true, err
+		}
+		tc.storeInferredType(e, []ast.TypeNode{ft})
+		return []ast.TypeNode{ft}, true, nil
 	}
 	return nil, false, nil
 }

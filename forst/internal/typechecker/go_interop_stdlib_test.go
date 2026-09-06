@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/testmod"
 	"forst/internal/testutil"
 )
@@ -171,4 +172,44 @@ func main() {
 }
 `
 	MustTypecheckMixedPackage(t, root, modName+"/app", src)
+}
+
+func TestGoMethodCall_multiReturnAssignment_typechecks(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	const modName = "methodpair"
+	testmod.WriteGoMod(t, root, modName)
+	pkgDir := filepath.Join(root, "app")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helpers := `package app
+
+type Builder struct{}
+
+func NewBuilder() *Builder { return &Builder{} }
+
+func (b *Builder) Pair() (string, []any) {
+	return "a", []any{"b"}
+}
+`
+	if err := os.WriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(helpers), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package app
+
+func main() {
+	b := NewBuilder()
+	s, xs := b.Pair()
+	println(s)
+	println(string(len(xs)))
+}
+`
+	tc, _ := MustTypecheckMixedPackage(t, root, modName+"/app", src)
+	if tc.variableGoTypes[ast.Identifier("s")] == nil {
+		t.Fatal("expected variableGoTypes[\"s\"] after Go method multi-return")
+	}
+	if tc.variableGoTypes[ast.Identifier("xs")] == nil {
+		t.Fatal("expected variableGoTypes[\"xs\"] after Go method multi-return")
+	}
 }
