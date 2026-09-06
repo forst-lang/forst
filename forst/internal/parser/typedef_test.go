@@ -82,34 +82,68 @@ func TestParseTypeDef(t *testing.T) {
 }
 
 func TestParseTypeDef_sliceAliasPreservesTypeParams(t *testing.T) {
-	src := `package main
-type Bytes = []Byte
-`
-	logger := ast.SetupTestLogger(nil)
-	toks := lexer.New([]byte(src), "t.ft", logger).Lex()
-	p := New(toks, "t.ft", logger)
-	nodes, err := p.ParseFile()
-	if err != nil {
-		t.Fatalf("parse: %v", err)
+	tests := []struct {
+		name         string
+		src          string
+		wantLen      *int64
+		wantElem     ast.TypeIdent
+		typedefIdent ast.TypeIdent
+	}{
+		{
+			name:         "slice_alias",
+			src:          "package main\ntype Bytes = []Byte\n",
+			wantLen:      nil,
+			wantElem:     "Byte",
+			typedefIdent: "Bytes",
+		},
+		{
+			name:         "fixed_array_alias",
+			src:          "package main\ntype Bytes = [4]Byte\n",
+			wantLen:      int64Ptr(4),
+			wantElem:     "Byte",
+			typedefIdent: "Bytes",
+		},
 	}
-	var td ast.TypeDefNode
-	for _, n := range nodes {
-		if d, ok := n.(ast.TypeDefNode); ok && d.Ident == "Bytes" {
-			td = d
-			break
-		}
-	}
-	if td.Ident == "" {
-		t.Fatal("expected Bytes typedef")
-	}
-	ade, ok := td.Expr.(ast.TypeDefAssertionExpr)
-	if !ok || ade.Assertion == nil {
-		t.Fatalf("want TypeDefAssertionExpr, got %T", td.Expr)
-	}
-	if ade.Assertion.BaseType == nil || *ade.Assertion.BaseType != ast.TypeArray {
-		t.Fatalf("want TYPE_ARRAY base, got %v", ade.Assertion.BaseType)
-	}
-	if len(ade.Assertion.TypeParams) != 1 || ade.Assertion.TypeParams[0].Ident != "Byte" {
-		t.Fatalf("want TypeParams [Byte], got %#v", ade.Assertion.TypeParams)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := ast.SetupTestLogger(nil)
+			toks := lexer.New([]byte(tt.src), "t.ft", logger).Lex()
+			p := New(toks, "t.ft", logger)
+			nodes, err := p.ParseFile()
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			var td ast.TypeDefNode
+			for _, n := range nodes {
+				if d, ok := n.(ast.TypeDefNode); ok && d.Ident == tt.typedefIdent {
+					td = d
+					break
+				}
+			}
+			if td.Ident == "" {
+				t.Fatalf("expected %s typedef", tt.typedefIdent)
+			}
+			ade, ok := td.Expr.(ast.TypeDefAssertionExpr)
+			if !ok || ade.Assertion == nil {
+				t.Fatalf("want TypeDefAssertionExpr, got %T", td.Expr)
+			}
+			if ade.Assertion.BaseType == nil || *ade.Assertion.BaseType != ast.TypeArray {
+				t.Fatalf("want TYPE_ARRAY base, got %v", ade.Assertion.BaseType)
+			}
+			if len(ade.Assertion.TypeParams) != 1 || ade.Assertion.TypeParams[0].Ident != tt.wantElem {
+				t.Fatalf("want TypeParams [%s], got %#v", tt.wantElem, ade.Assertion.TypeParams)
+			}
+			if tt.wantLen == nil {
+				if ade.Assertion.ArrayLen != nil {
+					t.Fatalf("want nil ArrayLen for slice, got %v", *ade.Assertion.ArrayLen)
+				}
+			} else if ade.Assertion.ArrayLen == nil || *ade.Assertion.ArrayLen != *tt.wantLen {
+				got := any(nil)
+				if ade.Assertion.ArrayLen != nil {
+					got = *ade.Assertion.ArrayLen
+				}
+				t.Fatalf("want ArrayLen %d, got %v", *tt.wantLen, got)
+			}
+		})
 	}
 }

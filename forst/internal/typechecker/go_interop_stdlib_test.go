@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"go/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -206,10 +207,82 @@ func main() {
 }
 `
 	tc, _ := MustTypecheckMixedPackage(t, root, modName+"/app", src)
-	if tc.variableGoTypes[ast.Identifier("s")] == nil {
-		t.Fatal("expected variableGoTypes[\"s\"] after Go method multi-return")
+	sGo := tc.variableGoTypes[ast.Identifier("s")]
+	if sGo == nil || !types.Identical(sGo, types.Typ[types.String]) {
+		t.Fatalf("variableGoTypes[\"s\"]: got %v want string", sGo)
 	}
-	if tc.variableGoTypes[ast.Identifier("xs")] == nil {
-		t.Fatal("expected variableGoTypes[\"xs\"] after Go method multi-return")
+	xsGo := tc.variableGoTypes[ast.Identifier("xs")]
+	wantXS := types.NewSlice(types.Universe.Lookup("any").Type())
+	if xsGo == nil || !types.Identical(xsGo, wantXS) {
+		t.Fatalf("variableGoTypes[\"xs\"]: got %v want []any", xsGo)
+	}
+}
+
+func TestGoMethodCall_pointerRecv_onSliceIndex_typechecks(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	const modName = "sliceaddr"
+	testmod.WriteGoMod(t, root, modName)
+	pkgDir := filepath.Join(root, "app")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helpers := `package app
+
+type Item struct{ N int }
+
+func (i *Item) Label() string { return "ok" }
+
+func Items() []Item { return []Item{{}} }
+`
+	if err := os.WriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(helpers), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package app
+
+func main() {
+	xs := Items()
+	s := xs[0].Label()
+	println(s)
+}
+`
+	MustTypecheckMixedPackage(t, root, modName+"/app", src)
+}
+
+func TestGoMethodCall_pointerRecv_onMapIndex_errors(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	const modName = "mapaddr"
+	testmod.WriteGoMod(t, root, modName)
+	pkgDir := filepath.Join(root, "app")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helpers := `package app
+
+type Item struct{ N int }
+
+func (i *Item) Label() string { return "ok" }
+
+func ItemMap() map[string]Item { return map[string]Item{"a": {}} }
+`
+	if err := os.WriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(helpers), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package app
+
+func main() {
+	m := ItemMap()
+	s := m["a"].Label()
+	println(s)
+}
+`
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{
+		FileID:              "mixed/main.ft",
+		GoWorkspaceDir:      root,
+		SamePackageGoImport: modName + "/app",
+	})
+	if err == nil {
+		t.Fatal("expected pointer-receiver method on map index to fail")
 	}
 }

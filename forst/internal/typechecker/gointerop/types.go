@@ -35,6 +35,9 @@ type MethodCall struct {
 	Call            ast.FunctionCallNode
 	ArgTypes        [][]ast.TypeNode
 	WantSingleValue bool
+	// Addressable is whether the receiver expression is addressable (Go rules).
+	// Pointer-receiver methods require addressable receivers unless Recv is already a pointer.
+	Addressable bool
 }
 
 // ParamAssignability checks one Forst argument against one Go parameter.

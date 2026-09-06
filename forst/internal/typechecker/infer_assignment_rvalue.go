@@ -126,7 +126,7 @@ func (tc *TypeChecker) trySamePackageNValueCall(assign ast.AssignmentNode, fc as
 }
 
 func (tc *TypeChecker) tryResolveNValueGoMethodCall(assign ast.AssignmentNode, mc ast.MethodCallNode) ([][]ast.TypeNode, bool, error) {
-	goRecv := tc.goTypeForExpression(mc.Receiver)
+	goRecv, addr := tc.goTypeInfoForExpression(mc.Receiver)
 	if goRecv == nil {
 		return nil, false, nil
 	}
@@ -135,7 +135,7 @@ func (tc *TypeChecker) tryResolveNValueGoMethodCall(assign ast.AssignmentNode, m
 	if err != nil {
 		return nil, false, err
 	}
-	raw, err := tc.checkGoMethodCall(goRecv, mc.Method, fc, argTypes, false)
+	raw, err := tc.checkGoMethodCallAddr(goRecv, addr, mc.Method, fc, argTypes, false)
 	if err != nil || len(raw) != len(assign.LValues) {
 		return nil, false, err
 	}

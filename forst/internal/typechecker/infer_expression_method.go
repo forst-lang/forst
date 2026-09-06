@@ -16,9 +16,9 @@ func (tc *TypeChecker) inferExpressionMethodCall(expr ast.Node) ([]ast.TypeNode,
 			}
 			argTypes = append(argTypes, ts)
 		}
-		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
+		if goRecv, addr := tc.goTypeInfoForExpression(e.Receiver); goRecv != nil {
 			fc := ast.FunctionCallNode{Arguments: e.Arguments, CallSpan: e.CallSpan, ArgSpans: e.ArgSpans}
-			ret, err := tc.checkGoMethodCall(goRecv, e.Method, fc, argTypes, true)
+			ret, err := tc.checkGoMethodCallAddr(goRecv, addr, e.Method, fc, argTypes, true)
 			if err != nil {
 				return nil, true, err
 			}

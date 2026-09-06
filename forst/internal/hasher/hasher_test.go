@@ -889,3 +889,24 @@ func TestHashNode_sliceTypeUnaffectedByNilArrayLen(t *testing.T) {
 		t.Fatalf("nil ArrayLen slice hashes differ: %v vs %v", hashSlice, hashSliceCopy)
 	}
 }
+
+func TestHashNode_mapTypeParamsDistinguishValueType(t *testing.T) {
+	t.Parallel()
+	h := New()
+	mapInt := ast.NewMapType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeInt))
+	mapBool := ast.NewMapType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeBool))
+	hInt, err := h.HashNode(mapInt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hBool, err := h.HashNode(mapBool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hInt == hBool {
+		t.Fatal("Map(String, Int) and Map(String, Bool) must produce distinct hashes")
+	}
+	if hInt.ToTypeIdent() == hBool.ToTypeIdent() {
+		t.Fatalf("Map value-type params must yield distinct type idents, both %s", hInt.ToTypeIdent())
+	}
+}
