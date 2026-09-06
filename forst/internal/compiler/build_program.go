@@ -187,7 +187,7 @@ func (c *Compiler) compileProgramSandbox() (sandboxMain, boundaryRoot, bridgeRun
 		return "", "", "", nil, err
 	}
 	boundaryRoot = RunBoundaryRoot(c.Args)
-	sandboxMain, err = CreateTempOutputFiles(mainCode, bridgeRuntime, invokeServer, extraPkgs, extraImports, boundaryRoot)
+	sandboxMain, err = CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntime, invokeServer, extraPkgs, extraImports, boundaryRoot, c.LastOverlayReplaces())
 	if err != nil {
 		return "", "", "", nil, fmt.Errorf("prepare build sandbox: %w", err)
 	}

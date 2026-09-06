@@ -35,6 +35,16 @@ type Compiler struct {
 	ftconfigOnce       sync.Once
 	ftconfigCache      *ftconfig.Config
 	ftconfigErr        error
+	// lastOverlayReplaces are go.mod replaces for external Forst deps from the last compile.
+	lastOverlayReplaces []gowork.PackageReplace
+}
+
+// LastOverlayReplaces returns replace directives for external Forst dependency overlays.
+func (c *Compiler) LastOverlayReplaces() []gowork.PackageReplace {
+	if c == nil {
+		return nil
+	}
+	return c.lastOverlayReplaces
 }
 
 // New constructs a Compiler for the given CLI Args, defaulting to the
@@ -165,7 +175,7 @@ func BuildGoProgram(mainCode, bridgeRuntimeCode, invokeServerCode string, extraP
 	if len(extraPackages) > 0 && boundaryRoot == "" {
 		return fmt.Errorf("go build: boundaryRoot required when extra invoke packages are present")
 	}
-	outputPath, err := CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, nil, boundaryRoot)
+	outputPath, err := CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, nil, boundaryRoot, nil)
 	if err != nil {
 		return err
 	}
@@ -315,6 +325,11 @@ func CreateTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{})
 }
 
+// CreateTempOutputFilesWithOverlays is CreateTempOutputFiles plus go.mod replaces for external Forst deps.
+func CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, overlayReplaces []gowork.PackageReplace) (string, error) {
+	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{overlayReplaces: overlayReplaces})
+}
+
 // CreateTempOutputFilesForEntry writes main and companion Go files into a temp dir and copies same-package handwritten .go files.
 func CreateTempOutputFilesForEntry(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, entryFilePath string) (string, error) {
 	var srcDir string
@@ -331,10 +346,16 @@ func CreateTempOutputFilesProfiled(mainCode, bridgeRuntimeCode, invokeServerCode
 
 // CreateDevReloadOutputFiles writes into the stable dev sandbox and skips redundant go mod tidy.
 func CreateDevReloadOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, modTidyCache *SandboxModCache, sandboxTiming *CompileSandboxTiming) (string, error) {
+	return CreateDevReloadOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, nil, modTidyCache, sandboxTiming)
+}
+
+// CreateDevReloadOutputFilesWithOverlays is CreateDevReloadOutputFiles plus external Forst dep replaces.
+func CreateDevReloadOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, overlayReplaces []gowork.PackageReplace, modTidyCache *SandboxModCache, sandboxTiming *CompileSandboxTiming) (string, error) {
 	return createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{
-		stableDir:     true,
-		modTidyCache:  modTidyCache,
-		sandboxTiming: sandboxTiming,
+		stableDir:       true,
+		modTidyCache:    modTidyCache,
+		sandboxTiming:   sandboxTiming,
+		overlayReplaces: overlayReplaces,
 	})
 }
 
@@ -391,7 +412,7 @@ func createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 			if err != nil {
 				return "", err
 			}
-			if err := gowork.WriteGoWork(linkPlan.Workspace, uses); err != nil {
+			if err := gowork.WriteGoWork(linkPlan.Workspace, uses, opts.overlayReplaces); err != nil {
 				return "", err
 			}
 		}
@@ -403,6 +424,23 @@ func createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 		}
 		if err := gowork.WriteRunGoMod(goModPath, forstLink, userPath, userModDir, linkPlan.Mode == gowork.LinkWorkspace); err != nil {
 			return "", err
+		}
+		if len(opts.overlayReplaces) > 0 {
+			if err := gowork.AppendGoModReplaces(goModPath, opts.overlayReplaces); err != nil {
+				return "", fmt.Errorf("append overlay replaces: %w", err)
+			}
+		}
+	} else if len(opts.overlayReplaces) > 0 && goModPath != "" {
+		// Sandbox without compiler link still needs dep overlays when present.
+		if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+			if err := writeMinimalRunGoMod(goModPath); err != nil {
+				return "", err
+			}
+		} else if err != nil {
+			return "", err
+		}
+		if err := gowork.AppendGoModReplaces(goModPath, opts.overlayReplaces); err != nil {
+			return "", fmt.Errorf("append overlay replaces: %w", err)
 		}
 	}
 
@@ -481,6 +519,13 @@ func tidyRunSandboxGoMod(goModPath, boundaryRoot string, plan gowork.LinkPlan) e
 		}
 	}
 	return nil
+}
+
+func writeMinimalRunGoMod(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte("module forst.run.temp\n\ngo 1.26.0\n"), 0o644)
 }
 
 // CreateTempOutputFilesLegacy preserves the old 3-arg signature for gradual migration.

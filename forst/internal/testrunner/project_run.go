@@ -9,6 +9,7 @@ import (
 
 	"forst/internal/codegen/layout"
 	"forst/internal/compileplan"
+	"forst/internal/depoverlay"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/gowork"
@@ -46,6 +47,20 @@ func RunWithProject(proj *project.Project, opts Options) (ExitCode, error) {
 		libReplaces, emitErr = emitLibShimsSession(layoutRoot, runID, modResult, testDirs, opts, proj)
 		if emitErr != nil {
 			return ExitFailure, emitErr
+		}
+		boundary := proj.BoundaryRoot
+		if boundary == "" {
+			boundary = proj.ModuleRoot
+		}
+		overlayReplaces, overlayErr := depoverlay.Emit(opts.Log, boundary, modResult, opts.ExportStructFields)
+		if overlayErr != nil {
+			return ExitFailure, overlayErr
+		}
+		for _, rep := range overlayReplaces {
+			if _, exists := libReplaces[rep.ImportPath]; exists {
+				continue
+			}
+			libReplaces[rep.ImportPath] = rep.Dir
 		}
 	}
 	goOnly, err := collectGoOnlyPackageReplaces(proj.ModuleRoot, proj.ModulePath, testDirs)

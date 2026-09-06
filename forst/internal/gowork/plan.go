@@ -138,7 +138,8 @@ func WorkspaceUseDirs(_ string, sessionDir string, link ForstRuntimeLink) ([]str
 }
 
 // WriteGoWork writes .forst/go.work listing sandbox and compiler modules (Mode B).
-func WriteGoWork(workPath string, useDirs []string) error {
+// Optional replaces redirect external Forst dep modules to .forst/overlay copies.
+func WriteGoWork(workPath string, useDirs []string, replaces []PackageReplace) error {
 	if len(useDirs) == 0 {
 		return fmt.Errorf("go.work requires at least one use directory")
 	}
@@ -157,6 +158,21 @@ func WriteGoWork(workPath string, useDirs []string) error {
 		fmt.Fprintf(&b, "\t%s\n", usePath)
 	}
 	b.WriteString(")\n")
+	seen := make(map[string]struct{})
+	for _, rep := range replaces {
+		if rep.ImportPath == "" || rep.Dir == "" {
+			continue
+		}
+		if _, ok := seen[rep.ImportPath]; ok {
+			continue
+		}
+		seen[rep.ImportPath] = struct{}{}
+		rel, err := goModReplacePath(workDir, rep.Dir)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&b, "\nreplace %s => %s\n", rep.ImportPath, rel)
+	}
 	return os.WriteFile(workPath, []byte(b.String()), 0o644)
 }
 

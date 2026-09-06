@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"forst/internal/ast"
+	"forst/internal/forstdep"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/providersgraph"
@@ -14,10 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/tools/go/packages"
 )
+
 // ModuleScan holds per-package typecheckers and parsed ASTs for one
 // module-wide compile pass. Its methods are the pipeline stages driven by
-// runModulePipeline: scan -> collect types -> resolve JS imports -> load
-// Go packages -> infer provider slots -> merge/validate.
+// runModulePipeline: scan -> discover external -> collect types -> resolve JS
+// imports -> load Go packages -> infer provider slots -> merge/validate.
 type ModuleScan struct {
 	scanRoot        string
 	ModuleRoot      string
@@ -26,7 +28,12 @@ type ModuleScan struct {
 	ForstPkgToFiles map[string][]string
 	PerPackage      map[string]*typechecker.TypeChecker
 	PerPackageNodes map[string][]ast.Node
+	PerImportPath   map[string]*typechecker.TypeChecker
+	ExternalImports map[string]struct{}
+	ExternalLocs    map[string]goload.PackageLoc
+	ExternalNodes   map[string][]ast.Node
 	packageNames    []string
+	externalPaths   []string
 	log             *logrus.Logger
 	opts            Options
 }
@@ -73,6 +80,10 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 		ForstPkgToFiles: byPackage,
 		PerPackage:      make(map[string]*typechecker.TypeChecker),
 		PerPackageNodes: make(map[string][]ast.Node),
+		PerImportPath:   make(map[string]*typechecker.TypeChecker),
+		ExternalImports: make(map[string]struct{}),
+		ExternalLocs:    make(map[string]goload.PackageLoc),
+		ExternalNodes:   make(map[string][]ast.Node),
 		log:             log,
 		opts:            opts,
 	}
@@ -100,15 +111,63 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 		tc.GoWorkspaceDir = moduleRoot
 		tc.SetForstPackage(packageName)
 		tc.SetDeferProvidersWiringRootCheck(true)
-		if importPath := result.ImportPathForForstPackage(packageName); importPath != "" {
+		importPath := result.ImportPathForForstPackage(packageName)
+		if importPath != "" {
 			tc.SetSamePackageGoImportPath(importPath)
 		}
 		tc.SetModuleResult(result.asModuleResult())
 		result.PerPackage[packageName] = tc
 		result.PerPackageNodes[packageName] = mergedByPkg[packageName]
+		if importPath != "" {
+			result.PerImportPath[importPath] = tc
+		}
 	}
 
 	return result, nil
+}
+
+// DiscoverExternalForstPackages finds .ft packages on the Go import graph and attaches them.
+func (s *ModuleScan) DiscoverExternalForstPackages() error {
+	seeds := make([]string, 0)
+	for _, packageName := range s.packageNames {
+		seeds = append(seeds, forstdep.ImportPathsFromNodes(s.PerPackageNodes[packageName])...)
+	}
+	discovered, err := forstdep.Discover(s.log, s.ModuleRoot, s.importPathMap, seeds)
+	if err != nil {
+		return err
+	}
+	for _, dp := range discovered {
+		path := dp.Loc.ImportPath
+		if path == "" {
+			continue
+		}
+		if _, exists := s.importPathMap[path]; exists {
+			continue
+		}
+		s.importPathMap[path] = dp.ForstPkg
+		s.ExternalImports[path] = struct{}{}
+		s.ExternalLocs[path] = dp.Loc
+		s.ExternalNodes[path] = dp.Nodes
+		s.externalPaths = append(s.externalPaths, path)
+
+		tc := typechecker.New(s.log, false)
+		tc.GoWorkspaceDir = s.ModuleRoot
+		tc.SetForstPackage(dp.ForstPkg)
+		tc.SetDeferProvidersWiringRootCheck(true)
+		tc.SetSamePackageGoImportPath(path)
+		tc.SetModuleResult(s.asModuleResult())
+		s.PerImportPath[path] = tc
+	}
+	sort.Strings(s.externalPaths)
+	// Refresh module result on all checkers after attach.
+	view := s.asModuleResult()
+	for _, tc := range s.PerPackage {
+		tc.SetModuleResult(view)
+	}
+	for _, tc := range s.PerImportPath {
+		tc.SetModuleResult(view)
+	}
+	return nil
 }
 
 func (s *ModuleScan) asModuleResult() *ModuleResult {
@@ -119,6 +178,10 @@ func (s *ModuleScan) asModuleResult() *ModuleResult {
 		ForstPkgToFiles: s.ForstPkgToFiles,
 		PerPackage:      s.PerPackage,
 		PerPackageNodes: s.PerPackageNodes,
+		PerImportPath:   s.PerImportPath,
+		ExternalImports: s.ExternalImports,
+		ExternalLocs:    s.ExternalLocs,
+		ExternalNodes:   s.ExternalNodes,
 	}
 }
 
@@ -145,10 +208,20 @@ func (s *ModuleScan) ResolveNodeImports() error {
 	return nil
 }
 
-// InitAndCollectTypes runs CollectTypes for each package.
+// InitAndCollectTypes runs CollectTypes for each local and external package.
 func (s *ModuleScan) InitAndCollectTypes() error {
 	for _, packageName := range s.packageNames {
 		if err := s.PerPackage[packageName].CollectTypes(s.PerPackageNodes[packageName]); err != nil {
+			return err
+		}
+	}
+	for _, importPath := range s.externalPaths {
+		tc := s.PerImportPath[importPath]
+		nodes := s.ExternalNodes[importPath]
+		if tc == nil || len(nodes) == 0 {
+			continue
+		}
+		if err := tc.CollectTypes(nodes); err != nil {
 			return err
 		}
 	}
@@ -160,9 +233,14 @@ func (s *ModuleScan) LoadGoPackages() error {
 	if s.opts.SkipGoLoad {
 		return nil
 	}
-	tcs := make([]*typechecker.TypeChecker, 0, len(s.packageNames))
+	tcs := make([]*typechecker.TypeChecker, 0, len(s.packageNames)+len(s.externalPaths))
 	for _, packageName := range s.packageNames {
 		tcs = append(tcs, s.PerPackage[packageName])
+	}
+	for _, importPath := range s.externalPaths {
+		if tc := s.PerImportPath[importPath]; tc != nil {
+			tcs = append(tcs, tc)
+		}
 	}
 	var loaded map[string]*packages.Package
 	var err error
@@ -193,7 +271,33 @@ func (s *ModuleScan) InferProviderSlots() (map[string]map[ast.Identifier][]typec
 		}
 		perPkgProviders[packageName] = cloneSlots(tc.FunctionProviders)
 	}
+	for _, importPath := range s.externalPaths {
+		tc := s.PerImportPath[importPath]
+		nodes := s.ExternalNodes[importPath]
+		if tc == nil {
+			continue
+		}
+		if err := tc.InferTypes(nodes); err != nil {
+			return nil, err
+		}
+		// Key external slots with a collision-safe graph key.
+		perPkgProviders[s.externalProviderKey(importPath)] = cloneSlots(tc.FunctionProviders)
+	}
 	return perPkgProviders, nil
+}
+
+// externalProviderKey returns the providers-graph key for an external Forst package.
+// When a local package already owns the Forst package name, the Go import path is used
+// so colliding names stay distinct.
+func (s *ModuleScan) externalProviderKey(importPath string) string {
+	pkgName := s.importPathMap[importPath]
+	if pkgName == "" {
+		return importPath
+	}
+	if local := s.PerPackage[pkgName]; local != nil {
+		return importPath
+	}
+	return pkgName
 }
 
 // MergeAndValidate runs provider fixed-point merge and optional validation.
@@ -206,6 +310,16 @@ func (s *ModuleScan) MergeAndValidate(perPkgProviders map[string]map[ast.Identif
 	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)
 	for packageName, tc := range s.PerPackage {
 		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, s.importPathMap) {
+			moduleGraph.AddModuleCall(call)
+		}
+	}
+	for _, importPath := range s.externalPaths {
+		tc := s.PerImportPath[importPath]
+		if tc == nil {
+			continue
+		}
+		key := s.externalProviderKey(importPath)
+		for _, call := range typechecker.BuildModuleCrossCalls(key, tc, s.importPathMap) {
 			moduleGraph.AddModuleCall(call)
 		}
 	}
@@ -226,6 +340,17 @@ func (s *ModuleScan) MergeAndValidate(perPkgProviders map[string]map[ast.Identif
 		perPkgProviders[packageName] = slots
 		tc.RevalidateUnusedWiringKeysAfterModuleMerge()
 	}
+	for _, importPath := range s.externalPaths {
+		tc := s.PerImportPath[importPath]
+		if tc == nil {
+			continue
+		}
+		key := s.externalProviderKey(importPath)
+		slots := moduleGraph.PerPackage(key)
+		tc.SetFunctionProviders(slots)
+		tc.FunctionProviders = slots
+		perPkgProviders[key] = slots
+	}
 
 	if s.opts.SkipValidate {
 		return nil
@@ -235,6 +360,7 @@ func (s *ModuleScan) MergeAndValidate(perPkgProviders map[string]map[ast.Identif
 			return err
 		}
 	}
+	// External packages are not host-validated; consumer wiring of called slots is enough.
 	return nil
 }
 
@@ -255,10 +381,13 @@ func (s *ModuleScan) ImportPathForForstPackage(forstPkg string) string {
 	return ""
 }
 
-// runModulePipeline executes scan → collect → load → infer → merge.
+// runModulePipeline executes scan → discover → collect → load → infer → merge.
 func runModulePipeline(log *logrus.Logger, opts Options) (*ModuleResult, error) {
 	scan, err := ScanModule(log, opts)
 	if err != nil {
+		return nil, err
+	}
+	if err := scan.DiscoverExternalForstPackages(); err != nil {
 		return nil, err
 	}
 	if err := scan.InitAndCollectTypes(); err != nil {

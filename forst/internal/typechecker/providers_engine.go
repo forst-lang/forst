@@ -100,6 +100,7 @@ func (tc *TypeChecker) SetForstPackage(name string) {
 type ModuleResultView interface {
 	ImportPathToForstPkg() map[string]string
 	ForstPackageTypeChecker(pkg string) *TypeChecker
+	TypeCheckerForImportPath(importPath string) *TypeChecker
 }
 
 // SetModuleResult attaches module-level context for Forst sibling import resolution.
@@ -170,25 +171,20 @@ func (tc *TypeChecker) resolveForstSiblingTypeInImportsUncached(typeName string)
 	if typeName == "" || tc.moduleResult == nil {
 		return ast.TypeDefNode{}, false
 	}
-	importMap := tc.importPathToForstPkgMap()
-	if importMap == nil {
-		return ast.TypeDefNode{}, false
-	}
 	var found ast.TypeDefNode
 	var count int
-	seenPkg := make(map[string]struct{})
+	seenPath := make(map[string]struct{})
 	for _, imp := range tc.imports {
 		path, _ := fallbackImportLocal(imp)
-		pkg := importMap[path]
-		if pkg == "" || pkg == tc.ForstPackage() {
+		if path == "" {
 			continue
 		}
-		if _, ok := seenPkg[pkg]; ok {
+		if _, ok := seenPath[path]; ok {
 			continue
 		}
-		seenPkg[pkg] = struct{}{}
-		siblingTC := tc.moduleResult.ForstPackageTypeChecker(pkg)
-		if siblingTC == nil {
+		seenPath[path] = struct{}{}
+		siblingTC := tc.moduleResult.TypeCheckerForImportPath(path)
+		if siblingTC == nil || siblingTC == tc {
 			continue
 		}
 		if def, ok := siblingTC.Defs[ast.TypeIdent(typeName)]; ok {
@@ -226,23 +222,15 @@ func parseForstSiblingTypeRef(typeIdent ast.TypeIdent) (importLocal, typeName st
 
 // forstSiblingTypeChecker returns the typechecker for a sibling Forst package import local name.
 func (tc *TypeChecker) forstSiblingTypeChecker(importLocal string) (*TypeChecker, bool) {
-	importMap := tc.importPathToForstPkgMap()
-	if importMap == nil {
-		return nil, false
-	}
 	importPath, ok := tc.ImportPathForLocal(importLocal)
 	if !ok {
-		return nil, false
-	}
-	targetPkg := importMap[importPath]
-	if targetPkg == "" || targetPkg == tc.ForstPackage() {
 		return nil, false
 	}
 	if tc.moduleResult == nil {
 		return nil, false
 	}
-	siblingTC := tc.moduleResult.ForstPackageTypeChecker(targetPkg)
-	if siblingTC == nil {
+	siblingTC := tc.moduleResult.TypeCheckerForImportPath(importPath)
+	if siblingTC == nil || siblingTC == tc {
 		return nil, false
 	}
 	return siblingTC, true

@@ -110,3 +110,26 @@ func TestLayout_forstPackageNamedClientDoesNotEscapeRunDir(t *testing.T) {
 		t.Fatalf("ExecModule with package %q must stay under exec: %q", hostile, execDir)
 	}
 }
+
+func TestEscapeModulePath_distinctPathsStayDistinct(t *testing.T) {
+	a := EscapeModulePath("github.com/foo_bar")
+	b := EscapeModulePath("github.com/foo/bar")
+	if a == b {
+		t.Fatalf("lossy collision: %q == %q", a, b)
+	}
+	for _, path := range []string{"github.com/foo_bar", "github.com/foo/bar", "github.com/a%b/c"} {
+		esc := EscapeModulePath(path)
+		got, err := UnescapeModulePath(esc)
+		if err != nil {
+			t.Fatalf("Unescape(%q): %v", esc, err)
+		}
+		if got != path {
+			t.Fatalf("round-trip %q -> %q -> %q", path, esc, got)
+		}
+	}
+	nameA := OverlayModuleDirName("github.com/foo_bar", "v1")
+	nameB := OverlayModuleDirName("github.com/foo/bar", "v1")
+	if nameA == nameB {
+		t.Fatalf("OverlayModuleDirName collision: %q", nameA)
+	}
+}

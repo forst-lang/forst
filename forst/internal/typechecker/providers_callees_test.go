@@ -186,3 +186,9 @@ type testModuleView struct {
 
 func (v *testModuleView) ImportPathToForstPkg() map[string]string         { return v.importMap }
 func (v *testModuleView) ForstPackageTypeChecker(pkg string) *TypeChecker { return v.pkgs[pkg] }
+func (v *testModuleView) TypeCheckerForImportPath(importPath string) *TypeChecker {
+	if pkg := v.importMap[importPath]; pkg != "" {
+		return v.pkgs[pkg]
+	}
+	return nil
+}
