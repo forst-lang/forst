@@ -57,6 +57,10 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 	case ast.TokenVoid:
 		p.advance()
 		return ast.NewBuiltinType(ast.TypeVoid)
+	case ast.TokenError:
+		// Go-style `error` keyword in type position (e.g. `: (T, error)`).
+		p.advance()
+		return ast.NewBuiltinType(ast.TypeError)
 	case ast.TokenLBracket:
 		p.advance() // consume [
 		if p.current().Type == ast.TokenRBracket {
@@ -224,6 +228,7 @@ func isPossibleTypeIdentifier(token ast.Token, opts TypeIdentOpts) bool {
 		token.Type == ast.TokenFloat ||
 		token.Type == ast.TokenBool ||
 		token.Type == ast.TokenVoid ||
+		token.Type == ast.TokenError ||
 		token.Type == ast.TokenArray ||
 		token.Type == ast.TokenLBracket ||
 		token.Type == ast.TokenMap ||

@@ -11,6 +11,8 @@ func runCustomDemo() {
 	println(sum)
 	message := GreetUpper("forst")
 	println(message)
+	b := Bag{Name: "forst"}
+	println(BagName(b))
 }
 func runExecDemo() int {
 	argv := []string{"true", "extra"}

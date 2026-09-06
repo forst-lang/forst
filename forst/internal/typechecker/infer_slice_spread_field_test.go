@@ -12,6 +12,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestCheckTypes_forstSubslice_string(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f(): String {
+	s := "abcdef"
+	return s[1:3]
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
+}
+
 func TestCheckTypes_forstSubslice_lowHigh(t *testing.T) {
 	t.Parallel()
 	src := `package main

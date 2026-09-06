@@ -389,7 +389,7 @@ func TestAssignCall(t *testing.T) {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
 	} {
-		_ := expireToken()
+		_ = expireToken()
 	}
 }
 `

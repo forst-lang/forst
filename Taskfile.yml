@@ -324,6 +324,37 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_builtins.ft
 
+
+  example:string-slice:
+    desc: Compile string_slice example (string subslice s[low:high])
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/string_slice.ft
+
+  example:void-early-return:
+    desc: Compile void_early_return (bare return in void function)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/void_early_return.ft
+
+  example:shape-value-mutate:
+    desc: Compile shape_value_mutate (field assign then return value shape)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/shape_value_mutate.ft
+
+  example:blank-ident:
+    desc: Compile blank_ident (_ assignment and range blank)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/blank_ident.ft
+
+  example:func-multi-return:
+    desc: Compile func_multi_return (Go-style multi-value returns)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/func_multi_return.ft
+
   example:slices:
     desc: Compile slices example (subslice expressions xs[low:high], xs[low:], xs[:high])
     dir: forst

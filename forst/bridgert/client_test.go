@@ -3,7 +3,9 @@ package bridgert
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -275,6 +277,164 @@ func TestClient_inFlightCallFailsWithBridgeRuntimeDied(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("in-flight call did not fail")
+	}
+}
+
+func TestClient_inFlightCallFailsWhenLocalConnClosed(t *testing.T) {
+	t.Helper()
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	client := NewClient(clientConn, clientConn, nil)
+	handler := func(req Request) Response {
+		if req.Method == MethodCall {
+			// Never answer call — hang until local conn close.
+			time.Sleep(5 * time.Second)
+		}
+		return okResponse(req)
+	}
+	go func() {
+		for {
+			frame, err := ReadProtoFrame(serverConn, DefaultMaxMsgLen)
+			if err != nil {
+				return
+			}
+			reqBody := frame.GetRequest()
+			if reqBody == nil {
+				continue
+			}
+			req := Request{
+				JSONRPC: JSONRPCVersion,
+				ID:      int64(frame.GetId()),
+				Method:  reqBody.Method,
+				Params:  reqBody.PayloadJson,
+			}
+			resp := handler(req)
+			out, err := responseToProtoFrame(resp)
+			if err != nil {
+				return
+			}
+			if err := WriteProtoFrame(serverConn, out, DefaultMaxMsgLen); err != nil {
+				return
+			}
+		}
+	}()
+
+	if err := client.Initialize(sampleManifest(), nil, ""); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.CallSync("legacy/payment.ts", "create", json.RawMessage(`[1,2]`))
+		done <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	// Same as supervisor shutdown closing hostConn while readLoop is blocked.
+	if err := clientConn.Close(); err != nil {
+		t.Fatalf("close local conn: %v", err)
+	}
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected in-flight call to fail after local conn close")
+		}
+		if !errors.Is(err, ErrBridgeRuntimeDied) {
+			t.Fatalf("in-flight err = %v want ErrBridgeRuntimeDied", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("in-flight call did not fail after local conn close")
+	}
+}
+
+func TestIsBridgeTransportDead(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "EOF", err: io.EOF, want: true},
+		{name: "ErrClosedPipe", err: io.ErrClosedPipe, want: true},
+		{name: "ErrUnexpectedEOF", err: io.ErrUnexpectedEOF, want: true},
+		{name: "net.ErrClosed", err: net.ErrClosed, want: true},
+		{
+			name: "wrapped read length net.ErrClosed",
+			err:  fmt.Errorf("read proto frame length: %w", net.ErrClosed),
+			want: true,
+		},
+		{
+			name: "protocol empty frame",
+			err:  errors.New("empty proto frame"),
+			want: false,
+		},
+		{
+			name: "OpError non-timeout",
+			err:  &net.OpError{Op: "read", Net: "unix", Err: errors.New("connection reset by peer")},
+			want: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isBridgeTransportDead(tc.err); got != tc.want {
+				t.Fatalf("isBridgeTransportDead(%v) = %v want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestWrapBridgeRuntimeDied(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		err       error
+		wantDied  bool
+		wantSame  bool
+	}{
+		{name: "nil", err: nil, wantDied: false, wantSame: true},
+		{name: "EOF", err: io.EOF, wantDied: true},
+		{name: "net.ErrClosed", err: net.ErrClosed, wantDied: true},
+		{
+			name:     "wrapped frame length ErrClosed",
+			err:      fmt.Errorf("read proto frame length: %w", net.ErrClosed),
+			wantDied: true,
+		},
+		{
+			name:     "already wrapped",
+			err:      fmt.Errorf("%w: %v", ErrBridgeRuntimeDied, net.ErrClosed),
+			wantDied: true,
+			wantSame: true,
+		},
+		{
+			name:     "protocol error",
+			err:      errors.New("empty proto frame"),
+			wantDied: false,
+			wantSame: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := wrapBridgeRuntimeDied(tc.err)
+			if tc.wantSame {
+				if got != tc.err {
+					t.Fatalf("wrap returned %v want same %v", got, tc.err)
+				}
+			}
+			if tc.wantDied {
+				if !errors.Is(got, ErrBridgeRuntimeDied) {
+					t.Fatalf("wrap(%v) = %v want ErrBridgeRuntimeDied", tc.err, got)
+				}
+			} else if errors.Is(got, ErrBridgeRuntimeDied) {
+				t.Fatalf("wrap(%v) unexpectedly ErrBridgeRuntimeDied", tc.err)
+			}
+		})
 	}
 }
 

@@ -121,46 +121,74 @@ func (tc *TypeChecker) inferExpressionSlice(expr ast.Node) ([]ast.TypeNode, bool
 	if err != nil {
 		return nil, true, err
 	}
-	if len(targetTypes) != 1 || targetTypes[0].Ident != ast.TypeArray || len(targetTypes[0].TypeParams) < 1 {
+	if len(targetTypes) != 1 {
 		return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
 			"slice target must be a slice or array",
-			"The slice target must be a Forst slice or array type.",
-			"slice a []T or [N]T value")
+			"The slice target must be a Forst slice, array, or string type.",
+			"slice a []T, [N]T, or String value")
 	}
+	target := targetTypes[0]
 	if err := tc.checkSliceBounds(e); err != nil {
 		return nil, true, err
 	}
-	elem := targetTypes[0].TypeParams[0]
-	out := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elem}}
-	tc.storeInferredType(e, []ast.TypeNode{out})
-	return []ast.TypeNode{out}, true, nil
-}
-
-func (tc *TypeChecker) inferGoSliceExpressionType(e ast.SliceExpressionNode, goT types.Type) ([]ast.TypeNode, bool, error) {
-	var elem types.Type
-	switch u := goT.Underlying().(type) {
-	case *types.Slice:
-		elem = u.Elem()
-	case *types.Array:
-		elem = u.Elem()
+	switch {
+	case target.Ident == ast.TypeString:
+		out := ast.TypeNode{Ident: ast.TypeString}
+		tc.storeInferredType(e, []ast.TypeNode{out})
+		return []ast.TypeNode{out}, true, nil
+	case target.Ident == ast.TypeBytes:
+		out := ast.TypeNode{Ident: ast.TypeBytes}
+		tc.storeInferredType(e, []ast.TypeNode{out})
+		return []ast.TypeNode{out}, true, nil
+	case target.Ident == ast.TypeArray && len(target.TypeParams) >= 1:
+		elem := target.TypeParams[0]
+		out := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elem}}
+		tc.storeInferredType(e, []ast.TypeNode{out})
+		return []ast.TypeNode{out}, true, nil
 	default:
 		return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
 			"slice target must be a slice or array",
-			fmt.Sprintf("Cannot slice type `%s`; expected a slice or array.", goT.String()),
-			"slice a []T or [N]T value")
+			"The slice target must be a Forst slice, array, or string type.",
+			"slice a []T, [N]T, or String value")
 	}
+}
+
+func (tc *TypeChecker) inferGoSliceExpressionType(e ast.SliceExpressionNode, goT types.Type) ([]ast.TypeNode, bool, error) {
 	if err := tc.checkSliceBounds(e); err != nil {
 		return nil, true, err
 	}
-	ft, ok := tc.mapGoType(types.NewSlice(elem))
-	if !ok {
-		return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
-			"cannot map Go slice element type",
-			"The Go slice element type could not be mapped to a Forst type.",
-			"slice a supported Go slice or array type")
+	switch u := goT.Underlying().(type) {
+	case *types.Basic:
+		if u.Info()&types.IsString != 0 {
+			out := ast.TypeNode{Ident: ast.TypeString}
+			tc.storeInferredType(e, []ast.TypeNode{out})
+			return []ast.TypeNode{out}, true, nil
+		}
+	case *types.Slice:
+		ft, ok := tc.mapGoType(types.NewSlice(u.Elem()))
+		if !ok {
+			return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
+				"cannot map Go slice element type",
+				"The Go slice element type could not be mapped to a Forst type.",
+				"slice a supported Go slice or array type")
+		}
+		tc.storeInferredType(e, []ast.TypeNode{ft})
+		return []ast.TypeNode{ft}, true, nil
+	case *types.Array:
+		ft, ok := tc.mapGoType(types.NewSlice(u.Elem()))
+		if !ok {
+			return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
+				"cannot map Go slice element type",
+				"The Go slice element type could not be mapped to a Forst type.",
+				"slice a supported Go slice or array type")
+		}
+		tc.storeInferredType(e, []ast.TypeNode{ft})
+		return []ast.TypeNode{ft}, true, nil
 	}
-	tc.storeInferredType(e, []ast.TypeNode{ft})
-	return []ast.TypeNode{ft}, true, nil
+	return nil, true, reportf(spanSliceExpr(e), "slice-target-type",
+		"slice target must be a slice or array",
+		fmt.Sprintf("Cannot slice type `%s`; expected a slice, array, or string.", goT.String()),
+		"slice a []T, [N]T, or string value")
 }
 
 func (tc *TypeChecker) checkSliceBounds(e ast.SliceExpressionNode) error {

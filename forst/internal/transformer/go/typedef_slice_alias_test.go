@@ -74,9 +74,9 @@ func makeQ(): Q {
 }
 
 func main() {
-	_ := makeQ().n
+	_ = makeQ().n
 	xs := [Item{name: "a"}]
-	_ := xs[0].name
+	_ = xs[0].name
 }
 `
 	out := compileForstPipeline(t, src)

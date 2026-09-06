@@ -103,6 +103,8 @@ type TypeChecker struct {
 	samePackageGoImportPath string
 	// samePackageGo holds go/types for exported Go symbols in the same directory as this Forst package.
 	samePackageGo *types.Package
+	// goPackageTypeIdents tracks Forst type idents registered from same-package Go (skip Go emit).
+	goPackageTypeIdents map[ast.TypeIdent]struct{}
 	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
 	FunctionProviders map[ast.Identifier][]ProviderSlot
 	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).
@@ -269,7 +271,9 @@ func (tc *TypeChecker) preloadGoImportPackages() error {
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
 	tc.RecordUnloadedGoImportPaths(loaded, err)
-	tc.InitGoPackagesFromBatch(loaded)
+	if err := tc.InitGoPackagesFromBatch(loaded); err != nil {
+		return err
+	}
 	return tc.validateGoImportLocalsAfterLoad(loaded)
 }
 
@@ -302,7 +306,9 @@ func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 // InferTypes runs the second pass after CollectTypes (local or module-wide).
 func (tc *TypeChecker) InferTypes(nodes []ast.Node) error {
 	tc.initGoImportPackages()
-	tc.initSamePackageGoExports()
+	if err := tc.initSamePackageGoExports(); err != nil {
+		return err
+	}
 
 	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
 		return err

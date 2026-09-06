@@ -20,15 +20,12 @@ const { valid } = await $auth.VerifyPassword({
 
 ```mermaid
 flowchart LR
-  subgraph nodePath [JavaScript migration]
-    GenTypes["forst generate"]
-    NodeToForst["JS calls Forst"]
-    ForstToJS["Forst calls JavaScript"]
-  end
+  GenTypes["forst generate"]
+  NodeApp["Node app"]
+  ForstServer["Forst server"]
 
-  GenTypes -.->|"@forst/gen"| NodeToForst
-  NodeToForst -->|"POST /invoke"| ForstBinary[Compiled Forst]
-  ForstToJS -->|"import ./path js"| LegacyJS["legacy .ts / .js"]
+  GenTypes -.->|"@forst/gen"| NodeApp
+  NodeApp -->|"POST /invoke"| ForstServer
 ```
 
 ## Start here
