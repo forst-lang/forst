@@ -37,6 +37,14 @@ type ModuleResult struct {
 	ForstPkgToFiles map[string][]string
 	PerPackage      map[string]*typechecker.TypeChecker
 	PerPackageNodes map[string][]ast.Node
+	// PerImportPath keys typecheckers by Go import path (local + external).
+	PerImportPath map[string]*typechecker.TypeChecker
+	// ExternalImports are Forst packages discovered outside the local module walk.
+	ExternalImports map[string]struct{}
+	// ExternalLocs maps import path → package location for overlay emit.
+	ExternalLocs map[string]goload.PackageLoc
+	// ExternalNodes maps import path → merged AST for external Forst packages.
+	ExternalNodes map[string][]ast.Node
 }
 
 // CheckModuleProviders typechecks all Forst packages in a module and runs cross-package fixed-point.
@@ -66,12 +74,36 @@ func (r *ModuleResult) ImportPathForForstPackage(forstPkg string) string {
 	return ""
 }
 
-// ForstPackageTypeChecker returns the typechecker for a Forst package name.
+// ForstPackageTypeChecker returns the typechecker for a Forst package name (local packages).
 func (r *ModuleResult) ForstPackageTypeChecker(pkg string) *typechecker.TypeChecker {
 	if r == nil {
 		return nil
 	}
 	return r.PerPackage[pkg]
+}
+
+// TypeCheckerForImportPath returns the typechecker for a Go import path (local or external).
+func (r *ModuleResult) TypeCheckerForImportPath(importPath string) *typechecker.TypeChecker {
+	if r == nil || importPath == "" {
+		return nil
+	}
+	if tc := r.PerImportPath[importPath]; tc != nil {
+		return tc
+	}
+	pkg := r.importPathMap[importPath]
+	if pkg == "" {
+		return nil
+	}
+	return r.PerPackage[pkg]
+}
+
+// IsExternalImport reports whether importPath is a Forst package from outside the local walk.
+func (r *ModuleResult) IsExternalImport(importPath string) bool {
+	if r == nil || r.ExternalImports == nil {
+		return false
+	}
+	_, ok := r.ExternalImports[importPath]
+	return ok
 }
 
 // FindForstFiles lists .ft paths under root (used by dev reload parse cache).

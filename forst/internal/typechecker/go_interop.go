@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"go/types"
+	"path/filepath"
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/forstdep"
 	"forst/internal/goload"
 	"forst/internal/typechecker/gointerop"
 
@@ -85,11 +87,52 @@ func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Packa
 		tc.goPackagesPreloaded = true
 	}
 	if tc.samePackageGoImportPath != "" {
-		if pkg, ok := loaded[tc.samePackageGoImportPath]; ok && goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
+		if forstMap := tc.importPathToForstPkgMap(); forstMap != nil && forstMap[tc.samePackageGoImportPath] != "" {
+			if err := tc.loadSamePackageGoWithGenStub(); err != nil {
+				tc.log.WithError(err).Debug("same-package Go load with gen stub failed")
+			}
+		} else if pkg, ok := loaded[tc.samePackageGoImportPath]; ok && goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
 			tc.samePackageGo = pkg.Types
 		}
 	}
 	return tc.registerSamePackageGoNamedTypes()
+}
+
+func (tc *TypeChecker) loadSamePackageGoWithGenStub() error {
+	path := tc.samePackageGoImportPath
+	if path == "" || tc.GoWorkspaceDir == "" {
+		return nil
+	}
+	locs, err := goload.LocatePackageDirs(tc.GoWorkspaceDir, []string{path})
+	if err != nil {
+		return err
+	}
+	loc, ok := locs[path]
+	if !ok || loc.Dir == "" {
+		return nil
+	}
+	pkgName := tc.ForstPackage()
+	if pkgName == "" {
+		pkgName = filepath.Base(loc.Dir)
+	}
+	overlay, err := forstdep.GenGoStubOverlay(loc.Dir, pkgName)
+	if err != nil {
+		return err
+	}
+	var opts []goload.LoadOpt
+	if len(overlay) > 0 {
+		opts = append(opts, goload.WithOverlay(overlay))
+	}
+	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{path}, opts...)
+	if err != nil {
+		return nil // Forst-only dirs often fail go/packages; not an error for Forst
+	}
+	pkg, ok := loaded[path]
+	if !ok || !goload.PackageLoadOK(pkg, path) {
+		return nil
+	}
+	tc.samePackageGo = pkg.Types
+	return nil
 }
 
 func (tc *TypeChecker) ensureImportPathByLocal() {
@@ -102,9 +145,13 @@ func (tc *TypeChecker) ensureImportPathByLocal() {
 func (tc *TypeChecker) missingGoImportPaths() []string {
 	seen := make(map[string]struct{})
 	var paths []string
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
@@ -127,9 +174,13 @@ func (tc *TypeChecker) missingGoImportPaths() []string {
 }
 
 func (tc *TypeChecker) allGoImportLocalsLoaded() bool {
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
@@ -159,9 +210,14 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 	if tc.goPkgsByLocal == nil {
 		tc.goPkgsByLocal = make(map[string]*types.Package)
 	}
+	forstMap := tc.importPathToForstPkgMap()
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
+			continue
+		}
+		// Forst sibling packages are resolved from .ft, not go/packages (may be Forst-only or have *.gen.go).
+		if forstMap != nil && forstMap[ip] != "" {
 			continue
 		}
 		pkgp, ok := loaded[ip]
@@ -196,10 +252,17 @@ func collectGoImportPaths(tcs []*TypeChecker) []string {
 		if tc == nil {
 			continue
 		}
+		forstMap := tc.importPathToForstPkgMap()
 		for _, p := range gointerop.ImportPathsFromForstImports(tc.imports) {
+			if forstMap != nil && forstMap[p] != "" {
+				continue
+			}
 			pathSet[p] = struct{}{}
 		}
 		if tc.samePackageGoImportPath != "" {
+			if forstMap != nil && forstMap[tc.samePackageGoImportPath] != "" {
+				continue
+			}
 			pathSet[tc.samePackageGoImportPath] = struct{}{}
 		}
 	}

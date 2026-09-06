@@ -491,7 +491,7 @@ func TestLoadByPkgPathUncached_noTypedPackagesWithoutErrorMessages(t *testing.T)
 	}
 	t.Cleanup(func() { packagesLoadFn = orig })
 
-	_, err := loadByPkgPathUncached(t.TempDir(), []string{"ghost"}, packages.Load)
+	_, err := loadByPkgPathUncached(t.TempDir(), []string{"ghost"}, packages.Load, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

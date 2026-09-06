@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/codegen/layout"
+	"forst/internal/depoverlay"
 	"forst/internal/discovery"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
+	"forst/internal/gowork"
 	"forst/internal/modulecheck"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
@@ -125,6 +127,15 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	}
 	if err != nil {
 		return compileGoOutput{}, err
+	}
+
+	c.lastOverlayReplaces = nil
+	if modResult != nil && len(modResult.ExternalImports) > 0 {
+		replaces, overlayErr := c.buildExternalOverlays(modResult)
+		if overlayErr != nil {
+			return compileGoOutput{}, overlayErr
+		}
+		c.lastOverlayReplaces = replaces
 	}
 
 	memAfter = getMemStats()
@@ -467,6 +478,17 @@ func WriteExtraPackagesForOutput(outputPath string, extraPackages map[string]str
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) buildExternalOverlays(modResult *modulecheck.ModuleResult) ([]gowork.PackageReplace, error) {
+	if modResult == nil || len(modResult.ExternalImports) == 0 {
+		return nil, nil
+	}
+	boundary := RunBoundaryRoot(c.Args)
+	if boundary == "" {
+		boundary = modResult.ModuleRoot
+	}
+	return depoverlay.Emit(c.log, boundary, modResult, c.Args.ExportStructFields)
 }
 
 func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node, moduleFns []discovery.FunctionInfo) (string, error) {

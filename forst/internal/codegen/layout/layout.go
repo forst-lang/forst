@@ -3,6 +3,7 @@ package layout
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -48,9 +49,19 @@ func IsReservedDotForstEntry(name string) bool {
 // reservedDotForstEntries are the only names the compiler may create directly
 // under .forst. Nothing derived from user input may occupy one of them.
 var reservedDotForstEntries = []string{
-	"run", "exec", "gen", "client",
+	"run", "exec", "gen", "client", "overlay",
 	"go.work", "invoke.ready", "reloading",
 	"node.sock", "node-bootstrap.sock", "go-child.pid",
+}
+
+// OverlayModule returns the directory for a copied+emitted dependency module under .forst/overlay.
+func (r Root) OverlayModule(modulePath, version string) string {
+	if version == "" {
+		version = "local"
+	}
+	escaped := strings.ReplaceAll(modulePath, "/", "_")
+	escaped = strings.ReplaceAll(escaped, "\\", "_")
+	return filepath.Join(r.dotForst(), "overlay", escaped+"@"+version)
 }
 
 // RunSession returns paths for a forst run / dev runtime sandbox.

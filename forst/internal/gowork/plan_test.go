@@ -279,7 +279,7 @@ func TestWriteGoWork_listsSandboxAndCompiler(t *testing.T) {
 	if err := os.MkdirAll(compiler, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteGoWork(workPath, []string{sandbox, compiler}); err != nil {
+	if err := WriteGoWork(workPath, []string{sandbox, compiler}, nil); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(workPath)
@@ -289,6 +289,34 @@ func TestWriteGoWork_listsSandboxAndCompiler(t *testing.T) {
 	s := string(data)
 	if !strings.Contains(s, "use (") || !strings.Contains(s, "run/dev") || !strings.Contains(s, "../compiler/forst") {
 		t.Fatalf("unexpected go.work:\n%s", s)
+	}
+}
+
+func TestWriteGoWork_includesOverlayReplaces(t *testing.T) {
+	dir := t.TempDir()
+	workPath := filepath.Join(dir, ".forst", "go.work")
+	sandbox := filepath.Join(dir, ".forst", "run", "dev")
+	compiler := filepath.Join(dir, "compiler", "forst")
+	overlay := filepath.Join(dir, ".forst", "overlay", "github.com_acme_lib@local")
+	for _, d := range []string{sandbox, compiler, overlay} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	replaces := []PackageReplace{{ImportPath: "github.com/acme/lib", Dir: overlay}}
+	if err := WriteGoWork(workPath, []string{sandbox, compiler}, replaces); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(workPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "replace github.com/acme/lib =>") {
+		t.Fatalf("missing overlay replace:\n%s", s)
+	}
+	if !strings.Contains(s, "overlay/github.com_acme_lib@local") {
+		t.Fatalf("replace should point at overlay:\n%s", s)
 	}
 }
 
@@ -488,7 +516,7 @@ func TestWorkspaceUseDirs(t *testing.T) {
 }
 
 func TestWriteGoWork_emptyUseDirsErrors(t *testing.T) {
-	if err := WriteGoWork(filepath.Join(t.TempDir(), "go.work"), nil); err == nil {
+	if err := WriteGoWork(filepath.Join(t.TempDir(), "go.work"), nil, nil); err == nil {
 		t.Fatal("expected error for empty use dirs")
 	}
 }

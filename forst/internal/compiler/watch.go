@@ -83,7 +83,11 @@ func (c *Compiler) resolveOutputPathForRun(mainCode, bridgeRuntimeCode, invokeSe
 		// sandbox when companions are present but were not written (OutputPath empty path).
 		return c.Args.OutputPath, nil
 	}
-	return createTempOutputFileForWatch(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports, RunBoundaryRoot(c.Args))
+	boundary := RunBoundaryRoot(c.Args)
+	if overlays := c.LastOverlayReplaces(); len(overlays) > 0 {
+		return CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports, boundary, overlays)
+	}
+	return createTempOutputFileForWatch(mainCode, bridgeRuntimeCode, invokeServerCode, extra, extraImports, boundary)
 }
 
 func (c *Compiler) runCompiledOutput(mainCode, bridgeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) error {

@@ -314,7 +314,7 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 		if deps.CreateOutputForReload != nil {
 			outputPath, err = deps.CreateOutputForReload(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, &sandbox)
 		} else {
-			outputPath, err = compiler.CreateDevReloadOutputFiles(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, deps.ModTidyCache, &sandbox)
+			outputPath, err = compiler.CreateDevReloadOutputFilesWithOverlays(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, comp.LastOverlayReplaces(), deps.ModTidyCache, &sandbox)
 		}
 		if err != nil {
 			return "", 0, err

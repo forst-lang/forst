@@ -20,10 +20,8 @@ func (tc *TypeChecker) providerSlotsForCallee(callee ast.Identifier) []ProviderS
 	if importLocal, fnName, ok := splitQualifiedCallee(calleeStr); ok {
 		if tc.moduleResult != nil {
 			if path, pathOK := tc.ImportPathForLocal(importLocal); pathOK && path != "" {
-				if forstPkg := tc.importPathToForstPkgMap()[path]; forstPkg != "" {
-					if sibling := tc.moduleResult.ForstPackageTypeChecker(forstPkg); sibling != nil {
-						return sibling.FunctionProviders[ast.Identifier(fnName)]
-					}
+				if sibling := tc.moduleResult.TypeCheckerForImportPath(path); sibling != nil {
+					return sibling.FunctionProviders[ast.Identifier(fnName)]
 				}
 			}
 		}

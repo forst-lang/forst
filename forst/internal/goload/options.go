@@ -6,7 +6,8 @@ import "golang.org/x/tools/go/packages"
 type PackagesLoader func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
 
 type loadConfig struct {
-	loader PackagesLoader
+	loader  PackagesLoader
+	overlay map[string][]byte
 }
 
 // LoadOpt configures a LoadByPkgPath call.
@@ -16,6 +17,13 @@ type LoadOpt func(*loadConfig)
 func WithPackagesLoader(l PackagesLoader) LoadOpt {
 	return func(c *loadConfig) {
 		c.loader = l
+	}
+}
+
+// WithOverlay sets go/packages Overlay (e.g. stub committed *.gen.go beside .ft).
+func WithOverlay(overlay map[string][]byte) LoadOpt {
+	return func(c *loadConfig) {
+		c.overlay = overlay
 	}
 }
 

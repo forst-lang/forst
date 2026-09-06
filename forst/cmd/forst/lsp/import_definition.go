@@ -197,7 +197,15 @@ func (s *LSPServer) definingLocationForQualifiedImport(ctx *forstDocumentContext
 	}
 	targetDir := dirForModuleImportPath(moduleRoot, goload.ModulePath(moduleRoot), importPath)
 	if targetDir == "" {
-		return nil
+		locs, err := goload.LocatePackageDirs(moduleRoot, []string{importPath})
+		if err != nil {
+			return nil
+		}
+		loc, ok := locs[importPath]
+		if !ok || loc.Dir == "" {
+			return nil
+		}
+		targetDir = loc.Dir
 	}
 	return s.findTopLevelSymbolInForstDir(targetDir, symbol)
 }

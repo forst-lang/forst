@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/goload"
 	"forst/internal/testmod"
 
 	"github.com/sirupsen/logrus"
@@ -185,5 +186,59 @@ func TestFindReferences_crossPackageImport_fromDefinition(t *testing.T) {
 	}
 	if !seenCall {
 		t.Fatal("expected LogEvent call reference in api handle.ft")
+	}
+}
+
+func TestFindDefinition_externalForstDep(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+	root := t.TempDir()
+	consumer := filepath.Join(root, "consumer")
+	lib := filepath.Join(root, "acme-lib")
+	if err := os.MkdirAll(consumer, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(lib, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	libAdd := filepath.Join(lib, "add.ft")
+	mainPath := filepath.Join(consumer, "main.ft")
+	if err := os.WriteFile(filepath.Join(lib, "go.mod"), []byte("module github.com/acme/lib\n\ngo "+testmod.GoVersion+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libAdd, []byte("package lib\n\nfunc Add(a Int, b Int) {\n\treturn a + b\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(consumer, "go.mod"), []byte(testmod.GoModContent("testmod")+"\nrequire github.com/acme/lib v0.0.0\n\nreplace github.com/acme/lib => ../acme-lib\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srcMain := "package main\n\nimport \"github.com/acme/lib\"\n\nfunc main() {\n\t_ = lib.Add(1, 2)\n}\n"
+	if err := os.WriteFile(mainPath, []byte(srcMain), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	goload.ClearLoadCacheForTest()
+	uriMain := mustFileURI(t, mainPath)
+	s.documentMu.Lock()
+	s.openDocuments[uriMain] = srcMain
+	s.documentMu.Unlock()
+
+	pos := lspPositionOfIdentifier(srcMain, "Add")
+	loc := s.findDefinitionForPosition(uriMain, pos)
+	if loc == nil {
+		t.Fatal("expected definition for external lib.Add")
+	}
+	gotPath := filePathFromDocumentURI(loc.URI)
+	gotEval, err := filepath.EvalSymlinks(gotPath)
+	if err != nil {
+		gotEval = gotPath
+	}
+	wantEval, err := filepath.EvalSymlinks(libAdd)
+	if err != nil {
+		wantEval = libAdd
+	}
+	if gotEval != wantEval {
+		t.Fatalf("definition path: got %q want %q", gotPath, libAdd)
 	}
 }
