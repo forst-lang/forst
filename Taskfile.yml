@@ -330,6 +330,42 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/slices.ft
 
+  example:method-chain:
+    desc: Compile method_chain (Forst receiver method chaining q.Inc().Value())
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/method_chain.ft
+
+  example:field-after-call:
+    desc: Compile field_after_call (field access on call result makeQ().n)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/field_after_call.ft
+
+  example:string-quote-escape:
+    desc: Compile string_quote_escape (escaped quote in string literal is one character)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/string_quote_escape.ft
+
+  example:index-then-field:
+    desc: Compile index_then_field (index then field xs[0].name)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/index_then_field.ft
+
+  example:bytes-alias:
+    desc: Compile bytes_alias (type Bytes = []Byte emits []byte)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/bytes_alias.ft
+
+  example:method-multireturn:
+    desc: Compile method_multireturn (unpack same-package Go method multi-return)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/method_multireturn/main.ft
+
   example:go-interop:
     desc: Run go_interop example (Go FFI + same-package hand-written Go)
     dir: forst

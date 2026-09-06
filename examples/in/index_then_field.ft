@@ -1,0 +1,11 @@
+package main
+
+// Index then field: xs[0].name
+// Golden output: ../out/index_then_field.go
+
+type Item = {name: String}
+
+func main() {
+	xs := [Item{name: "a"}]
+	println(xs[0].name)
+}

@@ -1,0 +1,10 @@
+package main
+
+// Unpack multi-return from a same-package Go method: s, xs := b.Pair()
+// Golden output: ../out/method_multireturn/main.go
+func main() {
+	b := NewBuilder()
+	s, xs := b.Pair()
+	println(s)
+	println(string(len(xs)))
+}
