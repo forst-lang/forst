@@ -280,20 +280,24 @@ func (s *ModuleScan) InferProviderSlots() (map[string]map[ast.Identifier][]typec
 		if err := tc.InferTypes(nodes); err != nil {
 			return nil, err
 		}
-		// Key external slots by Forst package name for the providers graph.
-		pkgName := s.importPathMap[importPath]
-		if pkgName == "" {
-			pkgName = importPath
-		}
-		// If a local package already owns this name, keep slots under import path key
-		// so they remain addressable via BuildModuleCrossCalls import map.
-		if _, taken := perPkgProviders[pkgName]; taken && s.PerPackage[pkgName] != nil {
-			perPkgProviders[importPath] = cloneSlots(tc.FunctionProviders)
-		} else {
-			perPkgProviders[pkgName] = cloneSlots(tc.FunctionProviders)
-		}
+		// Key external slots with a collision-safe graph key.
+		perPkgProviders[s.externalProviderKey(importPath)] = cloneSlots(tc.FunctionProviders)
 	}
 	return perPkgProviders, nil
+}
+
+// externalProviderKey returns the providers-graph key for an external Forst package.
+// When a local package already owns the Forst package name, the Go import path is used
+// so colliding names stay distinct.
+func (s *ModuleScan) externalProviderKey(importPath string) string {
+	pkgName := s.importPathMap[importPath]
+	if pkgName == "" {
+		return importPath
+	}
+	if local := s.PerPackage[pkgName]; local != nil {
+		return importPath
+	}
+	return pkgName
 }
 
 // MergeAndValidate runs provider fixed-point merge and optional validation.
@@ -314,11 +318,8 @@ func (s *ModuleScan) MergeAndValidate(perPkgProviders map[string]map[ast.Identif
 		if tc == nil {
 			continue
 		}
-		pkgName := s.importPathMap[importPath]
-		if pkgName == "" {
-			pkgName = importPath
-		}
-		for _, call := range typechecker.BuildModuleCrossCalls(pkgName, tc, s.importPathMap) {
+		key := s.externalProviderKey(importPath)
+		for _, call := range typechecker.BuildModuleCrossCalls(key, tc, s.importPathMap) {
 			moduleGraph.AddModuleCall(call)
 		}
 	}
@@ -344,17 +345,11 @@ func (s *ModuleScan) MergeAndValidate(perPkgProviders map[string]map[ast.Identif
 		if tc == nil {
 			continue
 		}
-		pkgName := s.importPathMap[importPath]
-		if pkgName == "" {
-			pkgName = importPath
-		}
-		slots := moduleGraph.PerPackage(pkgName)
-		if len(slots) == 0 {
-			slots = moduleGraph.PerPackage(importPath)
-		}
+		key := s.externalProviderKey(importPath)
+		slots := moduleGraph.PerPackage(key)
 		tc.SetFunctionProviders(slots)
 		tc.FunctionProviders = slots
-		perPkgProviders[pkgName] = slots
+		perPkgProviders[key] = slots
 	}
 
 	if s.opts.SkipValidate {

@@ -79,7 +79,9 @@ func packageLocFromPackagesPkg(p *packages.Package) PackageLoc {
 	if p.Module != nil {
 		loc.ModulePath = p.Module.Path
 		loc.ModuleVersion = p.Module.Version
-		loc.ModuleDir = filepath.Clean(p.Module.Dir)
+		if p.Module.Dir != "" {
+			loc.ModuleDir = filepath.Clean(p.Module.Dir)
+		}
 	}
 	if len(p.Errors) > 0 {
 		msgs := make([]string, 0, len(p.Errors))

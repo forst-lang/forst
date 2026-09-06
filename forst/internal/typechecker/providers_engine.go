@@ -171,25 +171,20 @@ func (tc *TypeChecker) resolveForstSiblingTypeInImportsUncached(typeName string)
 	if typeName == "" || tc.moduleResult == nil {
 		return ast.TypeDefNode{}, false
 	}
-	importMap := tc.importPathToForstPkgMap()
-	if importMap == nil {
-		return ast.TypeDefNode{}, false
-	}
 	var found ast.TypeDefNode
 	var count int
-	seenPkg := make(map[string]struct{})
+	seenPath := make(map[string]struct{})
 	for _, imp := range tc.imports {
 		path, _ := fallbackImportLocal(imp)
-		pkg := importMap[path]
-		if pkg == "" || pkg == tc.ForstPackage() {
+		if path == "" {
 			continue
 		}
-		if _, ok := seenPkg[pkg]; ok {
+		if _, ok := seenPath[path]; ok {
 			continue
 		}
-		seenPkg[pkg] = struct{}{}
+		seenPath[path] = struct{}{}
 		siblingTC := tc.moduleResult.TypeCheckerForImportPath(path)
-		if siblingTC == nil {
+		if siblingTC == nil || siblingTC == tc {
 			continue
 		}
 		if def, ok := siblingTC.Defs[ast.TypeIdent(typeName)]; ok {

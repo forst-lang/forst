@@ -337,7 +337,12 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 		comp.LogCompilePhaseTiming(timings)
 		return binPath, goBuildMs, nil
 	}
-	outputPath, err := deps.CreateOutput(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
+	var outputPath string
+	if overlays := comp.LastOverlayReplaces(); len(overlays) > 0 {
+		outputPath, err = compiler.CreateTempOutputFilesWithOverlays(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, overlays)
+	} else {
+		outputPath, err = deps.CreateOutput(mainCode, bridgeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
+	}
 	if err != nil {
 		return "", 0, err
 	}

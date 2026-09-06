@@ -533,3 +533,34 @@ func TestClearLoadCacheForTest_concurrentSafe(t *testing.T) {
 	}
 	ClearLoadCacheForTest()
 }
+
+func TestPackageLocFromPackagesPkg_emptyModuleDirStaysEmpty(t *testing.T) {
+	t.Parallel()
+	p := &packages.Package{
+		PkgPath: "example.com/lib",
+		Dir:     "/tmp/lib",
+		Module:  &packages.Module{Path: "example.com/lib", Dir: ""},
+	}
+	loc := packageLocFromPackagesPkg(p)
+	if loc.ModuleDir != "" {
+		t.Fatalf("ModuleDir=%q want empty", loc.ModuleDir)
+	}
+}
+
+func TestResolveImportDir_rejectsDotDotRemainder(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(testmod.GoModContent("example.com/mod")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Force listModules via a path that would join ".." if accepted — construct by
+	// requiring a module and requesting an impossible remainder with .. via prefix match.
+	// ResolveImportDir only produces ".." if importPath is modulePath + "/../x".
+	_, err := ResolveImportDir(root, "example.com/mod/../evil")
+	if err == nil {
+		t.Fatal("expected error for .. segment")
+	}
+	if !strings.Contains(err.Error(), "invalid path") {
+		t.Fatalf("got %v", err)
+	}
+}

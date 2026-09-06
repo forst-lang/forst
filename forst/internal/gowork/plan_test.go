@@ -297,7 +297,7 @@ func TestWriteGoWork_includesOverlayReplaces(t *testing.T) {
 	workPath := filepath.Join(dir, ".forst", "go.work")
 	sandbox := filepath.Join(dir, ".forst", "run", "dev")
 	compiler := filepath.Join(dir, "compiler", "forst")
-	overlay := filepath.Join(dir, ".forst", "overlay", "github.com_acme_lib@local")
+	overlay := filepath.Join(dir, ".forst", "overlay", "github.com%2Facme%2Flib@local")
 	for _, d := range []string{sandbox, compiler, overlay} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
@@ -315,7 +315,7 @@ func TestWriteGoWork_includesOverlayReplaces(t *testing.T) {
 	if !strings.Contains(s, "replace github.com/acme/lib =>") {
 		t.Fatalf("missing overlay replace:\n%s", s)
 	}
-	if !strings.Contains(s, "overlay/github.com_acme_lib@local") {
+	if !strings.Contains(s, "overlay/github.com%2Facme%2Flib@local") {
 		t.Fatalf("replace should point at overlay:\n%s", s)
 	}
 }

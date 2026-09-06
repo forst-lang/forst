@@ -432,10 +432,15 @@ func createTempOutputFiles(mainCode, bridgeRuntimeCode, invokeServerCode string,
 		}
 	} else if len(opts.overlayReplaces) > 0 && goModPath != "" {
 		// Sandbox without compiler link still needs dep overlays when present.
-		if _, err := os.Stat(goModPath); err == nil {
-			if err := gowork.AppendGoModReplaces(goModPath, opts.overlayReplaces); err != nil {
-				return "", fmt.Errorf("append overlay replaces: %w", err)
+		if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+			if err := writeMinimalRunGoMod(goModPath); err != nil {
+				return "", err
 			}
+		} else if err != nil {
+			return "", err
+		}
+		if err := gowork.AppendGoModReplaces(goModPath, opts.overlayReplaces); err != nil {
+			return "", fmt.Errorf("append overlay replaces: %w", err)
 		}
 	}
 
@@ -514,6 +519,13 @@ func tidyRunSandboxGoMod(goModPath, boundaryRoot string, plan gowork.LinkPlan) e
 		}
 	}
 	return nil
+}
+
+func writeMinimalRunGoMod(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte("module forst.run.temp\n\ngo 1.26.0\n"), 0o644)
 }
 
 // CreateTempOutputFilesLegacy preserves the old 3-arg signature for gradual migration.

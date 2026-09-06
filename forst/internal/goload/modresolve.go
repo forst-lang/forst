@@ -2,12 +2,16 @@ package goload
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+const listModulesTimeout = 60 * time.Second
 
 type moduleListEntry struct {
 	Path    string
@@ -19,11 +23,18 @@ type moduleListEntry struct {
 // ResolveImportDir finds the filesystem directory for importPath using the module graph.
 // Works for Forst-only packages (no .go files) that packages.Load cannot locate.
 func ResolveImportDir(moduleRoot, importPath string) (PackageLoc, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), listModulesTimeout)
+	defer cancel()
+	return ResolveImportDirContext(ctx, moduleRoot, importPath)
+}
+
+// ResolveImportDirContext is ResolveImportDir with an explicit context (deadline/cancel).
+func ResolveImportDirContext(ctx context.Context, moduleRoot, importPath string) (PackageLoc, error) {
 	if moduleRoot == "" || importPath == "" {
 		return PackageLoc{}, fmt.Errorf("resolve import dir: empty args")
 	}
 	moduleRoot = FindModuleRoot(moduleRoot)
-	mods, err := listModules(moduleRoot)
+	mods, err := listModules(ctx, moduleRoot)
 	if err != nil {
 		return PackageLoc{}, err
 	}
@@ -58,19 +69,36 @@ func ResolveImportDir(moduleRoot, importPath string) (PackageLoc, error) {
 	rel = strings.TrimPrefix(rel, "/")
 	pkgDir := best.Dir
 	if rel != "" {
+		for _, seg := range strings.Split(rel, "/") {
+			if seg == ".." {
+				return PackageLoc{}, fmt.Errorf("resolve import dir: invalid path %q", importPath)
+			}
+		}
 		pkgDir = filepath.Join(best.Dir, filepath.FromSlash(rel))
+	}
+	moduleDir := best.Dir
+	if moduleDir != "" {
+		moduleDir = filepath.Clean(moduleDir)
 	}
 	return PackageLoc{
 		ImportPath:    importPath,
 		Dir:           filepath.Clean(pkgDir),
 		ModulePath:    best.Path,
 		ModuleVersion: best.Version,
-		ModuleDir:     filepath.Clean(best.Dir),
+		ModuleDir:     moduleDir,
 	}, nil
 }
 
-func listModules(moduleRoot string) ([]moduleListEntry, error) {
-	cmd := exec.Command("go", "list", "-m", "-json", "all")
+func listModules(ctx context.Context, moduleRoot string) ([]moduleListEntry, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, listModulesTimeout)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", "all")
 	cmd.Dir = moduleRoot
 	cmd.Env = loadPackagesEnv(moduleRoot)
 	var stdout, stderr bytes.Buffer

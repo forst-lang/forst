@@ -13,13 +13,9 @@ import (
 )
 
 // OverlayDirName returns a filesystem-safe directory name for a module overlay.
+// Uses the same injective encoding as layout.OverlayModuleDirName.
 func OverlayDirName(modulePath, version string) string {
-	if version == "" {
-		version = "local"
-	}
-	escaped := strings.ReplaceAll(modulePath, "/", "_")
-	escaped = strings.ReplaceAll(escaped, "\\", "_")
-	return escaped + "@" + version
+	return layout.OverlayModuleDirName(modulePath, version)
 }
 
 // CopyModuleForOverlay copies a Go module tree into dstOverlayDir for emit.

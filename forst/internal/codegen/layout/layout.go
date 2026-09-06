@@ -56,12 +56,66 @@ var reservedDotForstEntries = []string{
 
 // OverlayModule returns the directory for a copied+emitted dependency module under .forst/overlay.
 func (r Root) OverlayModule(modulePath, version string) string {
+	return filepath.Join(r.dotForst(), "overlay", OverlayModuleDirName(modulePath, version))
+}
+
+// OverlayModuleDirName returns a single filesystem-safe directory name for modulePath@version.
+// Encoding is injective: distinct module paths always yield distinct names.
+func OverlayModuleDirName(modulePath, version string) string {
 	if version == "" {
 		version = "local"
 	}
-	escaped := strings.ReplaceAll(modulePath, "/", "_")
-	escaped = strings.ReplaceAll(escaped, "\\", "_")
-	return filepath.Join(r.dotForst(), "overlay", escaped+"@"+version)
+	return EscapeModulePath(modulePath) + "@" + version
+}
+
+// EscapeModulePath encodes a Go module path as one filesystem path segment.
+// Path separators and '%' are percent-encoded so the mapping is reversible and injective
+// (e.g. github.com/foo_bar vs github.com/foo/bar never collide).
+func EscapeModulePath(modulePath string) string {
+	var b strings.Builder
+	b.Grow(len(modulePath) + 8)
+	for i := 0; i < len(modulePath); i++ {
+		c := modulePath[i]
+		switch c {
+		case '/':
+			b.WriteString("%2F")
+		case '\\':
+			b.WriteString("%5C")
+		case '%':
+			b.WriteString("%25")
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// UnescapeModulePath reverses EscapeModulePath.
+func UnescapeModulePath(escaped string) (string, error) {
+	var b strings.Builder
+	b.Grow(len(escaped))
+	for i := 0; i < len(escaped); {
+		if escaped[i] == '%' {
+			if i+2 >= len(escaped) {
+				return "", fmt.Errorf("invalid module path escape at %d", i)
+			}
+			switch escaped[i : i+3] {
+			case "%2F", "%2f":
+				b.WriteByte('/')
+			case "%5C", "%5c":
+				b.WriteByte('\\')
+			case "%25":
+				b.WriteByte('%')
+			default:
+				return "", fmt.Errorf("unknown module path escape %q", escaped[i:i+3])
+			}
+			i += 3
+			continue
+		}
+		b.WriteByte(escaped[i])
+		i++
+	}
+	return b.String(), nil
 }
 
 // RunSession returns paths for a forst run / dev runtime sandbox.
