@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -369,15 +370,45 @@ func (c *Client) removePending(id int64) {
 }
 
 func (c *Client) failAllPending(err error) {
-	if err != nil && (errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe)) {
-		err = fmt.Errorf("%w: %v", ErrBridgeRuntimeDied, err)
-	}
+	err = wrapBridgeRuntimeDied(err)
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()
 	for id, ch := range c.pending {
 		delete(c.pending, id)
 		ch <- callResult{err: err}
 	}
+}
+
+// isBridgeTransportDead reports whether err indicates the RPC transport died
+// (peer hangup, local close, reset) rather than a protocol/decode failure.
+func isBridgeTransportDead(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) ||
+		errors.Is(err, io.ErrClosedPipe) ||
+		errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) && opErr != nil && !opErr.Timeout() {
+		return true
+	}
+	return false
+}
+
+// wrapBridgeRuntimeDied remaps transport-death errors to ErrBridgeRuntimeDied
+// so callers can fail-fast and respawn without inspecting platform-specific
+// socket close strings.
+func wrapBridgeRuntimeDied(err error) error {
+	if err == nil || errors.Is(err, ErrBridgeRuntimeDied) {
+		return err
+	}
+	if !isBridgeTransportDead(err) {
+		return err
+	}
+	return fmt.Errorf("%w: %v", ErrBridgeRuntimeDied, err)
 }
 
 func marshalParams(params any) (json.RawMessage, error) {
