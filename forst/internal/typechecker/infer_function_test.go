@@ -172,11 +172,64 @@ func TestCheckTypes_blankIdentAssignment_typechecks(t *testing.T) {
 	src := `package main
 func main() {
 	_ = 1
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{})
+}
+
+func TestCheckTypes_blankIdentRange_typechecks(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
 	xs := ["a", "b"]
 	for _, x := range xs {
 		println(x)
 	}
 }
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{})
+}
+
+func TestCheckTypes_blankOnlyShortDecl_errors(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+	_ := 1
+}
+`
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{})
+	if err == nil {
+		t.Fatal("expected error for blank-only short declaration")
+	}
+}
+
+func TestCheckTypes_voidBareReturn_trailingValueExpr_errors(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	if true {
+		return
+	}
+	1
+}
+func main() {}
+`
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{})
+	if err == nil {
+		t.Fatal("expected error for non-void trailing expression after void return")
+	}
+}
+
+func TestCheckTypes_voidBareReturn_trailingPrintln_typechecks(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	if true {
+		return
+	}
+	println("ok")
+}
+func main() {}
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{})
 }

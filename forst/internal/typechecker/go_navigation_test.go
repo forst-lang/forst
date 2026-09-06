@@ -20,7 +20,9 @@ func TestGoSamePackageFuncDefinitionLocation_add(t *testing.T) {
 	tc.GoWorkspaceDir = root
 	tc.ForstFileDir = filepath.Join(root, "memos")
 	tc.SetSamePackageGoImportPath(importPath)
-	tc.initSamePackageGoExports()
+	if err := tc.initSamePackageGoExports(); err != nil {
+		t.Fatal(err)
+	}
 	if !tc.SamePackageGoLoaded() {
 		t.Skip("same-package Go not loaded")
 	}

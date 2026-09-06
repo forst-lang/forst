@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -94,5 +95,95 @@ func main() {
 	tc.SetSamePackageGoImportPath("example.com/bagsig/app")
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("expected Forst funcs with Go Bag in signature: %v", err)
+	}
+}
+
+func TestSamePackageGo_forstTypeConflictsWithGoNamedType_errors(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	testmod.WriteGoMod(t, root, "example.com/bagconflict")
+	pkgDir := filepath.Join(root, "app")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(`package main
+
+type Bag struct {
+	Name string
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+type Bag = {
+	X: Int
+}
+
+func main() {
+	println("ok")
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "app/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "app/main.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = root
+	tc.SetSamePackageGoImportPath("example.com/bagconflict/app")
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected duplicate-type error for conflicting Forst/Go Bag")
+	}
+	var diag *Diagnostic
+	if !errors.As(err, &diag) || diag == nil || diag.Code != "duplicate-type" {
+		t.Fatalf("expected duplicate-type diagnostic, got %T: %v", err, err)
+	}
+}
+
+func TestSamePackageGo_forstTypeCompatibleWithGoNamedType_marksOmit(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	testmod.WriteGoMod(t, root, "example.com/bagcompat")
+	pkgDir := filepath.Join(root, "app")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(`package main
+
+type Bag struct {
+	Name string
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+type Bag = {
+	Name: String
+}
+
+func main() {
+	println("ok")
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "app/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "app/main.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = root
+	tc.SetSamePackageGoImportPath("example.com/bagcompat/app")
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("expected compatible Forst/Go Bag: %v", err)
+	}
+	if !tc.IsGoPackageType("Bag") {
+		t.Fatal("expected Bag marked as go package type so emit is omitted")
 	}
 }

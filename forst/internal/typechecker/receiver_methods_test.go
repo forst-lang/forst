@@ -121,7 +121,7 @@ type Clock = {
 
 func f() {
 	use clock: Clock
-	_ := clock.now()
+	_ = clock.now()
 }
 `
 	log := logrus.New()

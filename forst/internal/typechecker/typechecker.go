@@ -271,7 +271,9 @@ func (tc *TypeChecker) preloadGoImportPackages() error {
 		}).WithError(err).Debug("go/packages batch load failed; Forst↔Go boundary checks use lazy load")
 	}
 	tc.RecordUnloadedGoImportPaths(loaded, err)
-	tc.InitGoPackagesFromBatch(loaded)
+	if err := tc.InitGoPackagesFromBatch(loaded); err != nil {
+		return err
+	}
 	return tc.validateGoImportLocalsAfterLoad(loaded)
 }
 
@@ -304,7 +306,9 @@ func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 // InferTypes runs the second pass after CollectTypes (local or module-wide).
 func (tc *TypeChecker) InferTypes(nodes []ast.Node) error {
 	tc.initGoImportPackages()
-	tc.initSamePackageGoExports()
+	if err := tc.initSamePackageGoExports(); err != nil {
+		return err
+	}
 
 	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
 		return err

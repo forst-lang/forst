@@ -76,7 +76,7 @@ func (tc *TypeChecker) initGoImportPackages() {
 }
 
 // InitGoPackagesFromBatch maps import locals from a preloaded go/packages batch (module-wide).
-func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Package) {
+func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Package) error {
 	tc.ensureImportPathByLocal()
 	if len(loaded) > 0 {
 		tc.seedGoImportPackagesFromLoaded(loaded)
@@ -89,7 +89,7 @@ func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Packa
 			tc.samePackageGo = pkg.Types
 		}
 	}
-	tc.registerSamePackageGoNamedTypes()
+	return tc.registerSamePackageGoNamedTypes()
 }
 
 func (tc *TypeChecker) ensureImportPathByLocal() {
@@ -223,14 +223,13 @@ func BatchLoadGoPackagesForModuleWithLoader(moduleRoot string, tcs []*TypeChecke
 	return gointerop.LoadPackages(moduleRoot, collectGoImportPaths(tcs), loader)
 }
 
-func (tc *TypeChecker) initSamePackageGoExports() {
+func (tc *TypeChecker) initSamePackageGoExports() error {
 	if tc.goPackagesPreloaded {
-		tc.registerSamePackageGoNamedTypes()
-		return
+		return tc.registerSamePackageGoNamedTypes()
 	}
 	tc.samePackageGo = nil
 	if tc.samePackageGoImportPath == "" || tc.GoWorkspaceDir == "" {
-		return
+		return nil
 	}
 	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{tc.samePackageGoImportPath})
 	if err != nil {
@@ -238,21 +237,23 @@ func (tc *TypeChecker) initSamePackageGoExports() {
 			"function": "initSamePackageGoExports",
 			"path":     tc.samePackageGoImportPath,
 		}).WithError(err).Debug("go/packages load failed for same-package Go exports")
-		return
+		return nil
 	}
 	pkg, ok := loaded[tc.samePackageGoImportPath]
 	if !ok || !goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
-		return
+		return nil
 	}
 	tc.samePackageGo = pkg.Types
-	tc.registerSamePackageGoNamedTypes()
+	return tc.registerSamePackageGoNamedTypes()
 }
 
 // registerSamePackageGoNamedTypes imports same-package Go named types into Defs so Forst
 // signatures and literals can refer to them without re-emitting the Go type declarations.
-func (tc *TypeChecker) registerSamePackageGoNamedTypes() {
+// An existing Forst definition for the same ident must be structurally compatible with the
+// Go type; otherwise a duplicate-type diagnostic is returned.
+func (tc *TypeChecker) registerSamePackageGoNamedTypes() error {
 	if tc.samePackageGo == nil {
-		return
+		return nil
 	}
 	if tc.goPackageTypeIdents == nil {
 		tc.goPackageTypeIdents = make(map[ast.TypeIdent]struct{})
@@ -265,15 +266,23 @@ func (tc *TypeChecker) registerSamePackageGoNamedTypes() {
 			continue
 		}
 		ident := ast.TypeIdent(name)
-		if _, exists := tc.Defs[ident]; exists {
-			continue
-		}
 		def, ok := tc.typeDefFromSamePackageGoType(tn)
 		if !ok {
 			tc.log.WithFields(logrus.Fields{
 				"function": "registerSamePackageGoNamedTypes",
 				"type":     name,
 			}).Debug("skipping same-package Go type that could not be mapped to a Forst typedef")
+			continue
+		}
+		if existing, exists := tc.Defs[ident]; exists {
+			if tc.IsGoPackageType(ident) {
+				continue
+			}
+			if err := tc.ensureForstDefCompatibleWithSamePackageGo(ident, existing, def); err != nil {
+				return err
+			}
+			// Compatible Forst alias of the same-package Go type: omit re-emit.
+			tc.goPackageTypeIdents[ident] = struct{}{}
 			continue
 		}
 		tc.Defs[ident] = def
@@ -283,6 +292,40 @@ func (tc *TypeChecker) registerSamePackageGoNamedTypes() {
 			"type":     name,
 		}).Debug("registered same-package Go named type into Forst Defs")
 	}
+	return nil
+}
+
+func (tc *TypeChecker) ensureForstDefCompatibleWithSamePackageGo(ident ast.TypeIdent, existing ast.Node, goDef ast.TypeDefNode) error {
+	existingTD, ok := existing.(ast.TypeDefNode)
+	if !ok {
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"type %s conflicts with same-package Go type %s", ident, ident)
+	}
+	existingShape, existingOK := tc.getShapeFromTypeDef(existingTD)
+	goShape, goOK := tc.getShapeFromTypeDef(goDef)
+	if existingOK && goOK {
+		if tc.shapesAreStructurallyIdentical(*existingShape, *goShape) {
+			return nil
+		}
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"Forst type %s conflicts with same-package Go type %s (incompatible fields)", ident, ident)
+	}
+	// Non-shape typedefs: accept only when both map to the same assertion base type.
+	if existingOK != goOK {
+		return reportBodyf(ast.FakeSpan(), "duplicate-type",
+			"Forst type %s conflicts with same-package Go type %s", ident, ident)
+	}
+	if ea, ok := existingTD.Expr.(ast.TypeDefAssertionExpr); ok {
+		if ga, ok := goDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			if ea.Assertion != nil && ga.Assertion != nil &&
+				ea.Assertion.BaseType != nil && ga.Assertion.BaseType != nil &&
+				*ea.Assertion.BaseType == *ga.Assertion.BaseType {
+				return nil
+			}
+		}
+	}
+	return reportBodyf(ast.FakeSpan(), "duplicate-type",
+		"Forst type %s conflicts with same-package Go type %s", ident, ident)
 }
 
 // SamePackageGoDefinesType reports whether same-package Go already defines ident as a type name.

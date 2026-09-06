@@ -99,6 +99,32 @@ func main() {
 	}
 }
 
+func TestPipeline_sameShapeDistinctNamedTypes_usesReturnWrap(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type Acc = {
+	n: Int
+}
+type Box = {
+	n: Int
+}
+func asBox(a Acc): Box {
+	return a
+}
+func main() {
+	b := asBox(Acc{n: 1})
+	println(b.n)
+}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, "return a") {
+		t.Fatalf("distinct same-shaped named types must not bare-return Acc as Box, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Box{") {
+		t.Fatalf("expected wrapping conversion into Box, got:\n%s", out)
+	}
+}
+
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
 	tests := []struct {
 		name    string

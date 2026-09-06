@@ -176,7 +176,9 @@ func (s *ModuleScan) LoadGoPackages() error {
 	}
 	for _, tc := range tcs {
 		tc.RecordUnloadedGoImportPaths(loaded, err)
-		tc.InitGoPackagesFromBatch(loaded)
+		if initErr := tc.InitGoPackagesFromBatch(loaded); initErr != nil {
+			return initErr
+		}
 	}
 	return nil
 }

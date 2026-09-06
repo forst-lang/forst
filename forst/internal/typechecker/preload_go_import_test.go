@@ -86,7 +86,9 @@ func main() {
 		t.Fatal(err)
 	}
 	// Empty batch result must not block gap-fill in InferTypes.
-	tc.InitGoPackagesFromBatch(map[string]*packages.Package{"fmt": nil})
+	if err := tc.InitGoPackagesFromBatch(map[string]*packages.Package{"fmt": nil}); err != nil {
+		t.Fatal(err)
+	}
 	if tc.goPackagesPreloaded {
 		t.Fatal("goPackagesPreloaded must stay false when exec is not loaded")
 	}

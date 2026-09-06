@@ -25,9 +25,16 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	lastStmt := fn.Body[len(fn.Body)-1]
 	if expr, ok := lastStmt.(ast.ExpressionNode); ok {
-		// Bare `return` (and other void returns) already established void; do not treat a
-		// trailing statement expression (e.g. println) as a conflicting implicit return.
+		// Bare `return` established void: still type the trailing expression. Allow only when
+		// it is also void (e.g. println); reject a reachable non-void implicit return value.
 		if len(returnStmtTypes) > 0 && IsVoidReturnTypes(returnStmtTypes[0]) {
+			trailing, err := tc.inferReturnValueTypes(expr)
+			if err != nil {
+				return nil, err
+			}
+			if !IsVoidReturnTypes(trailing) {
+				return nil, failWithTypeMismatch(fn, trailing, returnStmtTypes[0], "Inconsistent return expression type")
+			}
 			inferredType := returnStmtTypes[0]
 			inferredType, err = tc.applyEnsureReturnInference(fn, parsedType, inferredType, hasEnsure)
 			if err != nil {

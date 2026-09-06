@@ -35,6 +35,12 @@ func (tc *TypeChecker) inferAssignmentLValues(assign ast.AssignmentNode, resolve
 
 func (tc *TypeChecker) inferAssignmentVariableLValue(assign ast.AssignmentNode, l ast.VariableNode, i int, resolvedTypes [][]ast.TypeNode) error {
 	if l.Ident.ID == "_" {
+		if assign.IsShort && assignmentLValuesAllBlank(assign) {
+			return reportf(l.Ident.Span, "blank-short-decl",
+				"blank identifier cannot be used in a short declaration",
+				"Short declaration `:=` must introduce at least one non-blank name.",
+				"use `=` to discard, or bind a real name with `:=`")
+		}
 		// Blank identifier discards the RHS; still typecheck via resolvedTypes, do not bind.
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferAssignmentTypes",
@@ -260,4 +266,18 @@ func (tc *TypeChecker) inferAssignmentDerefLValue(l ast.DereferenceNode, i int, 
 	}
 	tc.storeInferredType(l, lhsTypes)
 	return nil
+}
+
+
+func assignmentLValuesAllBlank(assign ast.AssignmentNode) bool {
+	if len(assign.LValues) == 0 {
+		return false
+	}
+	for _, lv := range assign.LValues {
+		vn, ok := lv.(ast.VariableNode)
+		if !ok || vn.Ident.ID != "_" {
+			return false
+		}
+	}
+	return true
 }

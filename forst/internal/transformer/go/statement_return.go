@@ -149,14 +149,18 @@ func (t *Transformer) variableAlreadyNamedReturnType(v ast.VariableNode, expecte
 		return false
 	}
 	if occ, ok := t.TypeChecker.InferredTypesForVariableNode(v); ok && len(occ) == 1 {
-		if t.TypeChecker.IsTypeCompatible(occ[0], *expectedType) {
-			return true
-		}
+		return namedReturnTypesIdentical(occ[0], *expectedType)
 	}
 	if ty, err := t.TypeChecker.LookupVariableType(&v, t.currentScope()); err == nil && ty.Ident != "" {
-		return t.TypeChecker.IsTypeCompatible(ty, *expectedType)
+		return namedReturnTypesIdentical(ty, *expectedType)
 	}
 	return false
+}
+
+// namedReturnTypesIdentical requires the same type ident so distinct same-shaped
+// named types do not skip conversion wrapping.
+func namedReturnTypesIdentical(actual, expected ast.TypeNode) bool {
+	return actual.Ident != "" && actual.Ident == expected.Ident
 }
 
 func (t *Transformer) transformReturnValueExpr(i int, value ast.ExpressionNode, expectedReturnTypes []ast.TypeNode, results []goast.Expr) (goast.Expr, error) {

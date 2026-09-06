@@ -48,6 +48,22 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 			returnTypes = []ast.TypeNode{fn.ReturnTypes[0]}
 		}
 	}
+	// Prefer the declared named shape return when inference collapsed to a different
+	// same-shaped named type (e.g. Acc value returned as Box).
+	if len(fn.ReturnTypes) == 1 && len(returnTypes) == 1 {
+		declared, inferred := fn.ReturnTypes[0], returnTypes[0]
+		if declared.Ident != "" && inferred.Ident != "" &&
+			declared.Ident != inferred.Ident &&
+			!declared.IsTypeParam() && !inferred.IsTypeParam() &&
+			!declared.IsResultType() && !inferred.IsResultType() &&
+			tc.IsTypeCompatible(inferred, declared) {
+			if _, ok := tc.getShapeFromTypeDef(tc.Defs[declared.Ident]); ok {
+				if _, ok := tc.getShapeFromTypeDef(tc.Defs[inferred.Ident]); ok {
+					returnTypes = []ast.TypeNode{declared}
+				}
+			}
+		}
+	}
 	// Resolve aliased types for return types
 	resolvedReturnTypes := make([]ast.TypeNode, len(returnTypes))
 	for i, returnType := range returnTypes {

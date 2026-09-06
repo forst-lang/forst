@@ -22,7 +22,7 @@ func (q Q) Value(): Int {
 
 func main() {
 	q := Q{n: 0}
-	_ := q.Inc().Value()
+	_ = q.Inc().Value()
 }
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{})
@@ -39,7 +39,7 @@ func makeQ(): Q {
 }
 
 func main() {
-	_ := makeQ().n
+	_ = makeQ().n
 }
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{})
@@ -53,7 +53,7 @@ type Item = {name: String}
 
 func main() {
 	xs := [Item{name: "a"}]
-	_ := xs[0].name
+	_ = xs[0].name
 }
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{})
@@ -74,7 +74,7 @@ func (q Q) Inc(): Q {
 }
 
 func main() {
-	_ := makeQ().Inc()
+	_ = makeQ().Inc()
 }
 `
 	MustTypecheck(t, src, testutil.TypecheckOpts{})
