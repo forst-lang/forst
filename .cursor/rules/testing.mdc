@@ -26,6 +26,12 @@ examples/in/basic.ft
 examples/in/go_builtins.ft
 examples/in/generics.ft
 examples/in/slices.ft (`task example:slices` — subslice expressions)
+examples/in/method_chain.ft (`task example:method-chain` — Forst method chaining `q.Inc().Value()`)
+examples/in/field_after_call.ft (`task example:field-after-call` — field on call result `makeQ().n`)
+examples/in/string_quote_escape.ft (`task example:string-quote-escape` — escaped `"` in string literal)
+examples/in/index_then_field.ft (`task example:index-then-field` — `xs[0].name`)
+examples/in/bytes_alias.ft (`task example:bytes-alias` — `type Bytes = []Byte` → `[]byte`)
+examples/in/method_multireturn/ (`task example:method-multireturn` — unpack Go method multi-return; `helpers.go` + `main.ft`)
 examples/in/go_interop/cli.ft (`task example:go-interop` — Go FFI spread, field access, same-package hand-written Go)
 examples/in/basic_function.ft
 examples/in/ensure.ft

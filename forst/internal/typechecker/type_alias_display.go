@@ -66,7 +66,7 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 	if typeNode.IsTypeParam() {
 		return string(typeNode.Ident), nil
 	}
-	if IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
+	if IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError || typeNode.Ident == "Byte" {
 		// Convert Forst built-in types to Go built-in types
 		switch typeNode.Ident {
 		case ast.TypeString:
@@ -81,6 +81,8 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 			return "", nil
 		case ast.TypeError:
 			return "error", nil
+		case "Byte":
+			return "byte", nil
 		default:
 			return string(typeNode.Ident), nil
 		}

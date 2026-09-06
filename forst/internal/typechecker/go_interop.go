@@ -579,70 +579,93 @@ func (tc *TypeChecker) normalizeGoImportParamType(typ ast.TypeNode) (ast.TypeNod
 }
 
 func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
+	gt, _ := tc.goTypeInfoForExpression(expr)
+	return gt
+}
+
+// goTypeInfoForExpression returns the tracked Go type and whether the expression is addressable.
+func (tc *TypeChecker) goTypeInfoForExpression(expr ast.ExpressionNode) (types.Type, bool) {
 	if tc == nil || expr == nil {
-		return nil
+		return nil, false
 	}
 	switch e := expr.(type) {
 	case ast.VariableNode:
 		if gt := tc.variableGoTypes[e.Ident.ID]; gt != nil {
-			return gt
+			return gt, true
 		}
 		parts := strings.Split(string(e.Ident.ID), ".")
 		if len(parts) > 1 {
 			if base := tc.variableGoTypes[ast.Identifier(parts[0])]; base != nil {
 				last, err := goTypeAtFieldPath(base, parts[1:])
 				if err == nil {
-					return last
+					return last, true
 				}
 			}
 		}
 	case ast.FunctionCallNode:
 		if gt := tc.goTypeFromBuiltinNewCall(e); gt != nil {
-			return gt
+			return gt, false
 		}
 		if sig := tc.goFuncSignatureFromCall(e); sig != nil && sig.Results().Len() > 0 {
-			return sig.Results().At(0).Type()
+			return sig.Results().At(0).Type(), false
 		}
 	case ast.MethodCallNode:
-		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
-			obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, string(e.Method.ID))
+		goRecv, addr := tc.goTypeInfoForExpression(e.Receiver)
+		if goRecv != nil {
+			obj, _, _ := types.LookupFieldOrMethod(goRecv, addr, nil, string(e.Method.ID))
 			if fn, ok := obj.(*types.Func); ok {
 				if sig, ok := fn.Type().(*types.Signature); ok && sig.Results().Len() > 0 {
-					return sig.Results().At(0).Type()
+					return sig.Results().At(0).Type(), false
 				}
 			}
 		}
 	case ast.FieldAccessNode:
-		if goRecv := tc.goTypeForExpression(e.Target); goRecv != nil {
+		goRecv, addr := tc.goTypeInfoForExpression(e.Target)
+		if goRecv != nil {
 			obj, _, _ := types.LookupFieldOrMethod(goRecv, false, nil, string(e.Field.ID))
 			if obj != nil {
-				return obj.Type()
+				return obj.Type(), addr
 			}
 		}
 	case ast.SliceExpressionNode:
 		if goT := tc.goTypeForExpression(e.Target); goT != nil {
 			switch u := goT.Underlying().(type) {
 			case *types.Slice:
-				return types.NewSlice(u.Elem())
+				return types.NewSlice(u.Elem()), false
 			case *types.Array:
-				return types.NewSlice(u.Elem())
+				return types.NewSlice(u.Elem()), false
+			}
+		}
+	case ast.IndexExpressionNode:
+		if goT := tc.goTypeForExpression(e.Target); goT != nil {
+			switch u := goT.Underlying().(type) {
+			case *types.Slice:
+				return u.Elem(), true
+			case *types.Array:
+				return u.Elem(), true
+			case *types.Map:
+				return u.Elem(), false
 			}
 		}
 	case ast.ReferenceNode:
 		if inner := tc.goTypeForExpression(e.Value); inner != nil {
-			return types.NewPointer(inner)
+			return types.NewPointer(inner), false
 		}
 	case ast.ShapeNode:
 		if e.BaseType != nil {
 			if gt := tc.goTypeForQualifiedImportTypeIdent(*e.BaseType); gt != nil {
-				return gt
+				return gt, false
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
 func (tc *TypeChecker) checkGoMethodCall(recv types.Type, method ast.Ident, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
+	return tc.checkGoMethodCallAddr(recv, true, method, e, argTypes, wantSingleValue)
+}
+
+func (tc *TypeChecker) checkGoMethodCallAddr(recv types.Type, addressable bool, method ast.Ident, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, wantSingleValue bool) ([]ast.TypeNode, error) {
 	methodName := string(method.ID)
 	if methodName == "" {
 		methodName = string(e.Function.ID)
@@ -657,6 +680,7 @@ func (tc *TypeChecker) checkGoMethodCall(recv types.Type, method ast.Ident, e as
 		Call:            e,
 		ArgTypes:        argTypes,
 		WantSingleValue: wantSingleValue,
+		Addressable:     addressable,
 	})
 }
 
@@ -671,23 +695,43 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 			}
 			return
 		}
-		sig := tc.goFuncSignatureFromCall(fc)
-		if sig == nil {
-			return
-		}
-		res := sig.Results()
-		if res.Len() != len(assign.LValues) {
-			// Arity mismatch (e.g. multi-return wrapped as Tuple): do not bind Go types.
-			return
-		}
-		for i, lv := range assign.LValues {
-			vn, ok := lv.(ast.VariableNode)
-			if !ok {
-				continue
+		if sig := tc.goFuncSignatureFromCall(fc); sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
 			}
-			tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			return
+		}
+		if sig := tc.goMethodSignatureFromDottedCall(fc); sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			}
+			return
 		}
 		return
+	}
+	if mc, ok := assign.RValues[0].(ast.MethodCallNode); ok {
+		sig := tc.goMethodSignatureFromCall(mc)
+		if sig != nil && sig.Results().Len() == len(assign.LValues) {
+			res := sig.Results()
+			for i, lv := range assign.LValues {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok {
+					continue
+				}
+				tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
+			}
+			return
+		}
 	}
 	if len(assign.LValues) != 1 {
 		return
@@ -699,6 +743,38 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if gt := tc.goTypeForExpression(assign.RValues[0]); gt != nil {
 		tc.variableGoTypes[vn.Ident.ID] = gt
 	}
+}
+
+func (tc *TypeChecker) goMethodSignatureFromCall(mc ast.MethodCallNode) *types.Signature {
+	goRecv, addr := tc.goTypeInfoForExpression(mc.Receiver)
+	if goRecv == nil {
+		return nil
+	}
+	obj, _, _ := types.LookupFieldOrMethod(goRecv, addr, nil, string(mc.Method.ID))
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, _ := fn.Type().(*types.Signature)
+	return sig
+}
+
+func (tc *TypeChecker) goMethodSignatureFromDottedCall(fc ast.FunctionCallNode) *types.Signature {
+	parts := strings.Split(string(fc.Function.ID), ".")
+	if len(parts) != 2 {
+		return nil
+	}
+	goRecv := tc.variableGoTypes[ast.Identifier(parts[0])]
+	if goRecv == nil {
+		return nil
+	}
+	obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, parts[1])
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, _ := fn.Type().(*types.Signature)
+	return sig
 }
 
 // goTypeFromBuiltinNewCall returns *T when call is new(T) and T maps to a Go type.

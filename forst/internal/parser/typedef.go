@@ -137,7 +137,9 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 		left = ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
-				BaseType: &typ.Ident,
+				BaseType:   &typ.Ident,
+				TypeParams: typ.TypeParams,
+				ArrayLen:   typ.ArrayLen,
 			},
 		}
 	}

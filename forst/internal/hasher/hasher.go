@@ -610,6 +610,20 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 				return 0, err
 			}
 		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
+		}
+		if n.ArrayLen != nil {
+			if err := w.h.writeHashes(hasher, []byte(fmt.Sprintf("%d", *n.ArrayLen))); err != nil {
+				return 0, err
+			}
+		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))
 		copy(constraints, n.Constraints)
@@ -707,16 +721,20 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			w.h.writeHashes(hasher, hash)
 		}
 	case ast.TypeNode:
-		if n.Ident != "" {
-			w.h.writeHashes(hasher, NodeKind["Type"])
-			w.h.writeHashes(hasher, []byte(n.Ident))
-			if n.Ident == ast.TypeArray && n.ArrayLen != nil {
-				w.h.writeHashes(hasher, []byte(strconv.FormatInt(*n.ArrayLen, 10)))
-			}
-			break
-		}
 		w.h.writeHashes(hasher, NodeKind["Type"])
 		w.h.writeHashes(hasher, []byte(n.Ident))
+		if n.Ident == ast.TypeArray && n.ArrayLen != nil {
+			w.h.writeHashes(hasher, []byte(strconv.FormatInt(*n.ArrayLen, 10)))
+		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
+		}
 	case ast.SimpleParamNode:
 		w.h.writeHashes(hasher, NodeKind["SimpleParam"])
 		w.h.writeHashes(hasher, []byte(n.Ident.ID))
@@ -743,6 +761,16 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		w.h.writeHashes(hasher, NodeKind["Assertion"])
 		if n.BaseType != nil {
 			w.h.writeHashes(hasher, []byte(*n.BaseType))
+		}
+		for _, tp := range n.TypeParams {
+			hash, err := w.hash(tp)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
+		}
+		if n.ArrayLen != nil {
+			w.h.writeHashes(hasher, []byte(fmt.Sprintf("%d", *n.ArrayLen)))
 		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))

@@ -1,0 +1,8 @@
+package main
+
+// Escaped quote in a string literal is one character (len == 1).
+// Golden output: ../out/string_quote_escape.go
+func main() {
+	q := "\""
+	println(string(len(q)))
+}

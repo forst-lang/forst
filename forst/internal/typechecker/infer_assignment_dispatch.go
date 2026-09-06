@@ -93,7 +93,8 @@ func (tc *TypeChecker) distributeAssignmentReturnTypes(assign ast.AssignmentNode
 		}).Debug("Before distributing function return types to LValues")
 	}
 	if len(assign.RValues) == 1 && len(resolvedTypes) == 1 && len(assign.LValues) > 1 {
-		if _, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
+		switch assign.RValues[0].(type) {
+		case ast.FunctionCallNode, ast.MethodCallNode:
 			if len(resolvedTypes[0]) == len(assign.LValues) {
 				newResolved := make([][]ast.TypeNode, len(assign.LValues))
 				for i := range assign.LValues {
@@ -108,6 +109,15 @@ func (tc *TypeChecker) distributeAssignmentReturnTypes(assign ast.AssignmentNode
 					{rt.TypeParams[0]},
 					{rt.TypeParams[1]},
 				}
+			}
+			if len(resolvedTypes[0]) == 1 && resolvedTypes[0][0].IsTupleType() &&
+				len(resolvedTypes[0][0].TypeParams) == len(assign.LValues) {
+				tp := resolvedTypes[0][0].TypeParams
+				newResolved := make([][]ast.TypeNode, len(assign.LValues))
+				for i := range assign.LValues {
+					newResolved[i] = []ast.TypeNode{tp[i]}
+				}
+				return newResolved
 			}
 		}
 	}

@@ -29,6 +29,12 @@ func (tc *TypeChecker) resolveTypeAliasChain(typeNode ast.TypeNode) ast.TypeNode
 		case ast.TypeDefAssertionExpr:
 			// Alias to another type (e.g. type Foo = Bar)
 			if expr.Assertion != nil && expr.Assertion.BaseType != nil {
+				if len(expr.Assertion.TypeParams) > 0 || expr.Assertion.ArrayLen != nil {
+					tn, ok := expr.Assertion.ToTypeNode()
+					if ok {
+						return tn
+					}
+				}
 				if visited[*expr.Assertion.BaseType] {
 					break // cycle
 				}

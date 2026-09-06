@@ -273,7 +273,7 @@ func methodDiagSpan(m MethodCall) ast.SourceSpan {
 
 // CheckMethodCall type-checks a Go method call when the receiver has a tracked go/types type.
 func CheckMethodCall(host Host, diag Diagnose, m MethodCall) ([]ast.TypeNode, error) {
-	obj, _, _ := types.LookupFieldOrMethod(m.Recv, true, nil, m.MethodName)
+	obj, _, _ := types.LookupFieldOrMethod(m.Recv, m.Addressable, nil, m.MethodName)
 	if obj == nil {
 		sp := methodDiagSpan(m)
 		return nil, diag(sp, "go-method",

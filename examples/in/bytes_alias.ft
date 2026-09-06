@@ -1,0 +1,10 @@
+package main
+
+// Slice typedef alias keeps element type: type Bytes = []Byte → []byte in Go.
+// Golden output: ../out/bytes_alias.go
+
+type Bytes = []Byte
+
+func main() {
+	println("ok")
+}

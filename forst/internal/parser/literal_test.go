@@ -22,6 +22,46 @@ func TestParseLiteral_primitives_and_nil(t *testing.T) {
 		}
 	})
 
+	t.Run("string_escaped_quote", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenStringLiteral, Value: `"\""`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		s, ok := lit.(ast.StringLiteralNode)
+		if !ok || s.Value != `"` || len(s.Value) != 1 {
+			t.Fatalf("got %#v (len=%d)", lit, len(s.Value))
+		}
+	})
+
+	t.Run("string_escaped_newline_and_backslash", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenStringLiteral, Value: `"\n\\"`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		s := lit.(ast.StringLiteralNode)
+		if s.Value != "\n\\" {
+			t.Fatalf("got %q", s.Value)
+		}
+	})
+
+	t.Run("string_illegal_escape", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenStringLiteral, Value: `"\x"`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected parse error for illegal string escape")
+			}
+		}()
+		p.parseLiteral()
+	})
+
 	t.Run("string_short_value", func(t *testing.T) {
 		toks := []ast.Token{
 			{Type: ast.TokenStringLiteral, Value: `""`},
