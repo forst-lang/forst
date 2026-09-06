@@ -22,27 +22,50 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return cached, nil
 		}
 	}
-	handlers := []func(ast.Node) ([]ast.TypeNode, bool, error){
-		tc.inferExpressionBinaryUnary,
-		tc.inferExpressionLiterals,
-		tc.inferExpressionArrayLiteral,
-		tc.inferExpressionMapLiteral,
-		tc.inferExpressionVariable,
-		tc.inferExpressionIndex,
-		tc.inferExpressionSlice,
-		tc.inferExpressionSpread,
-		tc.inferExpressionFieldAccess,
-		tc.inferExpressionMethodCall,
-		tc.inferExpressionFunctionCall,
-		tc.inferExpressionShapeAssertion,
-		tc.inferExpressionRefDeref,
-		tc.inferExpressionMisc,
-	}
-	for _, h := range handlers {
-		types, ok, err := h(expr)
-		if ok {
-			return types, err
-		}
+	switch expr.(type) {
+	case ast.BinaryExpressionNode, ast.UnaryExpressionNode:
+		types, _, err := tc.inferExpressionBinaryUnary(expr)
+		return types, err
+	case ast.IntLiteralNode, ast.FloatLiteralNode, ast.StringLiteralNode, ast.RuneLiteralNode,
+		ast.BoolLiteralNode, ast.NilLiteralNode, ast.IotaLiteralNode:
+		types, _, err := tc.inferExpressionLiterals(expr)
+		return types, err
+	case ast.ArrayLiteralNode:
+		types, _, err := tc.inferExpressionArrayLiteral(expr)
+		return types, err
+	case ast.MapLiteralNode:
+		types, _, err := tc.inferExpressionMapLiteral(expr)
+		return types, err
+	case ast.VariableNode:
+		types, _, err := tc.inferExpressionVariable(expr)
+		return types, err
+	case ast.IndexExpressionNode:
+		types, _, err := tc.inferExpressionIndex(expr)
+		return types, err
+	case ast.SliceExpressionNode:
+		types, _, err := tc.inferExpressionSlice(expr)
+		return types, err
+	case ast.SpreadExpressionNode:
+		types, _, err := tc.inferExpressionSpread(expr)
+		return types, err
+	case ast.FieldAccessNode:
+		types, _, err := tc.inferExpressionFieldAccess(expr)
+		return types, err
+	case ast.MethodCallNode:
+		types, _, err := tc.inferExpressionMethodCall(expr)
+		return types, err
+	case ast.FunctionCallNode:
+		types, _, err := tc.inferExpressionFunctionCall(expr)
+		return types, err
+	case ast.ShapeNode, ast.AssertionNode:
+		types, _, err := tc.inferExpressionShapeAssertion(expr)
+		return types, err
+	case ast.ReferenceNode, ast.DereferenceNode:
+		types, _, err := tc.inferExpressionRefDeref(expr)
+		return types, err
+	case ast.FunctionLiteralNode, ast.TypeExpressionNode, ast.OkExprNode, ast.ErrExprNode:
+		types, _, err := tc.inferExpressionMisc(expr)
+		return types, err
 	}
 	tc.log.Tracef("Unhandled expression type: %T", expr)
 	return nil, fmt.Errorf("cannot infer type for expression: %T", expr)

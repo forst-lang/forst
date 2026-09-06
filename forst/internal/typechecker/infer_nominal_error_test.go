@@ -75,8 +75,9 @@ func TestInferNominalErrorConstructorCall_notErrorTypedef(t *testing.T) {
 func TestInferNominalErrorConstructorCall_wrongArity(t *testing.T) {
 	tc := nominalErrorTC(t)
 	call := ast.FunctionCallNode{
-		Function:  ast.Ident{ID: "NotFound"},
+		Function:  ast.Ident{ID: "NotFound", Span: ast.FakeSpan()},
 		Arguments: []ast.ExpressionNode{},
+		CallSpan:  ast.FakeSpan(),
 	}
 	_, handled, err := tc.inferNominalErrorConstructorCall(call, nil)
 	if err == nil || !handled {
@@ -91,8 +92,9 @@ func TestInferNominalErrorConstructorCall_wrongArity(t *testing.T) {
 func TestInferNominalErrorConstructorCall_nonShapeArgument(t *testing.T) {
 	tc := nominalErrorTC(t)
 	call := ast.FunctionCallNode{
-		Function:  ast.Ident{ID: "NotFound"},
-		Arguments: []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}},
+		Function:  ast.Ident{ID: "NotFound", Span: ast.FakeSpan()},
+		Arguments: []ast.ExpressionNode{ast.StringLiteralNode{Value: "x", Span: ast.FakeSpan()}},
+		CallSpan:  ast.FakeSpan(),
 	}
 	_, handled, err := tc.inferNominalErrorConstructorCall(call, nil)
 	if err == nil || !handled {

@@ -1,7 +1,9 @@
 package ast
 
 // IotaLiteralNode is the predeclared iota identifier in a const group.
-type IotaLiteralNode struct{}
+type IotaLiteralNode struct {
+	Span SourceSpan
+}
 
 func (IotaLiteralNode) isExpression() {}
 

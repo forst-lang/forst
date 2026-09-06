@@ -4,7 +4,6 @@ import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
 	"sort"
-	"strings"
 )
 
 type shapeAliasIndex struct {
@@ -16,9 +15,25 @@ func (tc *TypeChecker) invalidateShapeAliasIndex() {
 	tc.shapeAliasIndex = nil
 }
 
+func (tc *TypeChecker) markHashBasedIdent(ident ast.TypeIdent) {
+	if tc.hashBasedIdents == nil {
+		tc.hashBasedIdents = make(map[ast.TypeIdent]struct{})
+	}
+	tc.hashBasedIdents[ident] = struct{}{}
+}
+
+func (tc *TypeChecker) isHashBasedIdent(ident ast.TypeIdent) bool {
+	_, ok := tc.hashBasedIdents[ident]
+	return ok
+}
+
 func (tc *TypeChecker) setDef(ident ast.TypeIdent, def ast.Node) {
 	tc.Defs[ident] = def
-	tc.invalidateShapeAliasIndex()
+	// Hash-based entries are skipped when building the index; invalidating
+	// on them only forces repeated full rebuilds during inference.
+	if !tc.isHashBasedIdent(ident) {
+		tc.invalidateShapeAliasIndex()
+	}
 }
 
 func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
@@ -33,7 +48,7 @@ func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
 	assertionCandidates := make(map[ast.TypeIdent][]ast.TypeIdent)
 	for _, def := range tc.Defs {
 		userDef, ok := def.(ast.TypeDefNode)
-		if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
+		if !ok || userDef.Ident == "" || tc.isHashBasedIdent(userDef.Ident) {
 			continue
 		}
 		if payload, ok := ast.PayloadShape(userDef.Expr); ok {
@@ -92,7 +107,10 @@ func (tc *TypeChecker) lookupShapeAliasForHashType(typeNode ast.TypeNode) (ast.T
 		return "", false
 	}
 	alias, ok := tc.shapeAliasIndexOrBuild().byShapeHash[h]
-	return alias, ok
+	if !ok || alias == typeNode.Ident {
+		return "", false
+	}
+	return alias, true
 }
 
 func (tc *TypeChecker) lookupAssertionAliasForHashIdent(ident ast.TypeIdent) (ast.TypeIdent, bool) {

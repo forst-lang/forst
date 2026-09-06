@@ -30,7 +30,10 @@ func TestValidateDeferGoBuiltinRestriction_specDenylist(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.callee, func(t *testing.T) {
 			t.Parallel()
-			call := ast.FunctionCallNode{Function: ast.Ident{ID: ast.Identifier(tt.callee)}}
+			call := ast.FunctionCallNode{
+				Function: ast.Ident{ID: ast.Identifier(tt.callee), Span: ast.FakeSpan()},
+				CallSpan: ast.FakeSpan(),
+			}
 			err := validateDeferGoBuiltinRestriction("defer", call)
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")

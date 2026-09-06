@@ -62,7 +62,7 @@ func MakeAssertionField(baseType TypeIdent) ShapeFieldNode {
 
 // MakeValueNode creates a value node
 func MakeValueNode(value int64) ValueNode {
-	return IntLiteralNode{Value: value}
+	return IntLiteralNode{Value: value, Span: FakeSpan()}
 }
 
 // MakePointerType creates a pointer type
@@ -94,12 +94,12 @@ func MakeShapeType(_ map[string]ShapeFieldNode) TypeNode {
 
 // MakeStringLiteral creates a string literal
 func MakeStringLiteral(value string) StringLiteralNode {
-	return StringLiteralNode{Value: value}
+	return StringLiteralNode{Value: value, Span: FakeSpan()}
 }
 
 // MakeRuneLiteral creates a rune literal
 func MakeRuneLiteral(r rune) RuneLiteralNode {
-	return RuneLiteralNode{Value: int64(r)}
+	return RuneLiteralNode{Value: int64(r), Span: FakeSpan()}
 }
 
 // MakeAddressOf creates an address-of expression
@@ -112,7 +112,7 @@ func MakeAddressOf(operand ExpressionNode) UnaryExpressionNode {
 
 // MakeReferenceNode creates a variable reference
 func MakeReferenceNode(name string) VariableNode {
-	return VariableNode{Ident: Ident{ID: Identifier(name)}}
+	return VariableNode{Ident: Ident{ID: Identifier(name), Span: FakeSpan()}}
 }
 
 // MakeStructLiteral creates a struct literal
@@ -143,7 +143,7 @@ func MakeNestedStructField(shape *ShapeNode) ShapeFieldNode {
 func MakeAssignment(varName string, varType TypeNode, value ExpressionNode) *AssignmentNode {
 	return &AssignmentNode{
 		LValues: []ExpressionNode{VariableNode{
-			Ident: Ident{ID: Identifier(varName)},
+			Ident: Ident{ID: Identifier(varName), Span: FakeSpan()},
 		}},
 		RValues:       []ExpressionNode{value},
 		ExplicitTypes: []*TypeNode{&varType},
@@ -170,9 +170,11 @@ func MakeSimpleParam(name string, paramType TypeNode) SimpleParamNode {
 
 // MakeFunctionCall creates a function call
 func MakeFunctionCall(functionName string, arguments []ExpressionNode) FunctionCallNode {
+	sp := FakeSpan()
 	return FunctionCallNode{
-		Function:  Ident{ID: Identifier(functionName)},
+		Function:  Ident{ID: Identifier(functionName), Span: sp},
 		Arguments: arguments,
+		CallSpan:  sp,
 	}
 }
 

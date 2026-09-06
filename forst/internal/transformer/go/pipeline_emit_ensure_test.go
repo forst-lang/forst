@@ -73,7 +73,34 @@ func main() {
 	}
 }
 
-// Exercises transformEnsureConstraint alias-chain retry: typedef does not map directly to builtinConstraints keys.
+// ensure x is Sku expands typedef String.Min.Max into the same Meet emit as inline constraints.
+func TestPipeline_ensureConstrainedAliasTypeTarget_emitsMinMax(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+type Sku = String.Min(1).Max(64)
+
+func main() {
+	sku := "ABC"
+	ensure sku is Sku
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`type Sku string`,
+		`utf8.RuneCountInString`,
+		`< 1`,
+		`> 64`,
+		`||`,
+		`os.Exit`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
 func TestPipeline_ensureBuiltinOnStringAlias_resolvesAliasChain(t *testing.T) {
 	t.Parallel()
 	src := `package main

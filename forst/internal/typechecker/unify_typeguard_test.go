@@ -80,7 +80,7 @@ func TestUnifyTypeguard_typeGuardSubjectMismatch(t *testing.T) {
 	}
 	err := tc.validateAssertionNode(ast.AssertionNode{
 		Constraints: []ast.ConstraintNode{{Name: "Positive"}},
-	}, ast.TypeNode{Ident: ast.TypeString}, ast.SourceSpan{})
+	}, ast.TypeNode{Ident: ast.TypeString}, ast.FakeSpan())
 	if err == nil {
 		t.Fatal("expected type guard subject mismatch error")
 	}

@@ -6,8 +6,31 @@ import (
 	"forst/internal/ast"
 )
 
+// isEnsureScalarCarrierIdent reports whether ident is a builtin scalar that may host
+// analyzable Min/Max-style constraints as named ensure type targets (not Shape/Array/Map/…).
+func isEnsureScalarCarrierIdent(ident ast.TypeIdent) bool {
+	switch ident {
+	case ast.TypeString, ast.TypeInt, ast.TypeFloat, ast.TypeBool:
+		return true
+	default:
+		return false
+	}
+}
+
+// isEnsureScalarCarrier reports whether base is String/Int/Float/Bool, or an alias of one.
+func (tc *TypeChecker) isEnsureScalarCarrier(base ast.TypeIdent) bool {
+	if isEnsureScalarCarrierIdent(base) {
+		return true
+	}
+	if u := tc.underlyingBuiltinTypeOfAliasAssertion(base); u != "" {
+		return isEnsureScalarCarrierIdent(u)
+	}
+	return false
+}
+
 // carrierTypeForNamedType returns the runtime representation type for a named domain
-// (literal union → String/Int/Bool; type Password = String → String).
+// (literal union → String/Int/Bool; type Password = String → String;
+// type Sku = String.Min(1).Max(64) → String).
 func (tc *TypeChecker) carrierTypeForNamedType(t ast.TypeNode) (ast.TypeNode, bool) {
 	if members, ok := tc.literalUnionMembers(t); ok && len(members) > 0 {
 		switch literalKindOfValue(members[0]) {
@@ -23,36 +46,126 @@ func (tc *TypeChecker) carrierTypeForNamedType(t ast.TypeNode) (ast.TypeNode, bo
 	if !ok {
 		return ast.TypeNode{}, false
 	}
-	if ae, ok := def.Expr.(ast.TypeDefAssertionExpr); ok && ae.Assertion != nil &&
-		ae.Assertion.BaseType != nil && len(ae.Assertion.Constraints) == 0 {
-		base := *ae.Assertion.BaseType
+	ade := typeDefAssertionExprOf(def)
+	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
+		return ast.TypeNode{}, false
+	}
+	base := *ade.Assertion.BaseType
+	if len(ade.Assertion.Constraints) > 0 {
+		// Constrained aliases only expose a carrier when the base is a scalar domain.
+		if !tc.isEnsureScalarCarrier(base) {
+			return ast.TypeNode{}, false
+		}
 		if tc.isBuiltinType(base) {
 			return ast.TypeNode{Ident: base, TypeKind: ast.TypeKindBuiltin}, true
 		}
-		return tc.carrierTypeForNamedType(ast.TypeNode{Ident: base, TypeKind: ast.TypeKindUserDefined})
+		if u := tc.underlyingBuiltinTypeOfAliasAssertion(base); u != "" {
+			return ast.TypeNode{Ident: u, TypeKind: ast.TypeKindBuiltin}, true
+		}
+		return ast.TypeNode{}, false
 	}
-	return ast.TypeNode{}, false
+	if tc.isBuiltinType(base) {
+		return ast.TypeNode{Ident: base, TypeKind: ast.TypeKindBuiltin}, true
+	}
+	return tc.carrierTypeForNamedType(ast.TypeNode{Ident: base, TypeKind: ast.TypeKindUserDefined})
+}
+
+// typeDefAssertionExprOf returns the assertion expr on a typedef, if any.
+func typeDefAssertionExprOf(def ast.TypeDefNode) *ast.TypeDefAssertionExpr {
+	switch expr := def.Expr.(type) {
+	case ast.TypeDefAssertionExpr:
+		e := expr
+		return &e
+	case *ast.TypeDefAssertionExpr:
+		return expr
+	default:
+		return nil
+	}
+}
+
+// ConstrainedScalarAliasAssertion returns the Meet assertion body for a named
+// refined scalar alias such as `type Sku = String.Min(1).Max(64)`.
+// The typedef must have a non-empty Meet constraint chain (no Join) over a
+// scalar builtin carrier (directly or via alias). Inherited Meet constraints
+// from scalar-alias bases are merged before lowering; recursive aliases fail closed.
+func (tc *TypeChecker) ConstrainedScalarAliasAssertion(name ast.TypeIdent) (*ast.AssertionNode, bool) {
+	return tc.constrainedScalarAliasAssertion(name)
+}
+
+func (tc *TypeChecker) constrainedScalarAliasAssertion(name ast.TypeIdent) (*ast.AssertionNode, bool) {
+	return tc.constrainedScalarAliasAssertionSeen(name, map[ast.TypeIdent]struct{}{})
+}
+
+func (tc *TypeChecker) constrainedScalarAliasAssertionSeen(name ast.TypeIdent, seen map[ast.TypeIdent]struct{}) (*ast.AssertionNode, bool) {
+	if _, dup := seen[name]; dup {
+		return nil, false
+	}
+	seen[name] = struct{}{}
+
+	def, ok := tc.Defs[name].(ast.TypeDefNode)
+	if !ok {
+		return nil, false
+	}
+	ade := typeDefAssertionExprOf(def)
+	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
+		return nil, false
+	}
+	if len(ade.Assertion.OrChains) > 0 {
+		return nil, false
+	}
+	base := *ade.Assertion.BaseType
+	own := ade.Assertion.Constraints
+
+	var inherited []ast.ConstraintNode
+	var carrier ast.TypeIdent
+	if tc.isBuiltinType(base) {
+		carrier = base
+	} else if _, cycling := seen[base]; cycling {
+		return nil, false
+	} else if inh, ok := tc.constrainedScalarAliasAssertionSeen(base, seen); ok && inh != nil && inh.BaseType != nil {
+		inherited = inh.Constraints
+		carrier = *inh.BaseType
+	} else if tc.isEnsureScalarCarrier(base) {
+		if u := tc.underlyingBuiltinTypeOfAliasAssertion(base); u != "" {
+			carrier = u
+		}
+	}
+
+	merged := append(append([]ast.ConstraintNode{}, inherited...), own...)
+	if len(merged) == 0 || !isEnsureScalarCarrierIdent(carrier) {
+		return nil, false
+	}
+	return &ast.AssertionNode{BaseType: &carrier, Constraints: merged}, true
+}
+
+// isBareNominalScalarDomain reports type Password = String (builtin base, no constraints).
+func (tc *TypeChecker) isBareNominalScalarDomain(name ast.TypeIdent) bool {
+	def, ok := tc.Defs[name].(ast.TypeDefNode)
+	if !ok {
+		return false
+	}
+	ade := typeDefAssertionExprOf(def)
+	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
+		return false
+	}
+	return len(ade.Assertion.Constraints) == 0 &&
+		len(ade.Assertion.OrChains) == 0 &&
+		tc.isBuiltinType(*ade.Assertion.BaseType)
 }
 
 // isRuntimeEnsureTypeTarget reports whether named type may appear as `ensure x is T`
-// (literal unions, enum subsets, and nominal scalar domains — not arbitrary shapes).
+// (literal unions, enum subsets, nominal scalar domains, constrained scalar aliases —
+// not arbitrary shapes).
 func (tc *TypeChecker) isRuntimeEnsureTypeTarget(name ast.TypeIdent) bool {
 	t := ast.TypeNode{Ident: name, TypeKind: ast.TypeKindUserDefined}
 	if tc.isLiteralUnionType(t) {
 		return true
 	}
-	if _, ok := tc.carrierTypeForNamedType(t); ok {
-		// Nominal scalar domain (Password = String) is a type target.
-		def, ok := tc.Defs[name].(ast.TypeDefNode)
-		if !ok {
-			return false
-		}
-		ae, ok := def.Expr.(ast.TypeDefAssertionExpr)
-		if !ok || ae.Assertion == nil {
-			return false
-		}
-		return ae.Assertion.BaseType != nil && len(ae.Assertion.Constraints) == 0 &&
-			tc.isBuiltinType(*ae.Assertion.BaseType)
+	if _, ok := tc.constrainedScalarAliasAssertion(name); ok {
+		return true
+	}
+	if tc.isBareNominalScalarDomain(name) {
+		return true
 	}
 	return false
 }
@@ -82,7 +195,7 @@ func (tc *TypeChecker) validateEnsureTypeTarget(ensure ast.EnsureNode, subjectTy
 	}
 	if !tc.isRuntimeEnsureTypeTarget(name) {
 		return reportBodyf(ensure.Variable.Ident.Span, "refinement-type-target-not-runtime",
-			"refinement-type-target-not-runtime: type %s is not a runtime ensure target; use a literal-union, enum subset, or nominal scalar domain",
+			"refinement-type-target-not-runtime: type %s is not a runtime ensure target; use a literal-union, enum subset, nominal scalar domain, or constrained scalar alias",
 			name)
 	}
 	target := ast.TypeNode{Ident: name, TypeKind: ast.TypeKindUserDefined}

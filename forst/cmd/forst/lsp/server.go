@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"forst/internal/ast"
@@ -66,6 +67,14 @@ type LSPServer struct {
 	// packageAnalysis caches merged same-package snapshots by content fingerprint (bounded LRU).
 	packageAnalysis *packageAnalysisLRU
 
+	// fileParseCache reuses lex/parse results for unchanged package-group members (URI + content hash).
+	fileParseCache *fileParseCache
+
+	// processForstFileInvocations counts processForstFileWithURIs calls (tests / diagnostics).
+	processForstFileInvocations atomic.Int64
+	// fileParseInvocations counts actual lex/parse work in package-group parsing (tests).
+	fileParseInvocations atomic.Int64
+
 	// maxRequestBodyBytes caps POST body size; 0 uses httpbody.DefaultMaxBytes.
 	maxRequestBodyBytes int64
 }
@@ -91,6 +100,7 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 		openDocuments:     make(map[string]string),
 		peerAnalysisCache: make(map[string]peerAnalysisCacheEntry),
 		packageAnalysis:   newPackageAnalysisLRU(defaultPackageAnalysisCacheMaxEntries),
+		fileParseCache:    newFileParseCache(defaultFileParseCacheMaxEntries),
 	}
 }
 
@@ -187,13 +197,12 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log incoming request with INFO level
 	s.log.WithFields(logrus.Fields{
 		"method":    request.Method,
 		"id":        request.ID,
 		"uri":       r.RemoteAddr,
 		"body_size": len(body),
-	}).Info("Incoming LSP request")
+	}).Debug("Incoming LSP request")
 
 	// Handle different LSP methods
 	response := s.handleLSPMethod(request)

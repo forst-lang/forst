@@ -26,13 +26,13 @@ func TestDispatchCloseClearPanic_basicPaths(t *testing.T) {
 	t.Parallel()
 	tc := New(logrus.New(), false)
 
-	if _, _, err := tc.dispatchClose(nil, nil, ast.SourceSpan{}); err == nil {
+	if _, _, err := tc.dispatchClose(nil, nil, ast.FakeSpan()); err == nil {
 		t.Fatal("expected dispatchClose arity error")
 	}
-	if _, _, err := tc.dispatchPanic(nil, nil, ast.SourceSpan{}); err == nil {
+	if _, _, err := tc.dispatchPanic(nil, nil, ast.FakeSpan()); err == nil {
 		t.Fatal("expected dispatchPanic arity error")
 	}
-	if _, _, err := tc.dispatchClear([]ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.SourceSpan{}); err == nil {
+	if _, _, err := tc.dispatchClear([]ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.FakeSpan()); err == nil {
 		t.Fatal("expected dispatchClear type error")
 	}
 }
@@ -46,6 +46,7 @@ func TestTypeRegistryStructuralLookups(t *testing.T) {
 		},
 	}
 	tc.Defs["User"] = ast.TypeDefNode{Ident: "User", Expr: ast.TypeDefShapeExpr{Shape: shape}}
+	tc.markHashBasedIdent("T_hash")
 	tc.Defs["T_hash"] = ast.TypeDefNode{Ident: "T_hash", Expr: ast.TypeDefShapeExpr{Shape: shape}}
 
 	if got := tc.FindStructurallyIdenticalNamedType(ast.TypeNode{Ident: "T_hash", TypeKind: ast.TypeKindHashBased}); got != "User" {

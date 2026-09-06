@@ -117,6 +117,18 @@ Forst intentionally omits a regex constraint on `String`. Free regular expressio
 type Username = String.Min(3).Max(30).HasPrefix("u_")
 ```
 
+Name the refined type once, then enforce it at the boundary with that name:
+
+```ft
+error InvalidUsername {}
+
+func signup(username String) {
+	ensure username is Username else InvalidUsername()
+}
+```
+
+That is the same runtime check as writing `ensure username is Min(3).Max(30).HasPrefix("u_")`, and it narrows `username` to `Username`.
+
 For a closed list of allowed values, use a [literal union](/language/union-and-intersection-types) such as `"todo" | "done"`. For richer domain rules, write a [type guard](/language/type-guards). If you need a true regular expression, put it in an ordinary function. That validates at runtime. It does not become part of the type’s built-in constraint chain.
 
 ### Write `ensure` to check values at runtime

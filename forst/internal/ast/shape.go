@@ -13,6 +13,7 @@ type ShapeNode struct {
 	FieldOrder []string
 	// Optional explicit base type, e.g. "User" in User{ name: "John" }
 	BaseType *TypeIdent
+	Span     SourceSpan
 }
 
 // ShapeFieldNode represents a field in a shape

@@ -311,14 +311,15 @@ func (p *Parser) parseFunctionName() ast.Token {
 
 // parseFunctionLiteral parses func(params): ReturnType { body } in expression position.
 func (p *Parser) parseFunctionLiteral() ast.FunctionLiteralNode {
-	p.expect(ast.TokenFunc)
+	funcTok := p.expect(ast.TokenFunc)
 	params := p.parseFunctionSignature()
 	returnTypes := p.parseReturnType()
-	body := p.parseFunctionBody()
+	body, rbrace := p.parseBlockWithClose()
 	return ast.FunctionLiteralNode{
 		Params:      params,
 		ReturnTypes: returnTypes,
 		Body:        body,
+		Span:        ast.SpanBetweenTokens(funcTok, rbrace),
 	}
 }
 

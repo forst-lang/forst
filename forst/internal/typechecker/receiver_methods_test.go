@@ -160,7 +160,7 @@ func TestCheckContractShapeMethod_wrongArity_errors(t *testing.T) {
 	_, err := tc.checkContractShapeMethod(ast.TypeNode{Ident: "Logger"}, "info", []ast.ExpressionNode{
 		ast.StringLiteralNode{Value: "a"},
 		ast.StringLiteralNode{Value: "b"},
-	}, ast.SourceSpan{})
+	}, ast.FakeSpan())
 	if err == nil {
 		t.Fatal("expected arity error for contract method call")
 	}

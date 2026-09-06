@@ -1,0 +1,6 @@
+{
+  "id": "type-target/structural-type-target-rejected",
+  "expect": "typecheck-error",
+  "title": "structural shape is not a runtime ensure type target",
+  "code": "refinement-type-target-not-runtime"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "type-target/ensure-constrained-alias-type-target",
+  "expect": "typecheck-ok",
+  "title": "ensure type target on constrained scalar alias"
+}

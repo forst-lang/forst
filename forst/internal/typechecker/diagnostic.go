@@ -58,8 +58,11 @@ func (d *Diagnostic) Report() diag.Report {
 	}
 }
 
-// spanOfExpression returns the best-known span for an expression (parser may omit for some literals).
+// spanOfExpression returns the best-known span for an expression (parser may omit for some nodes).
 func spanOfExpression(expr ast.ExpressionNode) ast.SourceSpan {
+	if expr == nil {
+		return ast.SourceSpan{}
+	}
 	switch e := expr.(type) {
 	case ast.FunctionCallNode:
 		if e.CallSpan.IsSet() {
@@ -68,10 +71,28 @@ func spanOfExpression(expr ast.ExpressionNode) ast.SourceSpan {
 		if e.Function.Span.IsSet() {
 			return e.Function.Span
 		}
+		for _, arg := range e.Arguments {
+			if s := spanOfExpression(arg); s.IsSet() {
+				return s
+			}
+		}
+	case ast.MethodCallNode:
+		if e.CallSpan.IsSet() {
+			return e.CallSpan
+		}
+		if e.Method.Span.IsSet() {
+			return e.Method.Span
+		}
+		return spanOfExpression(e.Receiver)
 	case ast.VariableNode:
 		if e.Ident.Span.IsSet() {
 			return e.Ident.Span
 		}
+	case ast.FieldAccessNode:
+		if e.Field.Span.IsSet() {
+			return e.Field.Span
+		}
+		return spanOfExpression(e.Target)
 	case ast.ErrExprNode:
 		if e.Span.IsSet() {
 			return e.Span
@@ -83,6 +104,75 @@ func spanOfExpression(expr ast.ExpressionNode) ast.SourceSpan {
 		if e.Span.IsSet() {
 			return e.Span
 		}
+		if e.Value != nil {
+			return spanOfExpression(e.Value)
+		}
+	case ast.IntLiteralNode:
+		return e.Span
+	case ast.FloatLiteralNode:
+		return e.Span
+	case ast.StringLiteralNode:
+		return e.Span
+	case ast.RuneLiteralNode:
+		return e.Span
+	case ast.BoolLiteralNode:
+		return e.Span
+	case ast.ArrayLiteralNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		for _, el := range e.Value {
+			if s := spanOfExpression(el); s.IsSet() {
+				return s
+			}
+		}
+	case ast.MapLiteralNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		for _, entry := range e.Entries {
+			if key, ok := entry.Key.(ast.ExpressionNode); ok {
+				if s := spanOfExpression(key); s.IsSet() {
+					return s
+				}
+			}
+			if val, ok := entry.Value.(ast.ExpressionNode); ok {
+				if s := spanOfExpression(val); s.IsSet() {
+					return s
+				}
+			}
+		}
+	case ast.NilLiteralNode:
+		return e.Span
+	case ast.IotaLiteralNode:
+		return e.Span
+	case ast.UnaryExpressionNode:
+		return spanOfExpression(e.Operand)
+	case ast.BinaryExpressionNode:
+		return firstSetSpan(spanOfExpression(e.Left), spanOfExpression(e.Right))
+	case ast.IndexExpressionNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		return firstSetSpan(spanOfExpression(e.Target), spanOfExpression(e.Index))
+	case ast.SliceExpressionNode:
+		if e.Span.IsSet() {
+			return e.Span
+		}
+		return firstSetSpan(spanOfExpression(e.Target), spanOfExpression(e.Low), spanOfExpression(e.High))
+	case ast.SpreadExpressionNode:
+		return spanOfExpression(e.Expr)
+	case ast.TypeExpressionNode:
+		return e.Span
+	case ast.ShapeNode:
+		return e.Span
+	case ast.FunctionLiteralNode:
+		return e.Span
+	case ast.ReferenceNode:
+		if e.Value != nil {
+			return spanOfExpression(e.Value)
+		}
+	case ast.DereferenceNode:
 		if e.Value != nil {
 			return spanOfExpression(e.Value)
 		}
@@ -276,11 +366,17 @@ func lastDottedSegmentSpan(full ast.SourceSpan, lastSeg string) ast.SourceSpan {
 
 // spanIndexExpr returns the best span for a subscript expression.
 func spanIndexExpr(e ast.IndexExpressionNode) ast.SourceSpan {
+	if e.Span.IsSet() {
+		return e.Span
+	}
 	return firstSetSpan(spanOfExpression(e.Index), spanOfExpression(e.Target))
 }
 
 // spanSliceExpr returns the best span for a slice expression.
 func spanSliceExpr(e ast.SliceExpressionNode) ast.SourceSpan {
+	if e.Span.IsSet() {
+		return e.Span
+	}
 	spans := []ast.SourceSpan{spanOfExpression(e.Target)}
 	if e.Low != nil {
 		spans = append(spans, spanOfExpression(e.Low))
