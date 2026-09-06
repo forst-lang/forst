@@ -227,11 +227,18 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		// Single return type only (use Result(T, Error) or Tuple(...) instead of Go-style (T, U))
+		// Go-style multi-value returns: `: (T1, T2)` → multiple ReturnTypes (not Tuple sugar).
 		if p.current().Type == ast.TokenLParen {
-			p.FailWithReport(p.current(), "func-multi-return", "multi-value return types are not supported",
-				"multi-value return types are not supported; use Result(Success, Error) or Tuple(T1, ...).",
-				"write `: Result(T, Error)` or `: Tuple(T1, T2)` instead of `: (T1, T2)`")
+			p.advance()
+			for {
+				returnType = append(returnType, p.parseReturnTypeSingle())
+				if p.current().Type != ast.TokenComma {
+					break
+				}
+				p.advance()
+			}
+			p.expect(ast.TokenRParen)
+			return returnType
 		}
 		returnType = append(returnType, p.parseReturnTypeSingle())
 	}

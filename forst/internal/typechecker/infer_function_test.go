@@ -6,6 +6,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/parser"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -148,4 +149,49 @@ func main() {}
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestCheckTypes_voidEarlyReturn_typechecks(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func early(ok Bool) {
+	if !ok {
+		return
+	}
+	println("ok")
+}
+func main() {
+	early(false)
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{})
+}
+
+func TestCheckTypes_blankIdentAssignment_typechecks(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+	_ = 1
+	xs := ["a", "b"]
+	for _, x := range xs {
+		println(x)
+	}
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{})
+}
+
+func TestCheckTypes_multiValueReturn_typechecks(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func boom(): (String, error) {
+	return "", nil
+}
+func main() {
+	s, err := boom()
+	println(s)
+	println(err)
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{})
 }

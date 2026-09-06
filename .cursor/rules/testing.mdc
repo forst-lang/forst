@@ -26,6 +26,11 @@ examples/in/basic.ft
 examples/in/go_builtins.ft
 examples/in/generics.ft
 examples/in/slices.ft (`task example:slices` — subslice expressions)
+examples/in/string_slice.ft (`task example:string-slice` — string subslice)
+examples/in/void_early_return.ft (`task example:void-early-return` — bare return in void fn)
+examples/in/shape_value_mutate.ft (`task example:shape-value-mutate` — value-shape field assign+return)
+examples/in/blank_ident.ft (`task example:blank-ident` — blank identifier)
+examples/in/func_multi_return.ft (`task example:func-multi-return` — `: (T, error)` returns)
 examples/in/method_chain.ft (`task example:method-chain` — Forst method chaining `q.Inc().Value()`)
 examples/in/field_after_call.ft (`task example:field-after-call` — field on call result `makeQ().n`)
 examples/in/string_quote_escape.ft (`task example:string-quote-escape` — escaped `"` in string literal)

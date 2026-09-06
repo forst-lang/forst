@@ -115,6 +115,15 @@ func (t *Transformer) tryWrapReturnValueInNamedStruct(functionName string, i int
 	}
 	switch v := value.(type) {
 	case ast.VariableNode:
+		// If the variable is already the expected named type, emit it directly.
+		// Rebuilding a zero composite (legacy wrap) drops prior field mutations.
+		if t.variableAlreadyNamedReturnType(v, expectedType) {
+			expr, err := t.transformExpression(v)
+			if err != nil {
+				return nil, true, err
+			}
+			return expr, true, nil
+		}
 		expr, err := t.wrapVariableInNamedStruct(expectedType, v)
 		if err != nil {
 			return nil, true, fmt.Errorf("transformReturnStatement: %w", err)
@@ -133,6 +142,21 @@ func (t *Transformer) tryWrapReturnValueInNamedStruct(functionName string, i int
 	default:
 		return nil, false, nil
 	}
+}
+
+func (t *Transformer) variableAlreadyNamedReturnType(v ast.VariableNode, expectedType *ast.TypeNode) bool {
+	if t == nil || t.TypeChecker == nil || expectedType == nil {
+		return false
+	}
+	if occ, ok := t.TypeChecker.InferredTypesForVariableNode(v); ok && len(occ) == 1 {
+		if t.TypeChecker.IsTypeCompatible(occ[0], *expectedType) {
+			return true
+		}
+	}
+	if ty, err := t.TypeChecker.LookupVariableType(&v, t.currentScope()); err == nil && ty.Ident != "" {
+		return t.TypeChecker.IsTypeCompatible(ty, *expectedType)
+	}
+	return false
 }
 
 func (t *Transformer) transformReturnValueExpr(i int, value ast.ExpressionNode, expectedReturnTypes []ast.TypeNode, results []goast.Expr) (goast.Expr, error) {

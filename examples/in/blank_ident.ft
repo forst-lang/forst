@@ -1,0 +1,11 @@
+package main
+
+// Blank identifier in assignments and range loops.
+// Golden output: ../out/blank_ident.go
+func main() {
+	_ = 1
+	xs := ["a", "b"]
+	for _, x := range xs {
+		println(x)
+	}
+}

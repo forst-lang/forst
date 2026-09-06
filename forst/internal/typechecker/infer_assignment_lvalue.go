@@ -34,6 +34,14 @@ func (tc *TypeChecker) inferAssignmentLValues(assign ast.AssignmentNode, resolve
 }
 
 func (tc *TypeChecker) inferAssignmentVariableLValue(assign ast.AssignmentNode, l ast.VariableNode, i int, resolvedTypes [][]ast.TypeNode) error {
+	if l.Ident.ID == "_" {
+		// Blank identifier discards the RHS; still typecheck via resolvedTypes, do not bind.
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferAssignmentTypes",
+		}).Trace("Skipping binding for blank identifier assignment")
+		return nil
+	}
+
 	isVarDeclaration := len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil
 
 	if !assign.IsShort && !isVarDeclaration {

@@ -103,6 +103,8 @@ type TypeChecker struct {
 	samePackageGoImportPath string
 	// samePackageGo holds go/types for exported Go symbols in the same directory as this Forst package.
 	samePackageGo *types.Package
+	// goPackageTypeIdents tracks Forst type idents registered from same-package Go (skip Go emit).
+	goPackageTypeIdents map[ast.TypeIdent]struct{}
 	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
 	FunctionProviders map[ast.Identifier][]ProviderSlot
 	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).

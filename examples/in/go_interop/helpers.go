@@ -21,3 +21,11 @@ func StringCounts() map[string]int {
 func CountPair() struct{ N int } {
 	return struct{ N int }{N: 1}
 }
+
+// Bag is a named same-package Go struct usable from Forst literals and signatures.
+type Bag struct {
+	Name string
+}
+
+// BagName reads an exported field from Bag.
+func BagName(b Bag) string { return b.Name }

@@ -74,6 +74,31 @@ func pipelineOptsForExampleFile(t *testing.T, name string) pipelineOpts {
 	}
 }
 
+func TestPipeline_shapeValueMutate_preservesReturnVariable(t *testing.T) {
+	t.Parallel()
+	src := `package main
+type Acc = {
+	n: Int
+}
+func bump(a Acc): Acc {
+	a.n = a.n + 1
+	return a
+}
+func main() {
+	a := Acc{n: 0}
+	a = bump(a)
+	println(a.n)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "return a") {
+		t.Fatalf("expected return of mutated variable, got:\n%s", out)
+	}
+	if strings.Contains(out, "return Acc{") {
+		t.Fatalf("must not rebuild zero Acc literal on return, got:\n%s", out)
+	}
+}
+
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
 	tests := []struct {
 		name    string

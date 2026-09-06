@@ -1,0 +1,13 @@
+package main
+
+// String subslice expressions: s[low:high], s[low:], s[:high].
+// Golden output: ../out/string_slice.go
+func main() {
+	s := "abcdef"
+	mid := s[1:3]
+	tail := s[2:]
+	head := s[:2]
+	println(mid)
+	println(tail)
+	println(head)
+}
